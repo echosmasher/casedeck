@@ -3,17 +3,29 @@
 import Dexie, { type Table } from "dexie";
 import type { Project } from "@/engine/model";
 import type { StorageAdapter } from "./storageAdapter";
-import { SNAPSHOT_SCHEMA_VERSION, type ProjectSummary, type Snapshot, type StoredActualEntry } from "./types";
+import {
+  SNAPSHOT_SCHEMA_VERSION,
+  type CategoryMappingOverride,
+  type ProjectSummary,
+  type Snapshot,
+  type StoredActualEntry,
+} from "./types";
 
 class CaseDeckDatabase extends Dexie {
   projects!: Table<Project, string>;
   actuals!: Table<StoredActualEntry, string>;
+  categoryMappingOverrides!: Table<CategoryMappingOverride, string>;
 
   constructor(name: string) {
     super(name);
     this.version(1).stores({
       projects: "id",
       actuals: "id, projectId, [projectId+period]",
+    });
+    this.version(2).stores({
+      projects: "id",
+      actuals: "id, projectId, [projectId+period]",
+      categoryMappingOverrides: "accountCode",
     });
   }
 }
@@ -55,6 +67,18 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     await this.db.actuals.bulkPut(entries);
   }
 
+  async deleteActual(id: string): Promise<void> {
+    await this.db.actuals.delete(id);
+  }
+
+  async listCategoryMappingOverrides(): Promise<CategoryMappingOverride[]> {
+    return this.db.categoryMappingOverrides.toArray();
+  }
+
+  async saveCategoryMappingOverride(entry: CategoryMappingOverride): Promise<void> {
+    await this.db.categoryMappingOverrides.put(entry);
+  }
+
   /** Smallest 3-digit id not already in use, continuing the demo data's 001/002/003 sequence
    * (config/project.schema.json constrains ids to exactly 3 digits — a soft 999-project cap that's
    * not a concern for this tool's scale). */
@@ -68,24 +92,34 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   }
 
   async importSnapshot(snapshot: Snapshot): Promise<void> {
-    await this.db.transaction("rw", this.db.projects, this.db.actuals, async () => {
-      await this.db.projects.clear();
-      await this.db.actuals.clear();
-      await this.db.projects.bulkPut(snapshot.projects);
-      await this.db.actuals.bulkPut(snapshot.actuals);
-    });
+    await this.db.transaction(
+      "rw",
+      this.db.projects,
+      this.db.actuals,
+      this.db.categoryMappingOverrides,
+      async () => {
+        await this.db.projects.clear();
+        await this.db.actuals.clear();
+        await this.db.categoryMappingOverrides.clear();
+        await this.db.projects.bulkPut(snapshot.projects);
+        await this.db.actuals.bulkPut(snapshot.actuals);
+        await this.db.categoryMappingOverrides.bulkPut(snapshot.categoryMappingOverrides);
+      },
+    );
   }
 
   async exportSnapshot(): Promise<Snapshot> {
-    const [projects, actuals] = await Promise.all([
+    const [projects, actuals, categoryMappingOverrides] = await Promise.all([
       this.db.projects.toArray(),
       this.db.actuals.toArray(),
+      this.db.categoryMappingOverrides.toArray(),
     ]);
     return {
       schemaVersion: SNAPSHOT_SCHEMA_VERSION,
       exportedAt: new Date().toISOString(),
       projects,
       actuals,
+      categoryMappingOverrides,
     };
   }
 }

@@ -18,6 +18,15 @@ export interface StoredActualEntry extends ActualEntry {
   projectId: string;
 }
 
+/** A category-mapping resolution the user made during an import preview, for an account code not
+ * present in the bundled org config (PLAN.md §6.2: "mapping choices persist to config, reused
+ * automatically for subsequent files"). Org-level (account codes aren't project-specific), layered
+ * on top of `activeConfig.categoryMapping` at read time — never mutates the bundled config file. */
+export interface CategoryMappingOverride {
+  accountCode: string;
+  category: string;
+}
+
 export const SNAPSHOT_SCHEMA_VERSION = "1";
 
 /** The full-database JSON export/import format (PLAN.md §2.7: JSON export/import as backup and
@@ -28,4 +37,5 @@ export interface Snapshot {
   exportedAt: string;
   projects: Project[];
   actuals: StoredActualEntry[];
+  categoryMappingOverrides: CategoryMappingOverride[];
 }

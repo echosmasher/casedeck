@@ -93,6 +93,11 @@
   --viz-red: #e34948;
   --viz-good: #006300;
   --viz-critical: #d03b3b;
+
+  /* status palette (references/palette.md) — fixed, never themed; same hex in both modes */
+  --viz-status-good: #0ca30c;
+  --viz-status-warning: #fab219;
+  --viz-status-critical: #d03b3b;
 }
 
 .dark {

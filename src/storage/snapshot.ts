@@ -4,7 +4,7 @@
 // guaranteed to be stable across runs; nested object field order is preserved by structured
 // clone as long as importSnapshot/exportSnapshot never rebuild an object with reordered fields.
 import type { Project } from "@/engine/model";
-import type { Snapshot, StoredActualEntry } from "./types";
+import type { CategoryMappingOverride, Snapshot, StoredActualEntry } from "./types";
 
 function sortedProjects(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => a.id.localeCompare(b.id));
@@ -18,6 +18,10 @@ function sortedActuals(actuals: StoredActualEntry[]): StoredActualEntry[] {
   });
 }
 
+function sortedOverrides(overrides: CategoryMappingOverride[]): CategoryMappingOverride[] {
+  return [...overrides].sort((a, b) => a.accountCode.localeCompare(b.accountCode));
+}
+
 /** Deterministic key order and array order. Two snapshots with the same content, imported and
  * re-exported, produce the same string modulo `exportedAt`. */
 export function serializeSnapshot(snapshot: Snapshot): string {
@@ -26,6 +30,7 @@ export function serializeSnapshot(snapshot: Snapshot): string {
     exportedAt: snapshot.exportedAt,
     projects: sortedProjects(snapshot.projects),
     actuals: sortedActuals(snapshot.actuals),
+    categoryMappingOverrides: sortedOverrides(snapshot.categoryMappingOverrides),
   };
   return JSON.stringify(canonical, null, 2);
 }
@@ -49,5 +54,11 @@ export function parseSnapshot(json: string): Snapshot {
       "Invalid snapshot file: expected { schemaVersion, exportedAt, projects: [], actuals: [] }",
     );
   }
-  return data as Snapshot;
+  const snapshot = data as Snapshot;
+  // Older snapshots (pre-Phase-5) don't carry category mapping overrides — default to empty
+  // rather than rejecting a still-otherwise-valid backup file.
+  if (!Array.isArray(snapshot.categoryMappingOverrides)) {
+    snapshot.categoryMappingOverrides = [];
+  }
+  return snapshot;
 }

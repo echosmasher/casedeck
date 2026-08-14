@@ -4,12 +4,13 @@ import { activeConfig } from "../_lib/activeConfig";
 import { formatCurrency, formatRange } from "../_lib/format";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
-import type { Project, ScenarioValue } from "@/engine/model";
+import type { ActualEntry, Project, ScenarioValue } from "@/engine/model";
 import { ScenarioChart } from "./ScenarioChart";
 import { CumulativeChart } from "./CumulativeChart";
 import { CategoryBreakdown } from "./CategoryBreakdown";
+import { VarianceSection } from "./VarianceSection";
 
-export function Dashboard({ project }: { project: Project }) {
+export function Dashboard({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
   const errors = validateProjectInvariants(project);
   if (errors.length > 0) {
     return <ValidationErrorList errors={errors} />;
@@ -55,6 +56,8 @@ export function Dashboard({ project }: { project: Project }) {
         currency={currency}
         displayUnits={displayUnits}
       />
+
+      <VarianceSection project={project} actuals={actuals} />
 
       <CategoryBreakdown project={project} scenarios={scenarios} />
     </div>

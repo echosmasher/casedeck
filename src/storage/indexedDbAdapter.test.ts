@@ -103,12 +103,14 @@ describe("Snapshot export/import round trip — byte-stable modulo exportedAt", 
       exportedAt: "2026-01-01T00:00:00.000Z",
       projects: [],
       actuals: [actuals[0], actuals[1]],
+      categoryMappingOverrides: [],
     };
     const snapshotB = {
       schemaVersion: "1",
       exportedAt: "2026-01-01T00:00:00.000Z",
       projects: [],
       actuals: [actuals[1], actuals[0]],
+      categoryMappingOverrides: [],
     };
     expect(serializeSnapshot(snapshotA)).toBe(serializeSnapshot(snapshotB));
   });
@@ -122,10 +124,73 @@ describe("Snapshot export/import round trip — byte-stable modulo exportedAt", 
       exportedAt: new Date().toISOString(),
       projects: [project001 as Project],
       actuals: [],
+      categoryMappingOverrides: [],
     });
 
     expect(await adapter.getProject("999")).toBeUndefined();
     expect(await adapter.getProject((project001 as Project).id)).toBeDefined();
+  });
+
+  it("round-trips category mapping overrides through export/import", async () => {
+    const source = new IndexedDbStorageAdapter(freshDbName());
+    await source.saveCategoryMappingOverride({ accountCode: "6234", category: "other_direct" });
+
+    const target = new IndexedDbStorageAdapter(freshDbName());
+    await target.importSnapshot(await source.exportSnapshot());
+
+    expect(await target.listCategoryMappingOverrides()).toEqual([
+      { accountCode: "6234", category: "other_direct" },
+    ]);
+  });
+});
+
+describe("IndexedDbStorageAdapter — category mapping overrides", () => {
+  it("persists and lists overrides, org-level (not project-scoped)", async () => {
+    const adapter = new IndexedDbStorageAdapter(freshDbName());
+    await adapter.saveCategoryMappingOverride({ accountCode: "6234", category: "other_direct" });
+    await adapter.saveCategoryMappingOverride({ accountCode: "7000", category: "travel" });
+
+    expect(await adapter.listCategoryMappingOverrides()).toEqual(
+      expect.arrayContaining([
+        { accountCode: "6234", category: "other_direct" },
+        { accountCode: "7000", category: "travel" },
+      ]),
+    );
+  });
+
+  it("overwrites an existing override for the same account code", async () => {
+    const adapter = new IndexedDbStorageAdapter(freshDbName());
+    await adapter.saveCategoryMappingOverride({ accountCode: "6234", category: "travel" });
+    await adapter.saveCategoryMappingOverride({ accountCode: "6234", category: "other_direct" });
+
+    const overrides = await adapter.listCategoryMappingOverrides();
+    expect(overrides).toEqual([{ accountCode: "6234", category: "other_direct" }]);
+  });
+
+  it("persists across a simulated reload", async () => {
+    const dbName = freshDbName();
+    const adapter1 = new IndexedDbStorageAdapter(dbName);
+    await adapter1.saveCategoryMappingOverride({ accountCode: "6234", category: "other_direct" });
+
+    const adapter2 = new IndexedDbStorageAdapter(dbName);
+    expect(await adapter2.listCategoryMappingOverrides()).toEqual([
+      { accountCode: "6234", category: "other_direct" },
+    ]);
+  });
+});
+
+describe("IndexedDbStorageAdapter — deleteActual", () => {
+  it("removes a single actual entry without touching the rest", async () => {
+    const adapter = new IndexedDbStorageAdapter(freshDbName());
+    await adapter.saveActuals([
+      { id: "a1", projectId: "001", period: "2026-01", category: "salary", amount: 100, description: "x", source: "manual" },
+      { id: "a2", projectId: "001", period: "2026-02", category: "salary", amount: 200, description: "y", source: "manual" },
+    ]);
+
+    await adapter.deleteActual("a1");
+
+    const remaining = await adapter.listActuals("001");
+    expect(remaining.map((a) => a.id)).toEqual(["a2"]);
   });
 });
 
