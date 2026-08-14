@@ -93,8 +93,12 @@
   --viz-red: #e34948;
   --viz-good: #006300;
   --viz-critical: #d03b3b;
+  --viz-warning: #92400e;
 
-  /* status palette (references/palette.md) — fixed, never themed; same hex in both modes */
+  /* status palette (references/palette.md) — fixed, never themed; same hex in both modes.
+     For icons/marks/badge fills only — none of these three meet 4.5:1 as text on
+     --viz-surface (warning is 1.8:1). Use --viz-good/--viz-warning/--viz-critical above
+     for status text and figures instead. */
   --viz-status-good: #0ca30c;
   --viz-status-warning: #fab219;
   --viz-status-critical: #d03b3b;
@@ -146,6 +150,7 @@
   --viz-red: #e66767;
   --viz-good: #0ca30c;
   --viz-critical: #d03b3b;
+  --viz-warning: #fab219;
 }
 
 @layer base {

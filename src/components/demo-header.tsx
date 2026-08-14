@@ -29,7 +29,7 @@ export function DemoHeader() {
   }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <div className="flex rounded-lg border p-0.5 text-sm" role="group" aria-label="Demo role">
         <button
           type="button"

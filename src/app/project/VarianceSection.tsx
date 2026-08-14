@@ -10,9 +10,9 @@ import type { ActualEntry, Project } from "@/engine/model";
 import { CATEGORY_LABEL } from "./shared";
 
 const FLAG_META: Record<VarianceFlag, { label: string; color: string; Icon: typeof CheckCircle2 }> = {
-  ok: { label: "On track", color: "var(--viz-status-good)", Icon: CheckCircle2 },
-  warning: { label: "Watch", color: "var(--viz-status-warning)", Icon: AlertTriangle },
-  red: { label: "Over budget", color: "var(--viz-status-critical)", Icon: AlertCircle },
+  ok: { label: "On track", color: "var(--viz-good)", Icon: CheckCircle2 },
+  warning: { label: "Watch", color: "var(--viz-warning)", Icon: AlertTriangle },
+  red: { label: "Over budget", color: "var(--viz-critical)", Icon: AlertCircle },
 };
 
 export function VarianceSection({

@@ -301,6 +301,15 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
               min="0"
               value={loadedCostMultiplier}
               onChange={(e) => setLoadedCostMultiplier(e.target.value)}
+              onBlur={(e) => {
+                // The browser's native stepUp()/stepDown() (spinner arrows, arrow keys) does
+                // fractional-step arithmetic in floating point and can leave a value like
+                // "1.350000023841858" for a clean 1.35 — normalize on blur rather than mid-typing,
+                // so this doesn't fight the user while they're entering digits.
+                if (Number.isFinite(e.target.valueAsNumber)) {
+                  setLoadedCostMultiplier(String(Math.round(e.target.valueAsNumber * 1e6) / 1e6));
+                }
+              }}
               required
             />
           </div>
