@@ -21,8 +21,9 @@ inside it.
 
 ## Live demo
 
-*Not deployed yet — landing in Phase 9 (PLAN.md §9), which deploys the demo above to Vercel and
-runs the pre-publish checklist. Until then, see the developer quickstart below to run it locally.*
+**[casedeck-blue.vercel.app](https://casedeck-blue.vercel.app)** — boots pre-loaded with the demo
+above, no setup, no account. Use the Planner/Viewer switcher in the header to see it from either
+role.
 
 ## The problem
 

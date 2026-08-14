@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
+  "author": "echosmasher",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/echosmasher/casedeck"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
