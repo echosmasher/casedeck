@@ -1,14 +1,14 @@
-line_type,account_code,line_label,category,period,confidence,hours,rate,amount
-revenue,3000,Fixed-price delivery — recognized at completion,revenue,2025-Q4,committed,,,900000
-cost,4000,Senior Developer — delivery team,salary,2025-Q1,estimated,120,750,90000
-cost,4000,Senior Developer — delivery team,salary,2025-Q2,estimated,120,750,90000
-cost,4000,Senior Developer — delivery team,salary,2025-Q3,estimated,120,750,90000
-cost,4000,Senior Developer — delivery team,salary,2025-Q4,estimated,60,750,45000
-cost,4500,Booking-API integration specialist,consultancy,2025-Q1,estimated,,,60000
-cost,4500,Booking-API integration specialist,consultancy,2025-Q2,estimated,,,65000
-cost,4500,Booking-API integration specialist,consultancy,2025-Q3,estimated,,,65000
-cost,4500,Booking-API integration specialist,consultancy,2025-Q4,estimated,,,25000
-cost,4700,On-site work at Example Hotel A,travel,2025-Q1,estimated,,,8000
-cost,4700,On-site work at Example Hotel A,travel,2025-Q2,estimated,,,8000
-cost,4700,On-site work at Example Hotel A,travel,2025-Q3,estimated,,,5000
-cost,4700,On-site work at Example Hotel A,travel,2025-Q4,estimated,,,2000
+line_type,account_code,line_label,category,role,period,confidence,hours,rate,amount
+revenue,3000,Fixed-price delivery — recognized at completion,revenue,,2025-Q4,committed,,,900000
+cost,4000,Senior Developer — delivery team,salary,Senior Developer,2025-Q1,estimated,120,750,90000
+cost,4000,Senior Developer — delivery team,salary,Senior Developer,2025-Q2,estimated,120,750,90000
+cost,4000,Senior Developer — delivery team,salary,Senior Developer,2025-Q3,estimated,120,750,90000
+cost,4000,Senior Developer — delivery team,salary,Senior Developer,2025-Q4,estimated,60,750,45000
+cost,4500,Booking-API integration specialist,consultancy,,2025-Q1,estimated,,,60000
+cost,4500,Booking-API integration specialist,consultancy,,2025-Q2,estimated,,,65000
+cost,4500,Booking-API integration specialist,consultancy,,2025-Q3,estimated,,,65000
+cost,4500,Booking-API integration specialist,consultancy,,2025-Q4,estimated,,,25000
+cost,4700,On-site work at Example Hotel A,travel,,2025-Q1,estimated,,,8000
+cost,4700,On-site work at Example Hotel A,travel,,2025-Q2,estimated,,,8000
+cost,4700,On-site work at Example Hotel A,travel,,2025-Q3,estimated,,,5000
+cost,4700,On-site work at Example Hotel A,travel,,2025-Q4,estimated,,,2000

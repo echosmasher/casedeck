@@ -1,25 +1,25 @@
-line_type,account_code,line_label,category,period,confidence,hours,rate,amount
-cost,4000,Senior Developer — internal team,salary,2026-01,estimated,80,750,60000
-cost,4000,Senior Developer — internal team,salary,2026-02,estimated,80,750,60000
-cost,4000,Senior Developer — internal team,salary,2026-03,estimated,80,750,60000
-cost,4000,Senior Developer — internal team,salary,2026-04,estimated,80,750,60000
-cost,4000,Senior Developer — internal team,salary,2026-05,estimated,80,750,60000
-cost,4000,Senior Developer — internal team,salary,2026-06,estimated,80,750,60000
-cost,4000,Senior Developer — internal team,salary,2026-07,estimated,80,750,60000
-cost,4000,Senior Developer — internal team,salary,2026-08,estimated,80,750,60000
-cost,4000,Project Manager — internal team,salary,2026-01,estimated,40,800,32000
-cost,4000,Project Manager — internal team,salary,2026-02,estimated,40,800,32000
-cost,4000,Project Manager — internal team,salary,2026-03,estimated,40,800,32000
-cost,4000,Project Manager — internal team,salary,2026-04,estimated,40,800,32000
-cost,4000,Project Manager — internal team,salary,2026-05,estimated,40,800,32000
-cost,4000,Project Manager — internal team,salary,2026-06,estimated,40,800,32000
-cost,4000,Project Manager — internal team,salary,2026-07,estimated,40,800,32000
-cost,4000,Project Manager — internal team,salary,2026-08,estimated,40,800,32000
-cost,4500,External CMS integration vendor,consultancy,2026-01,estimated,,,60000
-cost,4500,External CMS integration vendor,consultancy,2026-02,estimated,,,60000
-cost,4500,External CMS integration vendor,consultancy,2026-03,estimated,,,60000
-cost,4500,External CMS integration vendor,consultancy,2026-04,estimated,,,60000
-cost,4500,External CMS integration vendor,consultancy,2026-05,estimated,,,60000
-cost,4500,External CMS integration vendor,consultancy,2026-06,estimated,,,60000
-cost,4500,External CMS integration vendor,consultancy,2026-07,estimated,,,60000
-cost,4500,External CMS integration vendor,consultancy,2026-08,estimated,,,60000
+line_type,account_code,line_label,category,role,period,confidence,hours,rate,amount
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-01,estimated,80,750,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-02,estimated,80,750,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-03,estimated,80,750,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-04,estimated,80,750,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-05,estimated,80,750,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-06,estimated,80,750,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-07,estimated,80,750,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-08,estimated,80,750,60000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-01,estimated,40,800,32000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-02,estimated,40,800,32000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-03,estimated,40,800,32000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-04,estimated,40,800,32000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-05,estimated,40,800,32000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-06,estimated,40,800,32000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-07,estimated,40,800,32000
+cost,4000,Project Manager — internal team,salary,Project Manager,2026-08,estimated,40,800,32000
+cost,4500,External CMS integration vendor,consultancy,,2026-01,estimated,,,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-02,estimated,,,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-03,estimated,,,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-04,estimated,,,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-05,estimated,,,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-06,estimated,,,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-07,estimated,,,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-08,estimated,,,60000

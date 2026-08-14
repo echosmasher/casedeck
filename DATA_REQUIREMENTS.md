@@ -26,29 +26,36 @@ Example of each, both valid:
 
 ## Budget CSV format
 
-Columns: `line_type,account_code,line_label,category,period,confidence,hours,rate,amount`
+Columns: `line_type,account_code,line_label,category,role,period,confidence,hours,rate,amount`
 
 | Column | Type | Notes |
 |---|---|---|
 | `line_type` | `cost` \| `revenue` | |
 | `account_code` | numeric string | maps to a category via the org's `categoryMapping` |
 | `line_label` | text | free text, groups rows into one line item across periods |
-| `category` | text | `salary`, `consultancy`, `it_systems`, `travel`, `other_direct` (costs) or `revenue` |
+| `category` | text, optional | `salary`, `consultancy`, `it_systems`, `travel`, `other_direct` (costs) or `revenue`. **May be blank.** A blank category (or an account code the org's `categoryMapping` doesn't recognize) isn't a parse error — it's exactly what the `/setup` skill's interview step exists to resolve (PLAN.md §6.5): the CLI reports every such account code, grouped, so the code can ask "which cost group is account 4510?" once per code rather than once per row, then the answer gets filled in (and persisted to `categoryMapping` for next time) before the file is re-parsed. |
+| `role` | text, optional | populated only for `category: salary` rows — the rate-card role (e.g. "Senior Developer"), distinct from `line_label`'s free-text description; blank for every other row |
 | `period` | `YYYY-MM` (monthly) \| `YYYY-Qn` (quarterly) \| `YYYY` (total) | must match the project's `periodization` |
 | `confidence` | `committed` \| `estimated` \| `rough` | per-row, so per-period confidence overrides fall out naturally from having one row per period |
 | `hours` | number, optional | populated only for `category: salary` (cost) or `line_type: revenue` under an hourly pricing model; blank otherwise |
 | `rate` | number, optional | paired with `hours`; blank otherwise |
 | `amount` | number | for salary/hourly rows this equals `hours × rate` and is included for spreadsheet-level sanity checking, not because the app needs it — the app derives amount from hours × rate itself |
 
+Rows sharing `(line_type, account_code, line_label)` pivot into one line item across periods — e.g.
+eight monthly rows for the same person become one `SalaryLineItem` with an 8-entry `hoursPerPeriod`.
+Revenue rows pivot into the project's `pricingModel`, inferred from their shape: any `hours`/`rate`
+present → `hourly`; a single nonzero-amount period → `fixed` + `at_period`; multiple periods with
+equal amounts → `fixed` + `even`; multiple periods with differing amounts → `fixed` + `custom`.
+
 Example rows (`demo/budgets/001-intranet-relaunch-budget.csv`):
 ```
-cost,4000,Senior Developer — internal team,salary,2026-01,estimated,80,750,60000
-cost,4500,External CMS integration vendor,consultancy,2026-01,estimated,,,60000
+cost,4000,Senior Developer — internal team,salary,Senior Developer,2026-01,estimated,80,750,60000
+cost,4500,External CMS integration vendor,consultancy,,2026-01,estimated,,,60000
 ```
 
 Example revenue row, fixed-price at delivery (`demo/budgets/002-booking-integration-budget.csv`):
 ```
-revenue,3000,Fixed-price delivery — recognized at completion,revenue,2025-Q4,committed,,,900000
+revenue,3000,Fixed-price delivery — recognized at completion,revenue,,2025-Q4,committed,,,900000
 ```
 
 ## Actuals CSV format
