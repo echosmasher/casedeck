@@ -1,14 +1,17 @@
 // Storage-layer types: the persistence shapes that sit on top of the engine's Project/ActualEntry
 // types (src/engine/model.ts). Nothing here is engine math — it's identity, indexing, and the
 // portable JSON snapshot format for backup/portability (CLAUDE.md rule 5, PLAN.md §2.7).
-import type { ActualEntry, Project, ProjectStatus, ProjectType } from "@/engine/model";
+import type { ActualEntry, Project, ProjectStatus, ProjectType, Stakeholder } from "@/engine/model";
 
-/** Lightweight row for the project list/dropdown — avoids loading every full Project. */
+/** Lightweight row for the project list/dropdown — avoids loading every full Project. Includes
+ * stakeholders (a handful of entries, cheap) so the UI can do its own filtering (e.g. demo-mode
+ * Viewer visibility, PLAN.md §5) without a second fetch per project. */
 export interface ProjectSummary {
   id: string;
   name: string;
   type: ProjectType;
   status: ProjectStatus;
+  stakeholders: Stakeholder[];
 }
 
 /** An ActualEntry as stored: carries its own stable id (assigned once, at creation — never

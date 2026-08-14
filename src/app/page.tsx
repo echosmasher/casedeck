@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { getStorage } from "./_lib/storage";
 import { downloadTextFile } from "./_lib/download";
+import { demoSnapshot } from "./_lib/demoSnapshot";
+import { isViewerVisible } from "./_lib/demoViewer";
+import { useRole } from "./_lib/RoleProvider";
 import { serializeSnapshot, parseSnapshot } from "@/storage/snapshot";
 import type { ProjectSummary } from "@/storage/types";
 import { Button } from "@/components/ui/button";
@@ -27,6 +30,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function ProjectListPage() {
+  const { role } = useRole();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -40,7 +44,12 @@ export default function ProjectListPage() {
     let ignore = false;
     void getStorage()
       .listProjects()
-      .then((result) => {
+      .then(async (result) => {
+        // First boot: an empty database loads the Example Group demo automatically (PLAN.md §5).
+        if (result.length === 0) {
+          await getStorage().importSnapshot(demoSnapshot);
+          result = await getStorage().listProjects();
+        }
         if (!ignore) setProjects(result);
       });
     return () => {
@@ -70,6 +79,10 @@ export default function ProjectListPage() {
     }
   }
 
+  const visibleProjects =
+    projects === null ? null : role === "viewer" ? projects.filter(isViewerVisible) : projects;
+  const isPlanner = role === "planner";
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -80,26 +93,32 @@ export default function ProjectListPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/json"
-            className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleImportFile(file);
-              e.target.value = "";
-            }}
-          />
-          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-            Import snapshot
-          </Button>
+          {isPlanner && (
+            <>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleImportFile(file);
+                  e.target.value = "";
+                }}
+              />
+              <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                Import snapshot
+              </Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => void handleExport()}>
             Export snapshot
           </Button>
-          <Button render={<Link href="/setup" />} nativeButton={false}>
-            New project
-          </Button>
+          {isPlanner && (
+            <Button render={<Link href="/setup" />} nativeButton={false}>
+              New project
+            </Button>
+          )}
         </div>
       </div>
 
@@ -109,14 +128,18 @@ export default function ProjectListPage() {
         </p>
       )}
 
-      {projects === null ? (
+      {visibleProjects === null ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : projects.length === 0 ? (
+      ) : visibleProjects.length === 0 ? (
         <div className="rounded-lg border border-dashed p-10 text-center">
-          <p className="text-sm text-muted-foreground">No projects yet.</p>
-          <Button render={<Link href="/setup" />} nativeButton={false} className="mt-4">
-            Create your first project
-          </Button>
+          <p className="text-sm text-muted-foreground">
+            {isPlanner ? "No projects yet." : "No projects visible to the Viewer role."}
+          </p>
+          {isPlanner && (
+            <Button render={<Link href="/setup" />} nativeButton={false} className="mt-4">
+              Create your first project
+            </Button>
+          )}
         </div>
       ) : (
         <Table>
@@ -129,7 +152,7 @@ export default function ProjectListPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {projects.map((project) => (
+            {visibleProjects.map((project) => (
               <TableRow key={project.id}>
                 <TableCell className="font-mono text-xs text-muted-foreground">{project.id}</TableCell>
                 <TableCell>

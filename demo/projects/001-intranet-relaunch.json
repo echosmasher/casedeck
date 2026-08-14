@@ -48,7 +48,8 @@
   ],
   "stakeholders": [
     { "role": "Sponsor", "name": "Internal Comms Director", "email": "sponsor@example-group.invalid", "viewer": true },
-    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false }
+    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false },
+    { "role": "Head of Delivery", "name": "Erik Solberg", "email": "erik.solberg@example-group.invalid", "viewer": true }
   ],
   "dependencies": [
     "CMS vendor contract signed before month 2 kickoff",

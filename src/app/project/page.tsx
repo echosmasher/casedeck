@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getStorage } from "../_lib/storage";
+import { useRole } from "../_lib/RoleProvider";
+import { isViewerVisible } from "../_lib/demoViewer";
 import type { Project } from "@/engine/model";
 import type { StoredActualEntry } from "@/storage/types";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputsEditor } from "./InputsEditor";
 import { Dashboard } from "./Dashboard";
 import { ActualsTab } from "./ActualsTab";
+import { ExportTab } from "./ExportTab";
 
 export default function ProjectPage() {
   return (
@@ -23,6 +26,7 @@ export default function ProjectPage() {
 function ProjectPageContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const { role } = useRole();
   const [project, setProject] = useState<Project | null | undefined>(undefined);
   const [actuals, setActuals] = useState<StoredActualEntry[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -88,6 +92,19 @@ function ProjectPageContent() {
     );
   }
 
+  if (role === "viewer" && !isViewerVisible(project)) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-destructive">This project isn&apos;t visible to the Viewer role.</p>
+        <Link href="/" className="text-sm underline">
+          Back to projects
+        </Link>
+      </div>
+    );
+  }
+
+  const readOnly = role === "viewer";
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-start justify-between">
@@ -118,6 +135,7 @@ function ProjectPageContent() {
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="inputs">Inputs</TabsTrigger>
           <TabsTrigger value="actuals">Actuals</TabsTrigger>
+          <TabsTrigger value="export">Export</TabsTrigger>
         </TabsList>
         <TabsContent value="dashboard">
           {/* Same project + actuals state as the other tabs — one-way input -> engine -> views
@@ -126,7 +144,13 @@ function ProjectPageContent() {
           <Dashboard key={project.id} project={project} actuals={actuals} />
         </TabsContent>
         <TabsContent value="inputs">
-          <InputsEditor key={project.id} project={project} onLocalChange={updateLocal} onCommit={commit} />
+          <InputsEditor
+            key={project.id}
+            project={project}
+            onLocalChange={updateLocal}
+            onCommit={commit}
+            readOnly={readOnly}
+          />
         </TabsContent>
         <TabsContent value="actuals">
           <ActualsTab
@@ -134,7 +158,11 @@ function ProjectPageContent() {
             project={project}
             actuals={actuals}
             onActualsChanged={() => void reloadActuals(project.id)}
+            readOnly={readOnly}
           />
+        </TabsContent>
+        <TabsContent value="export">
+          <ExportTab key={project.id} project={project} actuals={actuals} />
         </TabsContent>
       </Tabs>
     </div>

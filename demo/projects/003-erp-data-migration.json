@@ -60,7 +60,8 @@
   ],
   "stakeholders": [
     { "role": "Customer contact", "name": "Example Hotel A — Finance Lead", "email": "finance@example-hotel-a.invalid", "viewer": true },
-    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false }
+    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false },
+    { "role": "Head of Delivery", "name": "Erik Solberg", "email": "erik.solberg@example-group.invalid", "viewer": true }
   ],
   "dependencies": [
     "Signed statement of work before month 1 kickoff",

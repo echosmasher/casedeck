@@ -21,17 +21,24 @@ export function ActualsTab({
   project,
   actuals,
   onActualsChanged,
+  readOnly = false,
 }: {
   project: Project;
   actuals: StoredActualEntry[];
   onActualsChanged: () => void;
+  readOnly?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-6">
+    <fieldset disabled={readOnly} className="flex flex-col gap-6 border-0 p-0 m-0 min-w-0">
+      {readOnly && (
+        <p className="rounded-md border bg-muted px-4 py-2 text-sm text-muted-foreground">
+          Viewer role — read only. Switch to Planner to import or record actuals.
+        </p>
+      )}
       <ImportCard project={project} onCommitted={onActualsChanged} />
       <ManualEntryCard project={project} onAdded={onActualsChanged} />
       <RecordedActualsCard actuals={actuals} onDeleted={onActualsChanged} />
-    </div>
+    </fieldset>
   );
 }
 

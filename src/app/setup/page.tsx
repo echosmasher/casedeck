@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { getStorage } from "../_lib/storage";
+import { useRole } from "../_lib/RoleProvider";
 import { activeConfig } from "../_lib/activeConfig";
 import { validateProjectInvariants } from "@/engine/validate";
 import type {
@@ -43,7 +45,25 @@ type FixedAllocationKind = "even" | "at_period";
 
 export default function SetupPage() {
   const router = useRouter();
+  const { role } = useRole();
 
+  if (role === "viewer") {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-destructive">
+          Viewer role is read-only — switch to Planner to create a project.
+        </p>
+        <Link href="/" className="text-sm underline">
+          Back to projects
+        </Link>
+      </div>
+    );
+  }
+
+  return <SetupForm router={router} />;
+}
+
+function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
   const [name, setName] = useState("");
   const [type, setType] = useState<ProjectType>("internal");
   const [status, setStatus] = useState<ProjectStatus>("planning");

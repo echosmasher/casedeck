@@ -17,10 +17,12 @@ export function InputsEditor({
   project,
   onLocalChange,
   onCommit,
+  readOnly = false,
 }: {
   project: Project;
   onLocalChange: (next: Project) => void;
   onCommit: (next: Project) => void | Promise<void>;
+  readOnly?: boolean;
 }) {
   const periods = projectPeriods(project);
 
@@ -52,7 +54,12 @@ export function InputsEditor({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <fieldset disabled={readOnly} className="flex flex-col gap-6 border-0 p-0 m-0 min-w-0">
+      {readOnly && (
+        <p className="rounded-md border bg-muted px-4 py-2 text-sm text-muted-foreground">
+          Viewer role — read only. Switch to Planner to edit.
+        </p>
+      )}
       {project.pricingModel && (
         <RevenueSection
           project={project}
@@ -99,7 +106,7 @@ export function InputsEditor({
           <AddCostLineForm periods={periods} onAdd={addLine} />
         </CardContent>
       </Card>
-    </div>
+    </fieldset>
   );
 }
 

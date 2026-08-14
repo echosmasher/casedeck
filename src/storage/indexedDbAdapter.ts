@@ -40,7 +40,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   async listProjects(): Promise<ProjectSummary[]> {
     const projects = await this.db.projects.toArray();
     return projects
-      .map((p) => ({ id: p.id, name: p.name, type: p.type, status: p.status }))
+      .map((p) => ({ id: p.id, name: p.name, type: p.type, status: p.status, stakeholders: p.stakeholders }))
       .sort((a, b) => a.id.localeCompare(b.id));
   }
 

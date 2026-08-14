@@ -141,3 +141,29 @@ tests, not part of any planted story above. Three deliberate problems, one per d
 Expected error messages are specified in `DATA_REQUIREMENTS.md`. No row is silently dropped; all
 three are listed with file, row, column, and expected format, per the fail-loud rule in
 `CLAUDE.md`.
+
+---
+
+## Demo mode (Phase 6)
+
+The deployed app boots with Example Group pre-loaded and a **Planner / Viewer** role switcher in
+the header. Planner is full edit, matching everything documented above. Viewer is read-only and
+sees only **001** and **003** — not because those are hardcoded project ids anywhere in the app,
+but because both carry a stakeholder tagged for the demo's shared viewer persona:
+
+> **Erik Solberg, Head of Delivery** — `erik.solberg@example-group.invalid`, `viewer: true` on 001
+> and 003's `stakeholders` array.
+
+The narrative: a delivery lead tracking two flagship projects worth watching — the one with a live
+overrun (001) and the one still at the wide-uncertainty planning stage (003) — but not the
+already-completed, unremarkable one (002). 002 keeps its own, unrelated `viewer: true` stakeholder
+(the customer's own contact, who'd legitimately have read access to *their* project in a real
+deployment) — that stakeholder doesn't match the demo persona's email, so it doesn't grant Viewer
+role access to 002.
+
+This reuses the general-purpose `Stakeholder.viewer` flag from the data model (PLAN.md §4) exactly
+as documented — the "demo mode" behavior is just the app matching on one specific, known persona
+identity, not a separate access-control system.
+
+A visible **"Demo data — reset"** control restores this exact snapshot (all three projects, all of
+001's and 002's real actuals) at any time, discarding any local edits.
