@@ -1,0 +1,178 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://casedeck.local/schemas/project.schema.json",
+  "title": "Project",
+  "description": "Raw project model: budgeted inputs only, no derived/computed totals. The engine (src/engine/) computes periodized costs, scenario bands, and totals from this at render time. Actuals are not part of this snapshot — they are imported separately via the CSV pipeline (see DATA_REQUIREMENTS.md) and matched to a project by id.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "name",
+    "type",
+    "status",
+    "currency",
+    "displayUnits",
+    "periodization",
+    "startPeriod",
+    "endPeriod",
+    "loadedCostMultiplier",
+    "pricingModel",
+    "costs",
+    "stakeholders",
+    "dependencies"
+  ],
+  "properties": {
+    "id": { "type": "string", "pattern": "^[0-9]{3}$" },
+    "name": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "enum": ["customer", "internal"] },
+    "status": {
+      "type": "string",
+      "enum": ["planning", "ready_for_approval", "approved", "in_progress", "completed", "on_hold"]
+    },
+    "currency": { "type": "string", "pattern": "^[A-Z]{3}$" },
+    "displayUnits": { "type": "string", "enum": ["whole", "thousands"] },
+    "periodization": { "type": "string", "enum": ["monthly", "quarterly", "total"] },
+    "startPeriod": { "$ref": "#/$defs/periodKey" },
+    "endPeriod": { "$ref": "#/$defs/periodKey" },
+    "loadedCostMultiplier": { "type": "number", "exclusiveMinimum": 0 },
+    "pricingModel": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "#/$defs/fixedPricingModel" },
+        { "$ref": "#/$defs/hourlyPricingModel" }
+      ],
+      "description": "null for internal projects (no revenue). fixed or hourly for customer projects."
+    },
+    "costs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/costLineItem" }
+    },
+    "stakeholders": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "name", "email", "viewer"],
+        "properties": {
+          "role": { "type": "string", "minLength": 1 },
+          "name": { "type": "string", "minLength": 1 },
+          "email": { "type": "string", "format": "email" },
+          "viewer": { "type": "boolean" }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "periodKey": {
+      "type": "string",
+      "description": "YYYY-MM for monthly, YYYY-Qn for quarterly, YYYY for total.",
+      "pattern": "^[0-9]{4}(-(0[1-9]|1[0-2]|Q[1-4]))?$"
+    },
+    "confidence": { "type": "string", "enum": ["committed", "estimated", "rough"] },
+    "confidencePerPeriod": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/periodKey" },
+      "additionalProperties": { "$ref": "#/$defs/confidence" }
+    },
+    "periodValues": {
+      "type": "object",
+      "description": "period -> amount, in the project's currency, whole units.",
+      "propertyNames": { "$ref": "#/$defs/periodKey" },
+      "additionalProperties": { "type": "number" }
+    },
+    "periodHours": {
+      "type": "object",
+      "propertyNames": { "$ref": "#/$defs/periodKey" },
+      "additionalProperties": { "type": "number", "minimum": 0 }
+    },
+    "allocation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "even" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "period"],
+          "properties": {
+            "type": { "const": "at_period" },
+            "period": { "$ref": "#/$defs/periodKey" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "values"],
+          "properties": {
+            "type": { "const": "custom" },
+            "values": { "$ref": "#/$defs/periodValues" }
+          }
+        }
+      ]
+    },
+    "fixedPricingModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "amount", "allocation", "confidence"],
+      "properties": {
+        "type": { "const": "fixed" },
+        "amount": { "type": "number", "exclusiveMinimum": 0 },
+        "allocation": { "$ref": "#/$defs/allocation" },
+        "confidence": { "$ref": "#/$defs/confidence" }
+      }
+    },
+    "hourlyPricingModel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ratePerHour", "hoursPerPeriod", "confidence"],
+      "properties": {
+        "type": { "const": "hourly" },
+        "ratePerHour": { "type": "number", "exclusiveMinimum": 0 },
+        "hoursPerPeriod": { "$ref": "#/$defs/periodHours" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "confidencePerPeriod": { "$ref": "#/$defs/confidencePerPeriod" }
+      }
+    },
+    "costLineItem": {
+      "oneOf": [
+        { "$ref": "#/$defs/salaryLineItem" },
+        { "$ref": "#/$defs/directLineItem" }
+      ]
+    },
+    "salaryLineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "label", "role", "hoursPerPeriod", "ratePerHour", "confidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "category": { "const": "salary" },
+        "label": { "type": "string", "minLength": 1 },
+        "role": { "type": "string", "minLength": 1 },
+        "hoursPerPeriod": { "$ref": "#/$defs/periodHours" },
+        "ratePerHour": { "type": "number", "exclusiveMinimum": 0 },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "confidencePerPeriod": { "$ref": "#/$defs/confidencePerPeriod" }
+      }
+    },
+    "directLineItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "category", "label", "valuesPerPeriod", "confidence"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "enum": ["consultancy", "it_systems", "travel", "other_direct"] },
+        "label": { "type": "string", "minLength": 1 },
+        "valuesPerPeriod": { "$ref": "#/$defs/periodValues" },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "confidencePerPeriod": { "$ref": "#/$defs/confidencePerPeriod" }
+      }
+    }
+  }
+}

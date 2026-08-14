@@ -1,0 +1,13 @@
+period;account_code;description;amount
+2025-Q1;4000;Lønn Q1 — Booking Integration allokering;123000,00
+2025-Q1;4500;Konsulentfaktura API-integrasjon Q1;61500,00
+2025-Q1;4700;Reisekostnader Q1;8300,00
+2025-Q2;4000;Lønn Q2 — Booking Integration allokering;120000,00
+2025-Q2;4500;Konsulentfaktura API-integrasjon Q2;64000,00
+2025-Q2;4700;Reisekostnader Q2;7600,00
+2025-Q3;4000;Lønn Q3 — Booking Integration allokering;124000,00
+2025-Q3;4500;Konsulentfaktura API-integrasjon Q3;67000,00
+2025-Q3;4700;Reisekostnader Q3;5200,00
+2025-Q4;4000;Lønn Q4 — Booking Integration allokering;59500,00
+2025-Q4;4500;Konsulentfaktura API-integrasjon Q4;24000,00
+2025-Q4;4700;Reisekostnader Q4;1900,00

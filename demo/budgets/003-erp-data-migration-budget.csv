@@ -1,0 +1,25 @@
+line_type,account_code,line_label,category,period,confidence,hours,rate,amount
+revenue,3000,Hourly delivery — billed monthly,revenue,2026-10,estimated,400,900,360000
+revenue,3000,Hourly delivery — billed monthly,revenue,2026-11,estimated,400,900,360000
+revenue,3000,Hourly delivery — billed monthly,revenue,2026-12,rough,400,900,360000
+revenue,3000,Hourly delivery — billed monthly,revenue,2027-01,rough,400,900,360000
+revenue,3000,Hourly delivery — billed monthly,revenue,2027-02,rough,400,900,360000
+revenue,3000,Hourly delivery — billed monthly,revenue,2027-03,rough,400,900,360000
+cost,4000,Senior Developer — migration team,salary,2026-10,rough,150,750,112500
+cost,4000,Senior Developer — migration team,salary,2026-11,rough,150,750,112500
+cost,4000,Senior Developer — migration team,salary,2026-12,rough,150,750,112500
+cost,4000,Senior Developer — migration team,salary,2027-01,rough,150,750,112500
+cost,4000,Senior Developer — migration team,salary,2027-02,rough,150,750,112500
+cost,4000,Senior Developer — migration team,salary,2027-03,rough,150,750,112500
+cost,4000,Junior Developer — migration team,salary,2026-10,rough,100,550,55000
+cost,4000,Junior Developer — migration team,salary,2026-11,rough,100,550,55000
+cost,4000,Junior Developer — migration team,salary,2026-12,rough,100,550,55000
+cost,4000,Junior Developer — migration team,salary,2027-01,rough,100,550,55000
+cost,4000,Junior Developer — migration team,salary,2027-02,rough,100,550,55000
+cost,4000,Junior Developer — migration team,salary,2027-03,rough,100,550,55000
+cost,4500,External ERP specialist vendor,consultancy,2026-10,rough,,,90000
+cost,4500,External ERP specialist vendor,consultancy,2026-11,rough,,,90000
+cost,4500,External ERP specialist vendor,consultancy,2026-12,rough,,,90000
+cost,4500,External ERP specialist vendor,consultancy,2027-01,rough,,,90000
+cost,4500,External ERP specialist vendor,consultancy,2027-02,rough,,,90000
+cost,4500,External ERP specialist vendor,consultancy,2027-03,rough,,,90000

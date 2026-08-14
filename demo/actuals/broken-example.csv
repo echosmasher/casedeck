@@ -1,0 +1,7 @@
+period,account_code,description,amount
+2026-01,4000,Payroll run,124200
+2026-01,4500,Vendor invoice,60000
+2026-01;4700;Travel reimbursement;4200
+2026-02,4500,Vendor invoice adjustment,N/A
+2026-02,6234,Unrecognized code,15000
+2026-02,4000,Payroll run,123700

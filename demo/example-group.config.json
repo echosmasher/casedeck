@@ -1,0 +1,41 @@
+{
+  "orgName": "Example Group",
+  "currency": "NOK",
+  "displayUnitsDefault": "whole",
+  "loadedCostMultiplier": 1.35,
+  "confidenceBands": {
+    "committed": { "bandPct": 0 },
+    "estimated": { "bandPct": 10 },
+    "rough": { "bandPct": 30 }
+  },
+  "categories": [
+    { "id": "salary", "label": "Salary" },
+    { "id": "consultancy", "label": "Consultancy" },
+    { "id": "it_systems", "label": "IT Systems" },
+    { "id": "travel", "label": "Travel" },
+    { "id": "other_direct", "label": "Other Direct Costs" }
+  ],
+  "statuses": [
+    { "id": "planning", "label": "Planning" },
+    { "id": "ready_for_approval", "label": "Ready for Approval" },
+    { "id": "approved", "label": "Approved" },
+    { "id": "in_progress", "label": "In Progress" },
+    { "id": "completed", "label": "Completed" },
+    { "id": "on_hold", "label": "On Hold" }
+  ],
+  "rateCard": [
+    { "role": "Junior Developer", "ratePerHour": 550 },
+    { "role": "Senior Developer", "ratePerHour": 750 },
+    { "role": "Project Manager", "ratePerHour": 800 },
+    { "role": "Designer", "ratePerHour": 650 }
+  ],
+  "categoryMapping": [
+    { "accountCode": "4000", "category": "salary", "note": "Internal payroll, loaded (includes employer overhead) as reported by accounting" },
+    { "accountCode": "4500", "category": "consultancy", "note": "External vendor/contractor invoices" },
+    { "accountCode": "4600", "category": "it_systems", "note": "Software licenses, hosting" },
+    { "accountCode": "4700", "category": "travel", "note": "Travel and on-site work" },
+    { "accountCode": "4900", "category": "other_direct", "note": "Other direct project costs" },
+    { "accountCode": "3000", "category": "revenue", "note": "Customer invoicing / recognized revenue" },
+    { "accountCode": "8990", "category": "ignore", "note": "Bank fees — not a project cost, excluded from import" }
+  ]
+}

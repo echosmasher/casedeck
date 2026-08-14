@@ -1,0 +1,8 @@
+{
+  "$comment": "Default confidence band percentages (PLAN.md §4). Configurable per-org; the dashboard legend must state whichever percentages are actually active.",
+  "confidenceBands": {
+    "committed": { "bandPct": 0 },
+    "estimated": { "bandPct": 10 },
+    "rough": { "bandPct": 30 }
+  }
+}

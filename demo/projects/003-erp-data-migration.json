@@ -1,0 +1,70 @@
+{
+  "id": "003",
+  "name": "ERP Data Migration",
+  "type": "customer",
+  "status": "planning",
+  "currency": "NOK",
+  "displayUnits": "whole",
+  "periodization": "monthly",
+  "startPeriod": "2026-10",
+  "endPeriod": "2027-03",
+  "loadedCostMultiplier": 1.35,
+  "pricingModel": {
+    "type": "hourly",
+    "ratePerHour": 900,
+    "hoursPerPeriod": {
+      "2026-10": 400, "2026-11": 400, "2026-12": 400,
+      "2027-01": 400, "2027-02": 400, "2027-03": 400
+    },
+    "confidence": "rough",
+    "confidencePerPeriod": {
+      "2026-10": "estimated",
+      "2026-11": "estimated"
+    }
+  },
+  "costs": [
+    {
+      "id": "salary-senior-dev",
+      "category": "salary",
+      "label": "Senior Developer — migration team",
+      "role": "Senior Developer",
+      "hoursPerPeriod": {
+        "2026-10": 150, "2026-11": 150, "2026-12": 150,
+        "2027-01": 150, "2027-02": 150, "2027-03": 150
+      },
+      "ratePerHour": 750,
+      "confidence": "rough"
+    },
+    {
+      "id": "salary-junior-dev",
+      "category": "salary",
+      "label": "Junior Developer — migration team",
+      "role": "Junior Developer",
+      "hoursPerPeriod": {
+        "2026-10": 100, "2026-11": 100, "2026-12": 100,
+        "2027-01": 100, "2027-02": 100, "2027-03": 100
+      },
+      "ratePerHour": 550,
+      "confidence": "rough"
+    },
+    {
+      "id": "consultancy-erp-specialist",
+      "category": "consultancy",
+      "label": "External ERP specialist vendor",
+      "valuesPerPeriod": {
+        "2026-10": 90000, "2026-11": 90000, "2026-12": 90000,
+        "2027-01": 90000, "2027-02": 90000, "2027-03": 90000
+      },
+      "confidence": "rough"
+    }
+  ],
+  "stakeholders": [
+    { "role": "Customer contact", "name": "Example Hotel A — Finance Lead", "email": "finance@example-hotel-a.invalid", "viewer": true },
+    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false }
+  ],
+  "dependencies": [
+    "Signed statement of work before month 1 kickoff",
+    "Legacy ERP export access granted by month 2",
+    "Scope and rate are not yet finalized — most figures are rough placeholders pending discovery"
+  ]
+}

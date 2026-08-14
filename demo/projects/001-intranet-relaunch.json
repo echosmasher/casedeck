@@ -1,0 +1,57 @@
+{
+  "id": "001",
+  "name": "Intranet Relaunch",
+  "type": "internal",
+  "status": "in_progress",
+  "currency": "NOK",
+  "displayUnits": "whole",
+  "periodization": "monthly",
+  "startPeriod": "2026-01",
+  "endPeriod": "2026-08",
+  "loadedCostMultiplier": 1.35,
+  "pricingModel": null,
+  "costs": [
+    {
+      "id": "salary-senior-dev",
+      "category": "salary",
+      "label": "Senior Developer — internal team",
+      "role": "Senior Developer",
+      "hoursPerPeriod": {
+        "2026-01": 80, "2026-02": 80, "2026-03": 80, "2026-04": 80,
+        "2026-05": 80, "2026-06": 80, "2026-07": 80, "2026-08": 80
+      },
+      "ratePerHour": 750,
+      "confidence": "estimated"
+    },
+    {
+      "id": "salary-pm",
+      "category": "salary",
+      "label": "Project Manager — internal team",
+      "role": "Project Manager",
+      "hoursPerPeriod": {
+        "2026-01": 40, "2026-02": 40, "2026-03": 40, "2026-04": 40,
+        "2026-05": 40, "2026-06": 40, "2026-07": 40, "2026-08": 40
+      },
+      "ratePerHour": 800,
+      "confidence": "estimated"
+    },
+    {
+      "id": "consultancy-vendor",
+      "category": "consultancy",
+      "label": "External CMS integration vendor",
+      "valuesPerPeriod": {
+        "2026-01": 60000, "2026-02": 60000, "2026-03": 60000, "2026-04": 60000,
+        "2026-05": 60000, "2026-06": 60000, "2026-07": 60000, "2026-08": 60000
+      },
+      "confidence": "estimated"
+    }
+  ],
+  "stakeholders": [
+    { "role": "Sponsor", "name": "Internal Comms Director", "email": "sponsor@example-group.invalid", "viewer": true },
+    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false }
+  ],
+  "dependencies": [
+    "CMS vendor contract signed before month 2 kickoff",
+    "Legacy intranet content freeze by month 5"
+  ]
+}

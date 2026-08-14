@@ -1,0 +1,10 @@
+{
+  "$comment": "Neutral, organization-agnostic default cost categories. Extend per-org in that org's GroupConfig.categories — this list is the starting point the /setup skill and in-app wizard offer, not a fixed enum enforced by the engine.",
+  "categories": [
+    { "id": "salary", "label": "Salary" },
+    { "id": "consultancy", "label": "Consultancy" },
+    { "id": "it_systems", "label": "IT Systems" },
+    { "id": "travel", "label": "Travel" },
+    { "id": "other_direct", "label": "Other Direct Costs" }
+  ]
+}

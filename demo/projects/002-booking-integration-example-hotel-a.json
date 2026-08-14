@@ -1,0 +1,57 @@
+{
+  "id": "002",
+  "name": "Booking Integration for Example Hotel A",
+  "type": "customer",
+  "status": "completed",
+  "currency": "NOK",
+  "displayUnits": "whole",
+  "periodization": "quarterly",
+  "startPeriod": "2025-Q1",
+  "endPeriod": "2025-Q4",
+  "loadedCostMultiplier": 1.35,
+  "pricingModel": {
+    "type": "fixed",
+    "amount": 900000,
+    "allocation": { "type": "at_period", "period": "2025-Q4" },
+    "confidence": "committed"
+  },
+  "costs": [
+    {
+      "id": "salary-senior-dev",
+      "category": "salary",
+      "label": "Senior Developer — delivery team",
+      "role": "Senior Developer",
+      "hoursPerPeriod": {
+        "2025-Q1": 120, "2025-Q2": 120, "2025-Q3": 120, "2025-Q4": 60
+      },
+      "ratePerHour": 750,
+      "confidence": "estimated"
+    },
+    {
+      "id": "consultancy-integration-specialist",
+      "category": "consultancy",
+      "label": "Booking-API integration specialist",
+      "valuesPerPeriod": {
+        "2025-Q1": 60000, "2025-Q2": 65000, "2025-Q3": 65000, "2025-Q4": 25000
+      },
+      "confidence": "estimated"
+    },
+    {
+      "id": "travel-onsite",
+      "category": "travel",
+      "label": "On-site work at Example Hotel A",
+      "valuesPerPeriod": {
+        "2025-Q1": 8000, "2025-Q2": 8000, "2025-Q3": 5000, "2025-Q4": 2000
+      },
+      "confidence": "estimated"
+    }
+  ],
+  "stakeholders": [
+    { "role": "Customer contact", "name": "Example Hotel A — Ops Manager", "email": "ops@example-hotel-a.invalid", "viewer": true },
+    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false }
+  ],
+  "dependencies": [
+    "Example Hotel A booking API credentials provided before Q1 kickoff",
+    "Customer UAT sign-off required before Q4 invoicing"
+  ]
+}
