@@ -80,7 +80,11 @@ Row numbers are 1-indexed over data rows, excluding the header. Reference fixtur
 |---|---|---|
 | 3 | Semicolon-delimited row inside a comma-delimited file | `broken-example.csv, row 3: expected 4 columns (comma-delimited), got 1 — check for a stray delimiter` |
 | 4 | Text value in `amount` | `broken-example.csv, row 4, column "amount": expected a number (comma or point decimals), got "N/A"` |
-| 5 | Unknown account code | `broken-example.csv, row 5, column "account_code": unknown account code "6234" — not present in category mapping, resolve during import preview` |
+| 5 | Unknown account code | `broken-example.csv, row 5, column "account_code": expected a known account code (present in category mapping), got "6234"` |
+
+Every message follows one template — `file, row N[, column "C"]: expected X[, got "Y"]` — so a
+reader never has to parse two different error grammars. The "resolve unmapped codes in the import
+preview" behavior is UI copy on the preview screen itself, not repeated in every row's error string.
 
 A file containing any invalid row imports **nothing** by default. The user may explicitly choose
 "import valid rows only"; rejected rows remain listed with the messages above, never dropped

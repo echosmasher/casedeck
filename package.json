@@ -10,9 +10,12 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
-    "validate:demo": "node scripts/validate-demo-data.mjs"
+    "test:coverage": "vitest run --coverage",
+    "validate:demo": "node scripts/validate-demo-data.mjs",
+    "lint:boundaries": "depcruise src --config"
   },
   "dependencies": {
+    "date-fns": "^4.4.0",
     "next": "16.3.0",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -22,10 +25,13 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitest/coverage-v8": "^4.1.10",
     "ajv": "^8.20.0",
     "ajv-formats": "^3.0.1",
+    "dependency-cruiser": "^18.2.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.0",
+    "fast-check": "^4.9.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.10"

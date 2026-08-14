@@ -29,8 +29,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Test
-        run: pnpm test
+      - name: Engine purity (import boundaries)
+        run: pnpm lint:boundaries
+
+      - name: Test (with engine coverage threshold)
+        run: pnpm test:coverage
 
       - name: Validate demo data
         run: pnpm validate:demo
