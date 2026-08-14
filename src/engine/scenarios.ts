@@ -53,7 +53,7 @@ function addScenario(a: ScenarioValue, b: ScenarioValue): ScenarioValue {
   return { expected: a.expected + b.expected, best: a.best + b.best, worst: a.worst + b.worst };
 }
 
-function lineScenarioByPeriod(
+export function lineScenarioByPeriod(
   line: CostLineItem,
   loadedCostMultiplier: number,
   bands: ConfidenceBands,
@@ -65,6 +65,18 @@ function lineScenarioByPeriod(
     result[period] = costScenarioValue(value, confidence, bands);
   }
   return result;
+}
+
+/** A single cost line's expected/best/worst total across its whole lifetime — used for
+ * dashboard drill-down (PLAN.md §6.3: "per-category breakdown with drill-down to the
+ * underlying input lines"). */
+export function lineScenarioTotal(
+  line: CostLineItem,
+  loadedCostMultiplier: number,
+  bands: ConfidenceBands,
+): ScenarioValue {
+  const byPeriod = lineScenarioByPeriod(line, loadedCostMultiplier, bands);
+  return Object.values(byPeriod).reduce(addScenario, ZERO);
 }
 
 function revenueScenarioByPeriod(project: Project, bands: ConfidenceBands): ScenarioByPeriod {

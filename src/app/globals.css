@@ -81,6 +81,18 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* dataviz palette (references/palette.md) — light mode */
+  --viz-surface: #fcfcfb;
+  --viz-text-primary: #0b0b0b;
+  --viz-text-secondary: #52514e;
+  --viz-text-muted: #898781;
+  --viz-gridline: #e1e0d9;
+  --viz-baseline: #c3c2b7;
+  --viz-blue: #2a78d6;
+  --viz-red: #e34948;
+  --viz-good: #006300;
+  --viz-critical: #d03b3b;
 }
 
 .dark {
@@ -115,6 +127,20 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* dataviz palette (references/palette.md) — dark mode. This app has no theme
+     toggle yet (Phase 8), so this block is inert until one sets .dark on <html>;
+     kept in step with the light block per the dataviz skill's accessibility pass. */
+  --viz-surface: #1a1a19;
+  --viz-text-primary: #ffffff;
+  --viz-text-secondary: #c3c2b7;
+  --viz-text-muted: #898781;
+  --viz-gridline: #2c2c2a;
+  --viz-baseline: #383835;
+  --viz-blue: #3987e5;
+  --viz-red: #e66767;
+  --viz-good: #0ca30c;
+  --viz-critical: #d03b3b;
 }
 
 @layer base {

@@ -4,10 +4,11 @@ import {
   bandFraction,
   computeProjectScenarios,
   costScenarioValue,
+  lineScenarioTotal,
   resolveConfidence,
   revenueScenarioValue,
 } from "./scenarios";
-import type { Confidence, ConfidenceBands, Project } from "./model";
+import type { Confidence, ConfidenceBands, Project, SalaryLineItem } from "./model";
 import project001 from "../../demo/projects/001-intranet-relaunch.json";
 import project002 from "../../demo/projects/002-booking-integration-example-hotel-a.json";
 import project003 from "../../demo/projects/003-erp-data-migration.json";
@@ -156,5 +157,16 @@ describe("computeProjectScenarios — demo fixtures", () => {
     expect(result.totals.margin.best).toBeCloseTo(1336275, 2);
     expect(result.totals.margin.expected).toBeGreaterThan(0);
     expect(result.totals.margin.worst).toBeLessThan(0);
+  });
+});
+
+describe("lineScenarioTotal — dashboard drill-down", () => {
+  it("001: Senior Developer salary line totals, banded at its own confidence", () => {
+    const seniorDev = (project001 as Project).costs[0] as SalaryLineItem;
+    const total = lineScenarioTotal(seniorDev, (project001 as Project).loadedCostMultiplier, bands);
+    const expected = 80 * 750 * 1.35 * 8;
+    expect(total.expected).toBeCloseTo(expected, 2);
+    expect(total.worst).toBeCloseTo(expected * 1.1, 2);
+    expect(total.best).toBeCloseTo(expected * 0.9, 2);
   });
 });
