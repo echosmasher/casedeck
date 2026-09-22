@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { activeConfig } from "../_lib/activeConfig";
+import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { downloadTextFile } from "../_lib/download";
 import { renderBusinessCase } from "@/export/businessCase";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export function ExportTab({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
+  const { config } = useEffectiveConfig();
   const [executiveSummary, setExecutiveSummary] = useState("");
   const [riskCommentary, setRiskCommentary] = useState("");
   const [errors, setErrors] = useState<ModelValidationError[] | null>(null);
@@ -21,7 +22,7 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
   function handleDownload() {
     const result = renderBusinessCase({
       project,
-      bands: activeConfig.confidenceBands,
+      bands: config.confidenceBands,
       actuals,
       executiveSummary: executiveSummary.trim() || undefined,
       riskCommentary: riskCommentary.trim() || undefined,

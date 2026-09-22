@@ -5,7 +5,7 @@ import type { VariantProps } from "class-variance-authority";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "../_lib/format";
-import { activeConfig } from "../_lib/activeConfig";
+import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { computeVariance, type VarianceFlag } from "@/engine/variance";
 import type { ActualEntry, Project } from "@/engine/model";
 import { CATEGORY_LABEL } from "./shared";
@@ -26,9 +26,10 @@ export function VarianceSection({
   project: Project;
   actuals: ActualEntry[];
 }) {
+  const { config } = useEffectiveConfig();
   if (actuals.length === 0) return null;
 
-  const variance = computeVariance(project, actuals, activeConfig.confidenceBands);
+  const variance = computeVariance(project, actuals, config.confidenceBands);
   const categories = Object.keys(variance.byCategory).sort();
   const { currency, displayUnits } = project;
   const totalMeta = FLAG_META[variance.total.flag];

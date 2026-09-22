@@ -2,7 +2,13 @@
 // this interface. v1 ships exactly one implementation (IndexedDB, see indexedDbAdapter.ts) — the
 // interface exists so a future multi-user adapter can be added without touching UI or engine code.
 import type { Project } from "@/engine/model";
-import type { CategoryMappingOverride, ProjectSummary, Snapshot, StoredActualEntry } from "./types";
+import type {
+  CategoryMappingOverride,
+  ProjectSummary,
+  SettingsOverrides,
+  Snapshot,
+  StoredActualEntry,
+} from "./types";
 
 export interface StorageAdapter {
   listProjects(): Promise<ProjectSummary[]>;
@@ -17,6 +23,10 @@ export interface StorageAdapter {
   /** Org-level, not project-scoped — see CategoryMappingOverride. */
   listCategoryMappingOverrides(): Promise<CategoryMappingOverride[]>;
   saveCategoryMappingOverride(entry: CategoryMappingOverride): Promise<void>;
+
+  /** Org-level, not project-scoped — see SettingsOverrides. */
+  getSettingsOverrides(): Promise<SettingsOverrides>;
+  saveSettingsOverrides(overrides: SettingsOverrides): Promise<void>;
 
   /** Returns a project id not already in use — callers append it to a new Project. */
   nextProjectId(): Promise<string>;

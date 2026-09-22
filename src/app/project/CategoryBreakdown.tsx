@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCurrency, formatRange } from "../_lib/format";
-import { activeConfig } from "../_lib/activeConfig";
+import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { lineScenarioTotal } from "@/engine/scenarios";
 import type { ProjectScenarios } from "@/engine/scenarios";
 import type { CostCategory, Project } from "@/engine/model";
@@ -65,6 +65,7 @@ function CategoryRow({
   displayUnits: Project["displayUnits"];
 }) {
   const [expanded, setExpanded] = useState(false);
+  const { config } = useEffectiveConfig();
 
   return (
     <div className="py-2">
@@ -92,7 +93,7 @@ function CategoryRow({
       {expanded && (
         <ul className="mt-1 flex flex-col gap-1.5 pl-6">
           {lines.map((line) => {
-            const total = lineScenarioTotal(line, loadedCostMultiplier, activeConfig.confidenceBands);
+            const total = lineScenarioTotal(line, loadedCostMultiplier, config.confidenceBands);
             return (
               <li key={line.id} className="flex items-center justify-between gap-4 text-sm">
                 <span className="flex flex-col">

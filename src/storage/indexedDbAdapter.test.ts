@@ -105,6 +105,7 @@ describe("Snapshot export/import round trip — byte-stable modulo exportedAt", 
       projects: [],
       actuals: [actuals[0], actuals[1]],
       categoryMappingOverrides: [],
+      settingsOverrides: { rateCardOverrides: [] },
     };
     const snapshotB = {
       schemaVersion: "1",
@@ -112,6 +113,7 @@ describe("Snapshot export/import round trip — byte-stable modulo exportedAt", 
       projects: [],
       actuals: [actuals[1], actuals[0]],
       categoryMappingOverrides: [],
+      settingsOverrides: { rateCardOverrides: [] },
     };
     expect(serializeSnapshot(snapshotA)).toBe(serializeSnapshot(snapshotB));
   });
@@ -126,6 +128,7 @@ describe("Snapshot export/import round trip — byte-stable modulo exportedAt", 
       projects: [project001 as Project],
       actuals: [],
       categoryMappingOverrides: [],
+      settingsOverrides: { rateCardOverrides: [] },
     });
 
     expect(await adapter.getProject("999")).toBeUndefined();
@@ -177,6 +180,52 @@ describe("IndexedDbStorageAdapter — category mapping overrides", () => {
     expect(await adapter2.listCategoryMappingOverrides()).toEqual([
       { accountCode: "6234", category: "other_direct" },
     ]);
+  });
+});
+
+describe("IndexedDbStorageAdapter — settings overrides", () => {
+  it("returns an empty rate card override by default", async () => {
+    const adapter = new IndexedDbStorageAdapter(freshDbName());
+    expect(await adapter.getSettingsOverrides()).toEqual({ rateCardOverrides: [] });
+  });
+
+  it("persists and reloads overrides across a simulated reload", async () => {
+    const dbName = freshDbName();
+    const adapter1 = new IndexedDbStorageAdapter(dbName);
+    await adapter1.saveSettingsOverrides({
+      rateCardOverrides: [{ role: "Senior Developer", ratePerHour: 900 }],
+      loadedCostMultiplierOverride: 1.4,
+      confidenceBandOverrides: {
+        committed: { bandPct: 0 },
+        estimated: { bandPct: 15 },
+        rough: { bandPct: 35 },
+      },
+    });
+
+    const adapter2 = new IndexedDbStorageAdapter(dbName);
+    expect(await adapter2.getSettingsOverrides()).toEqual({
+      rateCardOverrides: [{ role: "Senior Developer", ratePerHour: 900 }],
+      loadedCostMultiplierOverride: 1.4,
+      confidenceBandOverrides: {
+        committed: { bandPct: 0 },
+        estimated: { bandPct: 15 },
+        rough: { bandPct: 35 },
+      },
+    });
+  });
+
+  it("round-trips settings overrides through export/import", async () => {
+    const source = new IndexedDbStorageAdapter(freshDbName());
+    await source.saveSettingsOverrides({
+      rateCardOverrides: [{ role: "Designer", ratePerHour: 700 }],
+    });
+
+    const target = new IndexedDbStorageAdapter(freshDbName());
+    await target.importSnapshot(await source.exportSnapshot());
+
+    expect(await target.getSettingsOverrides()).toEqual({
+      rateCardOverrides: [{ role: "Designer", ratePerHour: 700 }],
+    });
   });
 });
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { activeConfig } from "../_lib/activeConfig";
+import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { projectPeriods } from "@/engine/periodize";
 import type { Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
 import { Button } from "@/components/ui/button";
@@ -208,10 +208,11 @@ function AddCostLineForm({
   onAdd: (line: CostLineItem) => void;
 }) {
   const formId = useId();
+  const { config } = useEffectiveConfig();
   const [category, setCategory] = useState<"salary" | DirectCostCategory>("consultancy");
   const [label, setLabel] = useState("");
-  const [role, setRole] = useState(activeConfig.rateCard[0]?.role ?? "");
-  const [ratePerHour, setRatePerHour] = useState(String(activeConfig.rateCard[0]?.ratePerHour ?? 0));
+  const [role, setRole] = useState(config.rateCard[0]?.role ?? "");
+  const [ratePerHour, setRatePerHour] = useState(String(config.rateCard[0]?.ratePerHour ?? 0));
   const [confidence, setConfidence] = useState<Confidence>("estimated");
 
   function handleSubmit(e: React.FormEvent) {
@@ -275,11 +276,11 @@ function AddCostLineForm({
               value={role}
               onChange={(e) => {
                 setRole(e.target.value);
-                const rate = activeConfig.rateCard.find((r) => r.role === e.target.value)?.ratePerHour;
+                const rate = config.rateCard.find((r) => r.role === e.target.value)?.ratePerHour;
                 if (rate !== undefined) setRatePerHour(String(rate));
               }}
             >
-              {activeConfig.rateCard.map((r) => (
+              {config.rateCard.map((r) => (
                 <option key={r.role} value={r.role}>
                   {r.role}
                 </option>

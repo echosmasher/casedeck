@@ -58,4 +58,5 @@ export const demoSnapshot: Snapshot = {
   projects: [project001, project002, project003] as Project[],
   actuals: [...actuals001, ...actuals002],
   categoryMappingOverrides: [],
+  settingsOverrides: { rateCardOverrides: [] },
 };

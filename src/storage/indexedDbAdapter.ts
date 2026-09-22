@@ -4,17 +4,24 @@ import Dexie, { type Table } from "dexie";
 import type { Project } from "@/engine/model";
 import type { StorageAdapter } from "./storageAdapter";
 import {
+  DEFAULT_SETTINGS_OVERRIDES,
   SNAPSHOT_SCHEMA_VERSION,
   type CategoryMappingOverride,
   type ProjectSummary,
+  type SettingsOverrides,
   type Snapshot,
   type StoredActualEntry,
 } from "./types";
+
+/** Singleton row id — settings overrides are org-level, not keyed by anything else. */
+const SETTINGS_ROW_ID = "singleton";
+type StoredSettingsOverrides = SettingsOverrides & { id: string };
 
 class CaseDeckDatabase extends Dexie {
   projects!: Table<Project, string>;
   actuals!: Table<StoredActualEntry, string>;
   categoryMappingOverrides!: Table<CategoryMappingOverride, string>;
+  settings!: Table<StoredSettingsOverrides, string>;
 
   constructor(name: string) {
     super(name);
@@ -26,6 +33,12 @@ class CaseDeckDatabase extends Dexie {
       projects: "id",
       actuals: "id, projectId, [projectId+period]",
       categoryMappingOverrides: "accountCode",
+    });
+    this.version(3).stores({
+      projects: "id",
+      actuals: "id, projectId, [projectId+period]",
+      categoryMappingOverrides: "accountCode",
+      settings: "id",
     });
   }
 }
@@ -79,6 +92,20 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
     await this.db.categoryMappingOverrides.put(entry);
   }
 
+  async getSettingsOverrides(): Promise<SettingsOverrides> {
+    const row = await this.db.settings.get(SETTINGS_ROW_ID);
+    if (!row) return DEFAULT_SETTINGS_OVERRIDES;
+    return {
+      rateCardOverrides: row.rateCardOverrides,
+      loadedCostMultiplierOverride: row.loadedCostMultiplierOverride,
+      confidenceBandOverrides: row.confidenceBandOverrides,
+    };
+  }
+
+  async saveSettingsOverrides(overrides: SettingsOverrides): Promise<void> {
+    await this.db.settings.put({ id: SETTINGS_ROW_ID, ...overrides });
+  }
+
   /** Smallest 3-digit id not already in use, continuing the demo data's 001/002/003 sequence
    * (config/project.schema.json constrains ids to exactly 3 digits — a soft 999-project cap that's
    * not a concern for this tool's scale). */
@@ -97,22 +124,26 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
       this.db.projects,
       this.db.actuals,
       this.db.categoryMappingOverrides,
+      this.db.settings,
       async () => {
         await this.db.projects.clear();
         await this.db.actuals.clear();
         await this.db.categoryMappingOverrides.clear();
+        await this.db.settings.clear();
         await this.db.projects.bulkPut(snapshot.projects);
         await this.db.actuals.bulkPut(snapshot.actuals);
         await this.db.categoryMappingOverrides.bulkPut(snapshot.categoryMappingOverrides);
+        await this.db.settings.put({ id: SETTINGS_ROW_ID, ...snapshot.settingsOverrides });
       },
     );
   }
 
   async exportSnapshot(): Promise<Snapshot> {
-    const [projects, actuals, categoryMappingOverrides] = await Promise.all([
+    const [projects, actuals, categoryMappingOverrides, settingsOverrides] = await Promise.all([
       this.db.projects.toArray(),
       this.db.actuals.toArray(),
       this.db.categoryMappingOverrides.toArray(),
+      this.getSettingsOverrides(),
     ]);
     return {
       schemaVersion: SNAPSHOT_SCHEMA_VERSION,
@@ -120,6 +151,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
       projects,
       actuals,
       categoryMappingOverrides,
+      settingsOverrides,
     };
   }
 }

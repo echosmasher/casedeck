@@ -6,6 +6,7 @@ import Link from "next/link";
 import { getStorage } from "../_lib/storage";
 import { useRole } from "../_lib/RoleProvider";
 import { activeConfig } from "../_lib/activeConfig";
+import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { validateProjectInvariants } from "@/engine/validate";
 import type {
   Allocation,
@@ -64,6 +65,7 @@ export default function SetupPage() {
 }
 
 function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
+  const { config } = useEffectiveConfig();
   const [name, setName] = useState("");
   const [type, setType] = useState<ProjectType>("internal");
   const [status, setStatus] = useState<ProjectStatus>("planning");
@@ -75,7 +77,7 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
   const [startPeriod, setStartPeriod] = useState("");
   const [endPeriod, setEndPeriod] = useState("");
   const [loadedCostMultiplier, setLoadedCostMultiplier] = useState(
-    String(activeConfig.loadedCostMultiplier),
+    String(config.loadedCostMultiplier),
   );
 
   const [pricingKind, setPricingKind] = useState<PricingKind>("none");

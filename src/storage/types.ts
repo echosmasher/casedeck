@@ -1,7 +1,15 @@
 // Storage-layer types: the persistence shapes that sit on top of the engine's Project/ActualEntry
 // types (src/engine/model.ts). Nothing here is engine math — it's identity, indexing, and the
 // portable JSON snapshot format for backup/portability (CLAUDE.md rule 5, PLAN.md §2.7).
-import type { ActualEntry, Project, ProjectStatus, ProjectType, Stakeholder } from "@/engine/model";
+import type {
+  ActualEntry,
+  ConfidenceBands,
+  Project,
+  ProjectStatus,
+  ProjectType,
+  RateCardEntry,
+  Stakeholder,
+} from "@/engine/model";
 
 /** Lightweight row for the project list/dropdown — avoids loading every full Project. Includes
  * stakeholders (a handful of entries, cheap) so the UI can do its own filtering (e.g. demo-mode
@@ -30,6 +38,19 @@ export interface CategoryMappingOverride {
   category: string;
 }
 
+/** Org-level rate-card / multiplier / confidence-band overrides (Settings page, PLAN.md §0).
+ * Same "override wins over bundled config" merge pattern as CategoryMappingOverride, layered over
+ * `demo/example-group.config.json` at read time — never mutates the bundled config file.
+ * `rateCardOverrides` merges by role (extra entries add roles, matching roles replace the rate);
+ * the scalar/object fields replace the bundled value outright when present. */
+export interface SettingsOverrides {
+  rateCardOverrides: RateCardEntry[];
+  loadedCostMultiplierOverride?: number;
+  confidenceBandOverrides?: ConfidenceBands;
+}
+
+export const DEFAULT_SETTINGS_OVERRIDES: SettingsOverrides = { rateCardOverrides: [] };
+
 export const SNAPSHOT_SCHEMA_VERSION = "1";
 
 /** The full-database JSON export/import format (PLAN.md §2.7: JSON export/import as backup and
@@ -41,4 +62,5 @@ export interface Snapshot {
   projects: Project[];
   actuals: StoredActualEntry[];
   categoryMappingOverrides: CategoryMappingOverride[];
+  settingsOverrides: SettingsOverrides;
 }

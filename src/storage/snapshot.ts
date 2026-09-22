@@ -4,6 +4,7 @@
 // guaranteed to be stable across runs; nested object field order is preserved by structured
 // clone as long as importSnapshot/exportSnapshot never rebuild an object with reordered fields.
 import type { Project } from "@/engine/model";
+import { DEFAULT_SETTINGS_OVERRIDES } from "./types";
 import type { CategoryMappingOverride, Snapshot, StoredActualEntry } from "./types";
 
 function sortedProjects(projects: Project[]): Project[] {
@@ -31,6 +32,13 @@ export function serializeSnapshot(snapshot: Snapshot): string {
     projects: sortedProjects(snapshot.projects),
     actuals: sortedActuals(snapshot.actuals),
     categoryMappingOverrides: sortedOverrides(snapshot.categoryMappingOverrides),
+    settingsOverrides: {
+      rateCardOverrides: [...snapshot.settingsOverrides.rateCardOverrides].sort((a, b) =>
+        a.role.localeCompare(b.role),
+      ),
+      loadedCostMultiplierOverride: snapshot.settingsOverrides.loadedCostMultiplierOverride,
+      confidenceBandOverrides: snapshot.settingsOverrides.confidenceBandOverrides,
+    },
   };
   return JSON.stringify(canonical, null, 2);
 }
@@ -59,6 +67,10 @@ export function parseSnapshot(json: string): Snapshot {
   // rather than rejecting a still-otherwise-valid backup file.
   if (!Array.isArray(snapshot.categoryMappingOverrides)) {
     snapshot.categoryMappingOverrides = [];
+  }
+  // Older snapshots (pre-Phase-C) don't carry settings overrides — default rather than reject.
+  if (typeof snapshot.settingsOverrides !== "object" || snapshot.settingsOverrides === null) {
+    snapshot.settingsOverrides = DEFAULT_SETTINGS_OVERRIDES;
   }
   return snapshot;
 }

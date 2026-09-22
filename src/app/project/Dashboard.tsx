@@ -1,6 +1,6 @@
 "use client";
 
-import { activeConfig } from "../_lib/activeConfig";
+import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { formatCurrency, formatRange } from "../_lib/format";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
@@ -11,12 +11,13 @@ import { CategoryBreakdown } from "./CategoryBreakdown";
 import { VarianceSection } from "./VarianceSection";
 
 export function Dashboard({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
+  const { config } = useEffectiveConfig();
   const errors = validateProjectInvariants(project);
   if (errors.length > 0) {
     return <ValidationErrorList errors={errors} />;
   }
 
-  const scenarios = computeProjectScenarios(project, activeConfig.confidenceBands);
+  const scenarios = computeProjectScenarios(project, config.confidenceBands);
   const { currency, displayUnits } = project;
 
   return (

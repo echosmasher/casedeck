@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import { RoleProvider } from "./_lib/RoleProvider";
+import { EffectiveConfigProvider } from "./_lib/EffectiveConfigProvider";
 import { DemoHeader } from "@/components/demo-header";
 import "./globals.css";
 
@@ -29,17 +30,24 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         <RoleProvider>
-          <header className="border-b">
-            <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 py-4">
-              <Link href="/" className="text-lg font-semibold tracking-tight">
-                CaseDeck
-              </Link>
-              <DemoHeader />
-            </div>
-          </header>
-          <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-8">
-            {children}
-          </main>
+          <EffectiveConfigProvider>
+            <header className="border-b">
+              <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 py-4">
+                <div className="flex items-center gap-4">
+                  <Link href="/" className="text-lg font-semibold tracking-tight">
+                    CaseDeck
+                  </Link>
+                  <Link href="/settings" className="text-sm text-muted-foreground hover:text-foreground">
+                    Settings
+                  </Link>
+                </div>
+                <DemoHeader />
+              </div>
+            </header>
+            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 py-8">
+              {children}
+            </main>
+          </EffectiveConfigProvider>
         </RoleProvider>
       </body>
     </html>
