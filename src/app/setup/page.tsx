@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { getStorage } from "../_lib/storage";
 import { useRole } from "../_lib/RoleProvider";
@@ -42,17 +42,44 @@ const PERIOD_HINT: Record<Periodization, string> = {
 };
 
 type PricingKind = "none" | "fixed" | "hourly";
-type FixedAllocationKind = "even" | "at_period";
+type FixedAllocationKind = "even" | "at_period" | "custom";
 
 export default function SetupPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-muted-foreground">Loading…</p>}>
+      <SetupPageContent />
+    </Suspense>
+  );
+}
+
+function SetupPageContent() {
   const router = useRouter();
   const { role } = useRole();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id");
+  const [loaded, setLoaded] = useState<{ id: string; project: Project | null } | null>(null);
+
+  useEffect(() => {
+    if (!editId) return;
+    let ignore = false;
+    void getStorage()
+      .getProject(editId)
+      .then((p) => {
+        if (!ignore) setLoaded({ id: editId, project: p ?? null });
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [editId]);
+
+  const existingProject = !editId ? null : loaded?.id === editId ? loaded.project : undefined;
 
   if (role === "viewer") {
     return (
       <div className="flex flex-col gap-3">
         <p className="text-sm text-destructive">
-          Viewer role is read-only — switch to Planner to create a project.
+          Viewer role is read-only — switch to Planner to {editId ? "edit this" : "create a"}{" "}
+          project.
         </p>
         <Link href="/" className="text-sm underline">
           Back to projects
@@ -61,35 +88,82 @@ export default function SetupPage() {
     );
   }
 
-  return <SetupForm router={router} />;
+  if (editId && existingProject === undefined) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
+  if (editId && existingProject === null) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-sm text-destructive">No project found with id &quot;{editId}&quot;.</p>
+        <Link href="/" className="text-sm underline">
+          Back to projects
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <SetupForm
+      key={editId ?? "new"}
+      router={router}
+      existingProject={editId ? (existingProject as Project) : null}
+    />
+  );
 }
 
-function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
+function SetupForm({
+  router,
+  existingProject,
+}: {
+  router: ReturnType<typeof useRouter>;
+  existingProject: Project | null;
+}) {
   const { config } = useEffectiveConfig();
-  const [name, setName] = useState("");
-  const [type, setType] = useState<ProjectType>("internal");
-  const [status, setStatus] = useState<ProjectStatus>("planning");
-  const [currency, setCurrency] = useState(activeConfig.currency);
+  const [name, setName] = useState(existingProject?.name ?? "");
+  const [type, setType] = useState<ProjectType>(existingProject?.type ?? "internal");
+  const [status, setStatus] = useState<ProjectStatus>(existingProject?.status ?? "planning");
+  const [currency, setCurrency] = useState(existingProject?.currency ?? activeConfig.currency);
   const [displayUnits, setDisplayUnits] = useState<"whole" | "thousands">(
-    activeConfig.displayUnitsDefault,
+    existingProject?.displayUnits ?? activeConfig.displayUnitsDefault,
   );
-  const [periodization, setPeriodization] = useState<Periodization>("monthly");
-  const [startPeriod, setStartPeriod] = useState("");
-  const [endPeriod, setEndPeriod] = useState("");
+  const [periodization, setPeriodization] = useState<Periodization>(
+    existingProject?.periodization ?? "monthly",
+  );
+  const [startPeriod, setStartPeriod] = useState(existingProject?.startPeriod ?? "");
+  const [endPeriod, setEndPeriod] = useState(existingProject?.endPeriod ?? "");
   const [loadedCostMultiplier, setLoadedCostMultiplier] = useState(
-    String(config.loadedCostMultiplier),
+    String(existingProject?.loadedCostMultiplier ?? config.loadedCostMultiplier),
   );
 
-  const [pricingKind, setPricingKind] = useState<PricingKind>("none");
-  const [fixedAmount, setFixedAmount] = useState("");
-  const [fixedAllocationKind, setFixedAllocationKind] = useState<FixedAllocationKind>("even");
-  const [fixedAtPeriod, setFixedAtPeriod] = useState("");
-  const [fixedConfidence, setFixedConfidence] = useState<Confidence>("estimated");
-  const [hourlyRate, setHourlyRate] = useState("");
-  const [hourlyConfidence, setHourlyConfidence] = useState<Confidence>("estimated");
+  const existingPricing = existingProject?.pricingModel ?? null;
+  const [pricingKind, setPricingKind] = useState<PricingKind>(
+    existingPricing ? (existingPricing.type as PricingKind) : "none",
+  );
+  const [fixedAmount, setFixedAmount] = useState(
+    existingPricing?.type === "fixed" ? String(existingPricing.amount) : "",
+  );
+  const [fixedAllocationKind, setFixedAllocationKind] = useState<FixedAllocationKind>(
+    existingPricing?.type === "fixed" ? existingPricing.allocation.type : "even",
+  );
+  const [fixedAtPeriod, setFixedAtPeriod] = useState(
+    existingPricing?.type === "fixed" && existingPricing.allocation.type === "at_period"
+      ? existingPricing.allocation.period
+      : "",
+  );
+  const [fixedConfidence, setFixedConfidence] = useState<Confidence>(
+    existingPricing?.type === "fixed" ? existingPricing.confidence : "estimated",
+  );
+  const [hourlyRate, setHourlyRate] = useState(
+    existingPricing?.type === "hourly" ? String(existingPricing.ratePerHour) : "",
+  );
+  const [hourlyConfidence, setHourlyConfidence] = useState<Confidence>(
+    existingPricing?.type === "hourly" ? existingPricing.confidence : "estimated",
+  );
 
-  const [stakeholders, setStakeholders] = useState<Stakeholder[]>([]);
-  const [dependencies, setDependencies] = useState<string[]>([]);
+  const [stakeholders, setStakeholders] = useState<Stakeholder[]>(
+    existingProject?.stakeholders ?? [],
+  );
+  const [dependencies, setDependencies] = useState<string[]>(existingProject?.dependencies ?? []);
 
   const [errors, setErrors] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -137,13 +211,18 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
       formErrors.push(`Allocation period must match ${PERIOD_HINT[periodization]}.`);
     }
 
+    const existingHourlyPricing =
+      existingProject?.pricingModel?.type === "hourly" ? existingProject.pricingModel : null;
+
     let pricingModel: PricingModel = null;
     if (type === "customer") {
       if (pricingKind === "fixed") {
         const allocation: Allocation =
-          fixedAllocationKind === "even"
-            ? { type: "even" }
-            : { type: "at_period", period: fixedAtPeriod };
+          fixedAllocationKind === "custom" && existingProject?.pricingModel?.type === "fixed"
+            ? existingProject.pricingModel.allocation
+            : fixedAllocationKind === "even"
+              ? { type: "even" }
+              : { type: "at_period", period: fixedAtPeriod };
         pricingModel = {
           type: "fixed",
           amount: Number(fixedAmount),
@@ -154,8 +233,11 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
         pricingModel = {
           type: "hourly",
           ratePerHour: Number(hourlyRate),
-          hoursPerPeriod: {},
+          hoursPerPeriod: existingHourlyPricing?.hoursPerPeriod ?? {},
           confidence: hourlyConfidence,
+          ...(existingHourlyPricing?.confidencePerPeriod
+            ? { confidencePerPeriod: existingHourlyPricing.confidencePerPeriod }
+            : {}),
         };
       }
     }
@@ -166,7 +248,7 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
     }
 
     const storage = getStorage();
-    const id = await storage.nextProjectId();
+    const id = existingProject?.id ?? (await storage.nextProjectId());
     const project: Project = {
       id,
       name: name.trim(),
@@ -179,7 +261,7 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
       endPeriod,
       loadedCostMultiplier: Number(loadedCostMultiplier),
       pricingModel,
-      costs: [],
+      costs: existingProject?.costs ?? [],
       stakeholders,
       dependencies: dependencies.filter((d) => d.trim().length > 0),
     };
@@ -198,10 +280,13 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6 pb-16">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New project</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          {existingProject ? `Edit ${existingProject.name}` : "New project"}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Set up the project&apos;s identity and timeline. Cost and revenue line items are entered
-          next, on the project page.
+          {existingProject
+            ? "Start period and currency are locked once a project exists. Cost and revenue line items are edited on the project page."
+            : "Set up the project's identity and timeline. Cost and revenue line items are entered next, on the project page."}
         </p>
       </div>
 
@@ -277,8 +362,13 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
               value={currency}
               maxLength={3}
               onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+              disabled={!!existingProject}
+              readOnly={!!existingProject}
               required
             />
+            {existingProject && (
+              <p className="text-xs text-muted-foreground">Locked — set at project creation.</p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -343,8 +433,13 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
               value={startPeriod}
               placeholder={PERIOD_HINT[periodization]}
               onChange={(e) => setStartPeriod(e.target.value)}
+              disabled={!!existingProject}
+              readOnly={!!existingProject}
               required
             />
+            {existingProject && (
+              <p className="text-xs text-muted-foreground">Locked — set at project creation.</p>
+            )}
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="endPeriod">End period</Label>
@@ -406,11 +501,21 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
                   >
                     <option value="even">Even across the lifetime</option>
                     <option value="at_period">Recognized at a single period</option>
+                    {fixedAllocationKind === "custom" && (
+                      <option value="custom">Custom per-period (from import)</option>
+                    )}
                   </select>
-                  <p className="text-xs text-muted-foreground">
-                    Custom per-period allocation isn&apos;t available in this form yet — import a
-                    snapshot to set one.
-                  </p>
+                  {fixedAllocationKind === "custom" ? (
+                    <p className="text-xs text-muted-foreground">
+                      Set via imported data — switching to another option here replaces it.
+                      Per-period values are edited in the Inputs tab.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Custom per-period allocation isn&apos;t available in this form yet — import a
+                      snapshot to set one.
+                    </p>
+                  )}
                 </div>
                 {fixedAllocationKind === "at_period" && (
                   <div className="flex flex-col gap-1.5">
@@ -566,7 +671,13 @@ function SetupForm({ router }: { router: ReturnType<typeof useRouter> }) {
 
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={submitting}>
-          {submitting ? "Creating…" : "Create project"}
+          {existingProject
+            ? submitting
+              ? "Saving…"
+              : "Save changes"
+            : submitting
+              ? "Creating…"
+              : "Create project"}
         </Button>
       </div>
     </form>

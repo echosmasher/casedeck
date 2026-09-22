@@ -9,6 +9,7 @@ import { isViewerVisible } from "../_lib/demoViewer";
 import type { Project } from "@/engine/model";
 import type { StoredActualEntry } from "@/storage/types";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputsEditor } from "./InputsEditor";
 import { Dashboard } from "./Dashboard";
@@ -119,9 +120,21 @@ function ProjectPageContent() {
             {project.currency}
           </p>
         </div>
-        <Link href="/" className="text-sm underline">
-          Back to projects
-        </Link>
+        <div className="flex items-center gap-3">
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              render={<Link href={`/setup?id=${project.id}`} />}
+              nativeButton={false}
+            >
+              Edit
+            </Button>
+          )}
+          <Link href="/" className="text-sm underline">
+            Back to projects
+          </Link>
+        </div>
       </div>
 
       {saveError && (
