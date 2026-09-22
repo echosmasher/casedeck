@@ -91,7 +91,10 @@ pnpm build           # static export to out/ — no server, no API routes
   layer over deterministic scenario math (`src/engine/scenarios.ts`) and variance/projection-to-
   complete tracking (`src/engine/variance.ts`).
 - **Config, not code, for anything org-specific.** Category mappings, rate cards, loaded-cost
-  multipliers, currency, and confidence-band percentages live in `config/`, never hardcoded.
+  multipliers, currency, and confidence-band percentages live in `config/`, never hardcoded. The
+  in-app Settings page lets a Planner tune rate cards, multipliers, and confidence bands per
+  deployment; edits are stored as overrides merged over the bundled config at read time, so
+  `config/` itself stays untouched.
 - **AI at the edges only.** Claude never computes a number that ends up in app output — see "How it
   works" above and `CLAUDE.md`.
 - **Self-contained export.** `src/export/` is a separate, hand-rolled SVG/HTML generator (not
