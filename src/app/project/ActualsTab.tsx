@@ -135,16 +135,30 @@ function ImportCard({ project, onCommitted }: { project: Project; onCommitted: (
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".csv,text/csv"
-          disabled={!ready}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void handleFile(file);
-          }}
-        />
+        <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={!ready}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Choose file
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {fileName ?? "No file chosen"}
+          </span>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            disabled={!ready}
+            className="sr-only"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void handleFile(file);
+            }}
+          />
+        </div>
 
         {result && (
           <div className="flex flex-col gap-4 rounded-lg border p-4">

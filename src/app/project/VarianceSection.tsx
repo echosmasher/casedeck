@@ -1,6 +1,7 @@
 "use client";
 
-import { CheckCircle2, AlertTriangle, AlertCircle } from "lucide-react";
+import { Badge, type badgeVariants } from "@/components/ui/badge";
+import type { VariantProps } from "class-variance-authority";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "../_lib/format";
@@ -9,10 +10,13 @@ import { computeVariance, type VarianceFlag } from "@/engine/variance";
 import type { ActualEntry, Project } from "@/engine/model";
 import { CATEGORY_LABEL } from "./shared";
 
-const FLAG_META: Record<VarianceFlag, { label: string; color: string; Icon: typeof CheckCircle2 }> = {
-  ok: { label: "On track", color: "var(--viz-good)", Icon: CheckCircle2 },
-  warning: { label: "Watch", color: "var(--viz-warning)", Icon: AlertTriangle },
-  red: { label: "Over budget", color: "var(--viz-critical)", Icon: AlertCircle },
+const FLAG_META: Record<
+  VarianceFlag,
+  { label: string; color: string; variant: NonNullable<VariantProps<typeof badgeVariants>["variant"]> }
+> = {
+  ok: { label: "On track", color: "var(--viz-good)", variant: "status-good" },
+  warning: { label: "Watch", color: "var(--viz-warning)", variant: "status-warning" },
+  red: { label: "Over budget", color: "var(--viz-critical)", variant: "status-critical" },
 };
 
 export function VarianceSection({
@@ -58,10 +62,9 @@ export function VarianceSection({
                 <TableRow key={category}>
                   <TableCell className="font-medium">{CATEGORY_LABEL[category] ?? category}</TableCell>
                   <TableCell>
-                    <span className="flex items-center gap-1.5 text-sm" style={{ color: meta.color }}>
-                      <meta.Icon className="size-4" aria-hidden />
+                    <Badge variant={meta.variant} dot>
                       {meta.label}
-                    </span>
+                    </Badge>
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {formatCurrency(row.actualToDate, currency, displayUnits)}
@@ -81,13 +84,9 @@ export function VarianceSection({
             <TableRow className="border-t-2">
               <TableCell className="font-semibold">Total</TableCell>
               <TableCell>
-                <span
-                  className="flex items-center gap-1.5 text-sm font-semibold"
-                  style={{ color: totalMeta.color }}
-                >
-                  <totalMeta.Icon className="size-4" aria-hidden />
+                <Badge variant={totalMeta.variant} dot>
                   {totalMeta.label}
-                </span>
+                </Badge>
               </TableCell>
               <TableCell className="tabular-nums font-semibold">
                 {formatCurrency(variance.total.actualToDate, currency, displayUnits)}

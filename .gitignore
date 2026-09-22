@@ -48,3 +48,6 @@ next-env.d.ts
 # casedeck: local user data snapshots (JSON exports, real budgets/actuals)
 /user-data/
 *.local.json
+
+# Session handoff notes - local scratch, never committed
+HANDOFF.md

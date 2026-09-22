@@ -84,12 +84,12 @@ function StatTile({
     : "var(--viz-text-primary)";
 
   return (
-    <div className="rounded-lg border p-4">
-      <p className="text-sm text-muted-foreground">{label}</p>
-      <p className="mt-1 text-3xl font-semibold" style={{ color }}>
+    <div className="rounded-[0.5rem] border border-border p-4">
+      <p className="text-label-caps text-muted-foreground">{label}</p>
+      <p className="mt-1 text-display-xl tabular-nums" style={{ color }}>
         {formatCurrency(value.expected, currency, displayUnits)}
       </p>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="mt-1 text-caption text-muted-foreground tabular-nums">
         {formatRange(value.worst, value.best, currency, displayUnits)} range
       </p>
     </div>

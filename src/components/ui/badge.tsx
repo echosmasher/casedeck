@@ -19,6 +19,14 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // DESIGN.md Status Pill Tags — deterministic status communication only
+        // (variance delta, run-rate alerts, confidence thresholds).
+        "status-good":
+          "border-[var(--viz-good-border)] bg-[var(--viz-good-bg)] text-[var(--viz-good)]",
+        "status-warning":
+          "border-[var(--viz-warning-border)] bg-[var(--viz-warning-bg)] text-[var(--viz-warning)]",
+        "status-critical":
+          "border-[var(--viz-critical-border)] bg-[var(--viz-critical-bg)] text-[var(--viz-critical)]",
       },
     },
     defaultVariants: {
@@ -27,17 +35,39 @@ const badgeVariants = cva(
   }
 )
 
+const statusDotColor: Partial<Record<NonNullable<VariantProps<typeof badgeVariants>["variant"]>, string>> = {
+  "status-good": "var(--viz-good)",
+  "status-warning": "var(--viz-warning)",
+  "status-critical": "var(--viz-critical)",
+}
+
 function Badge({
   className,
   variant = "default",
+  dot,
   render,
+  children,
   ...props
-}: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {
+}: useRender.ComponentProps<"span"> &
+  VariantProps<typeof badgeVariants> & { dot?: boolean }) {
+  const dotColor = variant ? statusDotColor[variant] : undefined
   return useRender({
     defaultTagName: "span",
     props: mergeProps<"span">(
       {
         className: cn(badgeVariants({ variant }), className),
+        children: (
+          <>
+            {dot && dotColor && (
+              <span
+                aria-hidden="true"
+                className="size-1.5 shrink-0 rounded-full"
+                style={{ backgroundColor: dotColor }}
+              />
+            )}
+            {children}
+          </>
+        ),
       },
       props
     ),

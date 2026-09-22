@@ -2,7 +2,7 @@ import { activeConfig } from "../_lib/activeConfig";
 import type { Confidence, DirectCostCategory } from "@/engine/model";
 
 export const selectClass =
-  "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
+  "h-8 w-full min-w-[7.5rem] rounded-[0.25rem] border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-primary dark:bg-input/30";
 
 export const DIRECT_CATEGORIES: DirectCostCategory[] = [
   "consultancy",

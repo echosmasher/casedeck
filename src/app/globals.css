@@ -49,108 +49,127 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Precision Editorial Finance (DESIGN.md) — monochromatic zinc/white core */
+  --background: #ffffff;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+  --primary: #18181b;
+  --primary-foreground: #fafafa;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #18181b;
+  --destructive: #e11d48;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --ring: #18181b;
+  --chart-1: #18181b;
+  --chart-2: #52525b;
+  --chart-3: #71717a;
+  --chart-4: #a1a1aa;
+  --chart-5: #d4d4d8;
+  --radius: 0.5rem;
+  --sidebar: #fafafa;
+  --sidebar-foreground: #18181b;
+  --sidebar-primary: #18181b;
+  --sidebar-primary-foreground: #fafafa;
+  --sidebar-accent: #f4f4f5;
+  --sidebar-accent-foreground: #18181b;
+  --sidebar-border: #e4e4e7;
+  --sidebar-ring: #a1a1aa;
 
-  /* dataviz palette (references/palette.md) — light mode */
-  --viz-surface: #fcfcfb;
-  --viz-text-primary: #0b0b0b;
-  --viz-text-secondary: #52514e;
-  --viz-text-muted: #898781;
-  --viz-gridline: #e1e0d9;
-  --viz-baseline: #c3c2b7;
+  /* dataviz palette (references/palette.md), realigned to DESIGN.md — light mode */
+  --viz-surface: #ffffff;
+  --viz-text-primary: #18181b;
+  --viz-text-secondary: #71717a;
+  --viz-text-muted: #a1a1aa;
+  --viz-gridline: #e4e4e7;
+  --viz-baseline: #d4d4d8;
   --viz-blue: #2a78d6;
-  --viz-red: #e34948;
-  --viz-good: #006300;
-  --viz-critical: #d03b3b;
-  --viz-warning: #92400e;
+  --viz-red: #e11d48;
+  --viz-good: #059669;
+  --viz-critical: #e11d48;
+  --viz-warning: #d97706;
 
-  /* status palette (references/palette.md) — fixed, never themed; same hex in both modes.
+  /* status palette — fixed, never themed; same hex in both modes.
      For icons/marks/badge fills only — none of these three meet 4.5:1 as text on
-     --viz-surface (warning is 1.8:1). Use --viz-good/--viz-warning/--viz-critical above
-     for status text and figures instead. */
-  --viz-status-good: #0ca30c;
-  --viz-status-warning: #fab219;
-  --viz-status-critical: #d03b3b;
+     --viz-surface. Use --viz-good/--viz-warning/--viz-critical above for status text
+     and figures instead. */
+  --viz-status-good: #059669;
+  --viz-status-warning: #d97706;
+  --viz-status-critical: #e11d48;
+
+  /* status pill soft-fill/border triads (DESIGN.md Status Pill Tags) */
+  --viz-good-bg: #ecfdf5;
+  --viz-good-border: #a7f3d0;
+  --viz-warning-bg: #fffbeb;
+  --viz-warning-border: #fde68a;
+  --viz-critical-bg: #fff1f2;
+  --viz-critical-border: #fecdd3;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
+  /* This app has no theme toggle yet (Phase 8), so this block is inert until one sets
+     .dark on <html>; kept in step with the light block so it isn't stale if that lands. */
+  --background: #18181b;
+  --foreground: #fafafa;
+  --card: #27272a;
+  --card-foreground: #fafafa;
+  --popover: #27272a;
+  --popover-foreground: #fafafa;
+  --primary: #fafafa;
+  --primary-foreground: #18181b;
+  --secondary: #3f3f46;
+  --secondary-foreground: #fafafa;
+  --muted: #3f3f46;
+  --muted-foreground: #a1a1aa;
+  --accent: #3f3f46;
+  --accent-foreground: #fafafa;
+  --destructive: #e11d48;
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --ring: #a1a1aa;
+  --chart-1: #fafafa;
+  --chart-2: #d4d4d8;
+  --chart-3: #a1a1aa;
+  --chart-4: #71717a;
+  --chart-5: #52525b;
+  --sidebar: #27272a;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #fafafa;
+  --sidebar-primary-foreground: #18181b;
+  --sidebar-accent: #3f3f46;
+  --sidebar-accent-foreground: #fafafa;
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar-ring: #71717a;
 
-  /* dataviz palette (references/palette.md) — dark mode. This app has no theme
-     toggle yet (Phase 8), so this block is inert until one sets .dark on <html>;
-     kept in step with the light block per the dataviz skill's accessibility pass. */
-  --viz-surface: #1a1a19;
-  --viz-text-primary: #ffffff;
-  --viz-text-secondary: #c3c2b7;
-  --viz-text-muted: #898781;
-  --viz-gridline: #2c2c2a;
-  --viz-baseline: #383835;
+  --viz-surface: #18181b;
+  --viz-text-primary: #fafafa;
+  --viz-text-secondary: #d4d4d8;
+  --viz-text-muted: #a1a1aa;
+  --viz-gridline: #3f3f46;
+  --viz-baseline: #52525b;
   --viz-blue: #3987e5;
   --viz-red: #e66767;
-  --viz-good: #0ca30c;
-  --viz-critical: #d03b3b;
-  --viz-warning: #fab219;
+  --viz-good: #059669;
+  --viz-critical: #e11d48;
+  --viz-warning: #d97706;
+
+  --viz-status-good: #059669;
+  --viz-status-warning: #d97706;
+  --viz-status-critical: #e11d48;
+
+  --viz-good-bg: #ecfdf5;
+  --viz-good-border: #a7f3d0;
+  --viz-warning-bg: #fffbeb;
+  --viz-warning-border: #fde68a;
+  --viz-critical-bg: #fff1f2;
+  --viz-critical-border: #fecdd3;
 }
 
 @layer base {
@@ -162,5 +181,64 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer utilities {
+  /* DESIGN.md: all financial values, roll-up sums, variance deltas, percentages, and dates
+     must enforce OpenType tabular figures to prevent horizontal jitter during recalculation. */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1, "cv01" 1;
+  }
+
+  /* DESIGN.md typography scale (Geist, already loaded via next/font in layout.tsx) */
+  .text-display-xl {
+    font-size: 32px;
+    font-weight: 600;
+    line-height: 40px;
+    letter-spacing: -0.025em;
+  }
+  .text-headline-lg {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 28px;
+    letter-spacing: -0.02em;
+  }
+  .text-headline-sm {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 24px;
+    letter-spacing: -0.015em;
+  }
+  .text-metric-lg {
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 28px;
+    letter-spacing: -0.02em;
+  }
+  .text-metric-md {
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 20px;
+    letter-spacing: -0.01em;
+  }
+  .text-label-caps {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 16px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .text-label-sm {
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 16px;
+    letter-spacing: -0.005em;
+  }
+  .text-caption {
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 14px;
   }
 }
