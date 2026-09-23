@@ -241,4 +241,22 @@
     font-weight: 400;
     line-height: 14px;
   }
+
+  /* Forces a classic, always-visible scrollbar instead of relying on OS overlay-scrollbar
+     behavior (e.g. macOS "show scrollbars: automatically"), so wide period tables signal that
+     they scroll without requiring a hover/scroll gesture first. */
+  .scrollbar-always-visible {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  .scrollbar-always-visible::-webkit-scrollbar {
+    height: 10px;
+  }
+  .scrollbar-always-visible::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-always-visible::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+  }
 }

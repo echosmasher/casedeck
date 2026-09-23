@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { projectPeriods } from "@/engine/periodize";
 import type { Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +13,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { NumberCell } from "@/components/number-cell";
 import { Trash2 } from "lucide-react";
 import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } from "./shared";
+
+// The Costs table pins its first two columns while period columns scroll underneath.
+// LINE_COL_LEFT_OFFSET must always equal LINE_COL_WIDTH — it's the left edge the second sticky
+// column docks against. LINE_COL_CONTENT_MAX_WIDTH must always equal LINE_COL_WIDTH minus the
+// cell's horizontal padding (px-2 = 1rem): with table-layout "auto", a nowrap/truncated span
+// with no width of its own contributes its *untruncated* text width to the column's min-content
+// size, silently growing the column past LINE_COL_WIDTH and misaligning the offset above — giving
+// the label wrapper its own definite max-width stops that.
+const LINE_COL_WIDTH = "w-56";
+const LINE_COL_LEFT_OFFSET = "left-56";
+const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[13rem]";
+const CONFIDENCE_COL_WIDTH = "w-40";
 
 export function InputsEditor({
   project,
@@ -77,11 +90,13 @@ export function InputsEditor({
           {project.costs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No cost lines yet.</p>
           ) : (
-            <Table>
+            <Table containerClassName="scrollbar-always-visible">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Line</TableHead>
-                  <TableHead>Confidence</TableHead>
+                  <TableHead className={cn("sticky left-0 z-20 bg-muted", LINE_COL_WIDTH)}>Line</TableHead>
+                  <TableHead className={cn("sticky z-20 bg-muted", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
+                    Confidence
+                  </TableHead>
                   {periods.map((p) => (
                     <TableHead key={p}>{p}</TableHead>
                   ))}
@@ -127,20 +142,20 @@ function CostLineRow({
 
   return (
     <TableRow>
-      <TableCell className="align-top">
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">{line.label}</span>
-          <span className="text-xs text-muted-foreground">
+      <TableCell className={cn("sticky left-0 z-20 bg-card align-top", LINE_COL_WIDTH)}>
+        <div className={cn("flex flex-col gap-1", LINE_COL_CONTENT_MAX_WIDTH)}>
+          <span className="truncate font-medium">{line.label}</span>
+          <span className="truncate text-xs text-muted-foreground">
             {CATEGORY_LABEL[line.category] ?? line.category}
           </span>
           {isSalary && (
-            <span className="text-xs text-muted-foreground">
+            <span className="truncate text-xs text-muted-foreground">
               {line.role} · {line.ratePerHour}/h
             </span>
           )}
         </div>
       </TableCell>
-      <TableCell className="align-top">
+      <TableCell className={cn("sticky z-20 bg-card align-top", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
         <select
           className={selectClass}
           aria-label={`Confidence for ${line.label}`}
@@ -403,7 +418,7 @@ function RevenueSection({
             </select>
           </div>
         </div>
-        <Table>
+        <Table containerClassName="scrollbar-always-visible">
           <TableHeader>
             <TableRow>
               {periods.map((p) => (
