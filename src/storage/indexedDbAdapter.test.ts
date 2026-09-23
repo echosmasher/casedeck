@@ -18,6 +18,13 @@ function withoutCode(project: Project): Omit<Project, "code"> {
   return clone as Omit<Project, "code">;
 }
 
+/** Simulates a pre-ticket-10 project record, before `closedPeriods` existed. */
+function withoutClosedPeriods(project: Project): Omit<Project, "closedPeriods"> {
+  const clone: Partial<Project> = { ...project };
+  delete clone.closedPeriods;
+  return clone as Omit<Project, "closedPeriods">;
+}
+
 describe("IndexedDbStorageAdapter — create, edit, reload", () => {
   it("persists a saved project across a simulated reload (new adapter instance, same db)", async () => {
     const dbName = freshDbName();
@@ -91,6 +98,31 @@ describe("IndexedDbStorageAdapter — project code migration (v3 -> v4)", () => 
     const migrated = await adapter.getProject((project001 as Project).id);
 
     expect(migrated?.code).toBe((project001 as Project).id);
+  });
+});
+
+describe("IndexedDbStorageAdapter — closed periods migration (v4 -> v5)", () => {
+  it("backfills an empty closedPeriods for a project stored under the pre-ticket-10 schema", async () => {
+    const dbName = freshDbName();
+
+    // Simulate a pre-ticket-10 database: a v4 database with a project row that has no
+    // `closedPeriods`.
+    const legacyDb = new Dexie(dbName);
+    legacyDb.version(4).stores({
+      projects: "id",
+      actuals: "id, projectId, [projectId+period]",
+      categoryMappingOverrides: "accountCode",
+      settings: "id",
+    });
+    await legacyDb.table("projects").put(withoutClosedPeriods(project001 as Project));
+    legacyDb.close();
+
+    // Opening with the current adapter runs the v5 upgrade, which should backfill
+    // closedPeriods = [].
+    const adapter = new IndexedDbStorageAdapter(dbName);
+    const migrated = await adapter.getProject((project001 as Project).id);
+
+    expect(migrated?.closedPeriods).toEqual([]);
   });
 });
 
@@ -179,6 +211,34 @@ describe("Snapshot export/import round trip — byte-stable modulo exportedAt", 
     expect((await target.getProject((project001 as Project).id))?.code).toBe(
       (project001 as Project).code,
     );
+  });
+
+  it("round-trips closedPeriods through export/import", async () => {
+    const source = new IndexedDbStorageAdapter(freshDbName());
+    await source.saveProject({ ...(project001 as Project), closedPeriods: ["2026-01", "2026-02"] });
+
+    const target = new IndexedDbStorageAdapter(freshDbName());
+    await target.importSnapshot(parseSnapshot(serializeSnapshot(await source.exportSnapshot())));
+
+    expect((await target.getProject((project001 as Project).id))?.closedPeriods).toEqual([
+      "2026-01",
+      "2026-02",
+    ]);
+  });
+
+  it("defaults a legacy snapshot's missing closedPeriods to an empty set", () => {
+    const json = JSON.stringify({
+      schemaVersion: "1",
+      exportedAt: "2026-01-01T00:00:00.000Z",
+      projects: [withoutClosedPeriods(project001 as Project)],
+      actuals: [],
+      categoryMappingOverrides: [],
+      settingsOverrides: { rateCardOverrides: [] },
+    });
+
+    const snapshot = parseSnapshot(json);
+
+    expect(snapshot.projects[0].closedPeriods).toEqual([]);
   });
 
   it("defaults a legacy snapshot's missing project code to its id", () => {

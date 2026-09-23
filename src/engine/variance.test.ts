@@ -112,6 +112,7 @@ describe("computeVariance — edge cases", () => {
     ],
     stakeholders: [],
     dependencies: [],
+    closedPeriods: [],
   };
 
   it("spending against an entirely unbudgeted category has zero contingency and is flagged red", () => {

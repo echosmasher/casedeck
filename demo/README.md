@@ -34,7 +34,8 @@ Internal project, monthly, Jan–Aug 2026, status `in_progress`. At the time thi
 column shows it red with an "Overdue" marker — showcasing that feature rather than being kept in
 sync with the calendar. Approved with consultancy marked `estimated` (±10% band); salary marked
 `estimated` too. Four months of actuals are loaded (Jan–Apr 2026); May–Aug are budget-only
-(not yet incurred).
+(not yet incurred). Jan–Apr 2026 are also **closed** (`closedPeriods`) — the months with actuals
+loaded; May–Aug stay open/projected.
 
 **Budgeted (expected case), 8-month totals:**
 | Line | Confidence | Monthly | 8-month total |
@@ -96,7 +97,8 @@ not a cost overrun.
 comma — `002-actuals-full-lifetime.csv`):** every cost line lands within ±10% of its quarterly
 budget (largest single deviation: Q3 travel, 5,200 actual vs. 5,000 budget, +4%). Revenue actual
 matches the committed contract amount exactly. **Nothing is flagged.** This is the calibration
-check: the tool doesn't cry wolf when reality matches plan.
+check: the tool doesn't cry wolf when reality matches plan. All four quarters are **closed**
+(`closedPeriods`) — a completed project with full-lifetime actuals has nothing left open.
 
 **Where visible:** Dashboard's cumulative P&L chart shows the trough-then-spike shape described
 above; Variance view (Phase 5) shows every category green — the direct visual contrast to 001.
@@ -106,8 +108,9 @@ above; Variance view (Phase 5) shows every category green — the direct visual 
 ## Story 3 — 003 ERP Data Migration (the scenario story)
 
 Customer project, hourly pricing, monthly, Oct 2026–Mar 2027, status `planning`. No actuals exist
-yet. Most lines are `rough` (±30%); revenue's first two months are `estimated` (±10%) — nearer-term
-figures are more certain than the rest, demonstrating per-period confidence override.
+yet, and nothing is closed (`closedPeriods: []`) — every period is still a projection. Most lines
+are `rough` (±30%); revenue's first two months are `estimated` (±10%) — nearer-term figures are
+more certain than the rest, demonstrating per-period confidence override.
 
 **Budgeted (expected case):**
 | | Confidence | 6-month total |

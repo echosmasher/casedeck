@@ -188,6 +188,56 @@ describe("validateProjectInvariants — catches invalid model states", () => {
     expect(errors).toContainEqual(expect.objectContaining({ field: "pricingModel.amount" }));
   });
 
+  it("accepts closed periods that are a contiguous prefix from the start", () => {
+    const project: Project = { ...(project001 as Project), closedPeriods: ["2026-01", "2026-02"] };
+    const errors = validateProjectInvariants(project);
+    expect(errors.some((e) => e.field.startsWith("closedPeriods"))).toBe(false);
+  });
+
+  it("flags a closed period outside the project lifetime", () => {
+    const project: Project = { ...(project001 as Project), closedPeriods: ["2025-12"] };
+    const errors = validateProjectInvariants(project);
+    expect(errors).toContainEqual(
+      expect.objectContaining({ field: "closedPeriods[0]", message: expect.stringContaining("outside the project lifetime") }),
+    );
+  });
+
+  it("flags closed periods that skip the start of the project", () => {
+    const project: Project = { ...(project001 as Project), closedPeriods: ["2026-02", "2026-03"] };
+    const errors = validateProjectInvariants(project);
+    expect(errors).toContainEqual(
+      expect.objectContaining({ field: "closedPeriods", message: expect.stringContaining("contiguous") }),
+    );
+  });
+
+  it("flags closed periods with a gap in the middle", () => {
+    const project: Project = { ...(project001 as Project), closedPeriods: ["2026-01", "2026-03"] };
+    const errors = validateProjectInvariants(project);
+    expect(errors).toContainEqual(
+      expect.objectContaining({ field: "closedPeriods", message: expect.stringContaining("contiguous") }),
+    );
+  });
+
+  it("accepts closed periods stored out of order, as long as they form a contiguous prefix", () => {
+    const project: Project = { ...(project001 as Project), closedPeriods: ["2026-02", "2026-01"] };
+    const errors = validateProjectInvariants(project);
+    expect(errors.some((e) => e.field.startsWith("closedPeriods"))).toBe(false);
+  });
+
+  it("flags duplicate entries in closedPeriods", () => {
+    const project: Project = { ...(project001 as Project), closedPeriods: ["2026-01", "2026-01"] };
+    const errors = validateProjectInvariants(project);
+    expect(errors).toContainEqual(
+      expect.objectContaining({ field: "closedPeriods", message: expect.stringContaining("duplicate") }),
+    );
+  });
+
+  it("accepts an empty closedPeriods set", () => {
+    const project: Project = { ...(project001 as Project), closedPeriods: [] };
+    const errors = validateProjectInvariants(project);
+    expect(errors.some((e) => e.field.startsWith("closedPeriods"))).toBe(false);
+  });
+
   it("flags a negative hourly ratePerHour and negative hoursPerPeriod", () => {
     const project: Project = {
       ...(project003 as Project),

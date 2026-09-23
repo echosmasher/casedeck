@@ -97,6 +97,10 @@ export interface Project {
   costs: CostLineItem[];
   stakeholders: Stakeholder[];
   dependencies: string[];
+  /** Periods treated as actuals rather than projections, contiguous from `startPeriod`. Default
+   * `[]` (nothing closed). Planner-controlled on the Actuals tab; validated for range + contiguity
+   * in `validateProjectInvariants`. */
+  closedPeriods: PeriodKey[];
 }
 
 export interface ConfidenceBand {

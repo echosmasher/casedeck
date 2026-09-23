@@ -90,6 +90,7 @@ describe("computeProjectScenarios — fixed-price allocation variants", () => {
     costs: [],
     stakeholders: [],
     dependencies: [],
+    closedPeriods: [],
   };
 
   it("even allocation splits the amount equally across periods, and bands it", () => {

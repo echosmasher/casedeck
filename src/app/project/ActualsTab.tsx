@@ -21,11 +21,13 @@ export function ActualsTab({
   project,
   actuals,
   onActualsChanged,
+  onProjectChanged,
   readOnly = false,
 }: {
   project: Project;
   actuals: StoredActualEntry[];
   onActualsChanged: () => void;
+  onProjectChanged: (next: Project) => void;
   readOnly?: boolean;
 }) {
   return (
@@ -35,10 +37,114 @@ export function ActualsTab({
           Viewer role — read only. Switch to Planner to import or record actuals.
         </p>
       )}
+      <ClosedPeriodsCard project={project} actuals={actuals} onChanged={onProjectChanged} readOnly={readOnly} />
       <ImportCard project={project} onCommitted={onActualsChanged} />
       <ManualEntryCard project={project} onAdded={onActualsChanged} />
       <RecordedActualsCard actuals={actuals} onDeleted={onActualsChanged} />
     </fieldset>
+  );
+}
+
+const NOT_CLOSED = "__not_closed__";
+
+/** Planner control for closing periods contiguously from the project start (QA-ROUND-2-PLAN.md
+ * D1/D3). A single "close through" selector both closes forward and reopens backward — picking an
+ * earlier period than the current close point shrinks `closedPeriods` back to it, which is exactly
+ * "reopen". */
+function ClosedPeriodsCard({
+  project,
+  actuals,
+  onChanged,
+  readOnly,
+}: {
+  project: Project;
+  actuals: StoredActualEntry[];
+  onChanged: (next: Project) => void;
+  readOnly: boolean;
+}) {
+  const formId = useId();
+  const periods = projectPeriods(project);
+  const closedThroughIndex = project.closedPeriods.length - 1;
+  const closedThroughPeriod = closedThroughIndex >= 0 ? periods[closedThroughIndex] : null;
+
+  function handleChange(value: string) {
+    const nextClosedPeriods = value === NOT_CLOSED ? [] : periods.slice(0, periods.indexOf(value) + 1);
+    onChanged({ ...project, closedPeriods: nextClosedPeriods });
+  }
+
+  function summaryFor(period: string) {
+    const forPeriod = actuals.filter((a) => a.period === period);
+    return {
+      hasCost: forPeriod.some((a) => a.category !== "revenue"),
+      hasRevenue: forPeriod.some((a) => a.category === "revenue"),
+    };
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Closed periods</CardTitle>
+        <CardDescription>
+          Closed periods use recorded actuals instead of projections. Closing is contiguous from
+          the project start — you can&apos;t close a later period while an earlier one is still
+          open.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {readOnly ? (
+          <p className="text-sm">
+            {closedThroughPeriod
+              ? `Closed through ${closedThroughPeriod}.`
+              : "Nothing closed — all periods are projected."}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`${formId}-close-through`}>Close periods through</Label>
+            <select
+              id={`${formId}-close-through`}
+              className={`${selectClass} w-fit`}
+              value={closedThroughPeriod ?? NOT_CLOSED}
+              onChange={(e) => handleChange(e.target.value)}
+            >
+              <option value={NOT_CLOSED}>Not closed</option>
+              {periods.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Pick an earlier period to reopen back to it.
+            </p>
+          </div>
+        )}
+
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Period</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Actual cost</TableHead>
+              <TableHead>Actual revenue</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {periods.map((p, index) => {
+              const { hasCost, hasRevenue } = summaryFor(p);
+              const isClosed = index <= closedThroughIndex;
+              return (
+                <TableRow key={p}>
+                  <TableCell>{p}</TableCell>
+                  <TableCell>{isClosed ? "Closed" : "Open"}</TableCell>
+                  <TableCell>{hasCost ? "Yes" : "No"}</TableCell>
+                  <TableCell>{hasRevenue ? "Yes" : "No"}</TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }
 

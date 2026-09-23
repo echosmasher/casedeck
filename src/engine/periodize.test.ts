@@ -72,6 +72,7 @@ describe("periodizeCosts — demo fixtures", () => {
       ],
       stakeholders: [],
       dependencies: [],
+      closedPeriods: [],
     };
     const result = periodizeCosts(project);
     expect(result.byCategory.other_direct["2026-01"]).toBe(0);
@@ -181,6 +182,7 @@ describe("allocation property: periodized revenue always sums to the modeled tot
             costs: [],
             stakeholders: [],
             dependencies: [],
+            closedPeriods: [],
           };
           const result = periodizeRevenue(project);
           expect(result.total).toBeCloseTo(amount, 2);
@@ -218,6 +220,7 @@ describe("allocation property: periodized revenue always sums to the modeled tot
             costs: [],
             stakeholders: [],
             dependencies: [],
+            closedPeriods: [],
           };
           const result = periodizeRevenue(project);
           expect(result.total).toBeCloseTo(total, 2);

@@ -59,6 +59,25 @@ class CaseDeckDatabase extends Dexie {
             }
           }),
       );
+    // v5: `closedPeriods` added to Project (ticket 10). Backfill an empty set — nothing closed —
+    // on existing rows so legacy projects behave exactly as before this field existed.
+    this.version(5)
+      .stores({
+        projects: "id",
+        actuals: "id, projectId, [projectId+period]",
+        categoryMappingOverrides: "accountCode",
+        settings: "id",
+      })
+      .upgrade((tx) =>
+        tx
+          .table("projects")
+          .toCollection()
+          .modify((project: Project) => {
+            if (!Array.isArray(project.closedPeriods)) {
+              project.closedPeriods = [];
+            }
+          }),
+      );
   }
 }
 

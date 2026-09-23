@@ -54,5 +54,6 @@
   "dependencies": [
     "Example Hotel A booking API credentials provided before Q1 kickoff",
     "Customer UAT sign-off required before Q4 invoicing"
-  ]
+  ],
+  "closedPeriods": ["2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4"]
 }

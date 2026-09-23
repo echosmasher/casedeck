@@ -280,6 +280,7 @@ function SetupForm({
       costs: existingProject?.costs ?? [],
       stakeholders,
       dependencies: dependencies.filter((d) => d.trim().length > 0),
+      closedPeriods: existingProject?.closedPeriods ?? [],
     };
 
     const modelErrors = validateProjectInvariants(project);

@@ -117,6 +117,7 @@ const project: Project = {
   costs: result.costs,
   stakeholders: meta.project.stakeholders,
   dependencies: meta.project.dependencies,
+  closedPeriods: [],
 };
 
 const invariantErrors = validateProjectInvariants(project);

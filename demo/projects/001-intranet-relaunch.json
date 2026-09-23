@@ -55,5 +55,6 @@
   "dependencies": [
     "CMS vendor contract signed before month 2 kickoff",
     "Legacy intranet content freeze by month 5"
-  ]
+  ],
+  "closedPeriods": ["2026-01", "2026-02", "2026-03", "2026-04"]
 }

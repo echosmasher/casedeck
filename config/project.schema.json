@@ -20,7 +20,8 @@
     "pricingModel",
     "costs",
     "stakeholders",
-    "dependencies"
+    "dependencies",
+    "closedPeriods"
   ],
   "properties": {
     "id": { "type": "string", "pattern": "^[0-9]{3}$" },
@@ -70,6 +71,11 @@
     "dependencies": {
       "type": "array",
       "items": { "type": "string" }
+    },
+    "closedPeriods": {
+      "type": "array",
+      "description": "Periods treated as actuals rather than projections, contiguous from startPeriod.",
+      "items": { "$ref": "#/$defs/periodKey" }
     }
   },
   "$defs": {

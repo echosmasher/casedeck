@@ -45,6 +45,43 @@ function checkLine(line: CostLineItem, index: number): ModelValidationError[] {
   return errors;
 }
 
+/** Closed periods must lie within the project's lifetime and form a contiguous prefix starting at
+ * `startPeriod` — the boundary between "actual" and "forecast" only makes sense if there's no gap
+ * (CLAUDE.md rule 4: fail loudly rather than let an inconsistent close silently pass). */
+function checkClosedPeriods(project: Project, orderedPeriods: string[]): ModelValidationError[] {
+  const errors: ModelValidationError[] = [];
+  const validSet = new Set(orderedPeriods);
+
+  project.closedPeriods.forEach((period, index) => {
+    if (!validSet.has(period)) {
+      errors.push({
+        field: `closedPeriods[${index}]`,
+        message: `"${period}" is outside the project lifetime (${project.startPeriod}..${project.endPeriod})`,
+      });
+    }
+  });
+
+  if (new Set(project.closedPeriods).size !== project.closedPeriods.length) {
+    errors.push({ field: "closedPeriods", message: "must not contain duplicate periods" });
+  }
+
+  if (project.closedPeriods.length > 0 && errors.length === 0) {
+    const expectedPrefix = orderedPeriods.slice(0, project.closedPeriods.length);
+    const actual = [...project.closedPeriods].sort(
+      (a, b) => orderedPeriods.indexOf(a) - orderedPeriods.indexOf(b),
+    );
+    const isContiguousFromStart = expectedPrefix.every((period, i) => period === actual[i]);
+    if (!isContiguousFromStart) {
+      errors.push({
+        field: "closedPeriods",
+        message: `must be contiguous from the project start — expected exactly [${expectedPrefix.join(", ")}]`,
+      });
+    }
+  }
+
+  return errors;
+}
+
 /** Structural/business-rule checks beyond what JSON Schema can express — run before any
  * computation (periodize/scenarios/variance), per PLAN.md §6.1. */
 export function validateProjectInvariants(project: Project): ModelValidationError[] {
@@ -54,6 +91,8 @@ export function validateProjectInvariants(project: Project): ModelValidationErro
   if (!project.code || !project.code.trim()) {
     errors.push({ field: "code", message: "is required and cannot be blank" });
   }
+
+  errors.push(...checkClosedPeriods(project, [...periods]));
 
   project.costs.forEach((line, index) => {
     errors.push(...checkLine(line, index));

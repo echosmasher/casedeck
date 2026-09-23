@@ -19,6 +19,14 @@ function withFallbackCodes(projects: Project[]): Project[] {
   );
 }
 
+/** Older snapshots (pre-ticket-10) don't carry `closedPeriods` — default to an empty set (nothing
+ * closed), same backward-compat pattern as `code` above. */
+function withFallbackClosedPeriods(projects: Project[]): Project[] {
+  return projects.map((project) =>
+    Array.isArray(project.closedPeriods) ? project : { ...project, closedPeriods: [] },
+  );
+}
+
 /** Fails loudly (CLAUDE.md rule 4) on a case-insensitive code collision, naming the conflicting
  * project rather than silently overwriting one of them. */
 function assertUniqueCodes(projects: Project[]): void {
@@ -97,7 +105,7 @@ export function parseSnapshot(json: string): Snapshot {
   if (typeof snapshot.settingsOverrides !== "object" || snapshot.settingsOverrides === null) {
     snapshot.settingsOverrides = DEFAULT_SETTINGS_OVERRIDES;
   }
-  snapshot.projects = withFallbackCodes(snapshot.projects);
+  snapshot.projects = withFallbackClosedPeriods(withFallbackCodes(snapshot.projects));
   assertUniqueCodes(snapshot.projects);
   return snapshot;
 }

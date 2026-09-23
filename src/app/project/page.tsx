@@ -172,6 +172,7 @@ function ProjectPageContent() {
             project={project}
             actuals={actuals}
             onActualsChanged={() => void reloadActuals(project.id)}
+            onProjectChanged={(next) => void commit(next)}
             readOnly={readOnly}
           />
         </TabsContent>
