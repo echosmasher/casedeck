@@ -98,7 +98,7 @@ export default function ProjectListPage() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="application/json"
+                accept=".json,application/json"
                 className="hidden"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -107,12 +107,13 @@ export default function ProjectListPage() {
                 }}
               />
               <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                Import snapshot
+                Import snapshot{" "}
+                <span className="text-xs text-muted-foreground">(.json)</span>
               </Button>
             </>
           )}
           <Button variant="outline" onClick={() => void handleExport()}>
-            Export snapshot
+            Export snapshot <span className="text-xs text-muted-foreground">(.json)</span>
           </Button>
           {isPlanner && (
             <Button render={<Link href="/setup" />} nativeButton={false}>

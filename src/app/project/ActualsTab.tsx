@@ -142,7 +142,7 @@ function ImportCard({ project, onCommitted }: { project: Project; onCommitted: (
             disabled={!ready}
             onClick={() => fileInputRef.current?.click()}
           >
-            Choose file
+            Choose file <span className="text-xs text-muted-foreground">(.csv)</span>
           </Button>
           <span className="text-sm text-muted-foreground">
             {fileName ?? "No file chosen"}

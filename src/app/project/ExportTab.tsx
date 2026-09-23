@@ -93,7 +93,7 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
           )}
 
           <Button type="button" disabled={liveErrors.length > 0} onClick={handleDownload} className="w-fit">
-            Download business case
+            Download business case <span className="text-xs text-muted-foreground">(.html)</span>
           </Button>
         </CardContent>
       </Card>
