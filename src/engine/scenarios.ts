@@ -15,7 +15,8 @@ import type {
   ScenarioValue,
 } from "./model";
 
-const ZERO: ScenarioValue = { expected: 0, best: 0, worst: 0 };
+export const ZERO_SCENARIO: ScenarioValue = { expected: 0, best: 0, worst: 0 };
+const ZERO = ZERO_SCENARIO;
 
 export function bandFraction(confidence: Confidence, bands: ConfidenceBands): number {
   return bands[confidence].bandPct / 100;
@@ -49,8 +50,12 @@ export function revenueScenarioValue(
   return { expected: value, best: value * (1 + b), worst: value * (1 - b) };
 }
 
-function addScenario(a: ScenarioValue, b: ScenarioValue): ScenarioValue {
+export function addScenario(a: ScenarioValue, b: ScenarioValue): ScenarioValue {
   return { expected: a.expected + b.expected, best: a.best + b.best, worst: a.worst + b.worst };
+}
+
+export function subtractScenario(a: ScenarioValue, b: ScenarioValue): ScenarioValue {
+  return { expected: a.expected - b.expected, best: a.best - b.best, worst: a.worst - b.worst };
 }
 
 export function lineScenarioByPeriod(

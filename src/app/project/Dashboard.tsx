@@ -4,6 +4,7 @@ import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { formatCurrency, formatRange } from "../_lib/format";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
+import { computeBlendedTotals } from "@/engine/blended";
 import type { ActualEntry, Project, ScenarioValue } from "@/engine/model";
 import { ScenarioChart } from "./ScenarioChart";
 import { CumulativeChart } from "./CumulativeChart";
@@ -18,31 +19,57 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
   }
 
   const scenarios = computeProjectScenarios(project, config.confidenceBands);
+  const blended = computeBlendedTotals(project, actuals, config.confidenceBands);
   const { currency, displayUnits } = project;
 
   return (
     <div className="flex flex-col gap-6">
+      {blended.warnings.length > 0 && (
+        <div
+          role="alert"
+          className="rounded-lg border p-4"
+          style={{
+            borderColor: "var(--viz-warning-border)",
+            backgroundColor: "var(--viz-warning-bg)",
+          }}
+        >
+          <ul
+            className="list-disc space-y-1 pl-5 text-sm"
+            style={{ color: "var(--viz-warning)" }}
+          >
+            {blended.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile
           label="Total cost"
-          value={scenarios.totals.cost}
+          value={blended.totals.cost}
           currency={currency}
           displayUnits={displayUnits}
         />
         <StatTile
           label="Total revenue"
-          value={scenarios.totals.revenue}
+          value={blended.totals.revenue}
           currency={currency}
           displayUnits={displayUnits}
         />
         <StatTile
           label="Margin"
-          value={scenarios.totals.margin}
+          value={blended.totals.margin}
           currency={currency}
           displayUnits={displayUnits}
           polarity
         />
       </div>
+      {blended.lastClosedPeriod && (
+        <p className="-mt-2 text-caption text-muted-foreground">
+          Actuals through {blended.lastClosedPeriod}, projected after
+        </p>
+      )}
 
       <ScenarioChart
         periods={scenarios.periods}
