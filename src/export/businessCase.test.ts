@@ -71,6 +71,11 @@ describe("renderBusinessCase — 003 (the flagship scenario story)", () => {
     if (!result.ok) throw new Error("expected ok result");
     expect(result.html).toContain("No executive summary provided");
   });
+
+  it("shows the project code next to the name in the header", () => {
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.html).toContain(project003.code);
+  });
 });
 
 describe("renderBusinessCase — 001 with actuals (the overrun story)", () => {

@@ -71,7 +71,7 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
 
 <header class="header">
   <div>
-    <h1>${escapeHtml(project.name)}</h1>
+    <h1>${escapeHtml(project.name)} <span class="code">${escapeHtml(project.code)}</span></h1>
     <p class="meta">
       ${STATUS_LABEL[project.status] ?? project.status} · ${escapeHtml(project.id)} ·
       ${escapeHtml(project.periodization)} · ${escapeHtml(project.startPeriod)}–${escapeHtml(project.endPeriod)} ·
@@ -219,6 +219,7 @@ const STYLES = `
   .doc { max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem; }
   .header { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; flex-wrap: wrap; border-bottom: 1px solid #e1e0d9; padding-bottom: 1rem; }
   .header h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+  .header h1 .code { font-family: ui-monospace, monospace; font-size: 0.85rem; font-weight: 400; color: #75746f; }
   .meta { color: #52514e; font-size: 0.85rem; margin: 0; }
   .card { background: #fcfcfb; border: 1px solid #e1e0d9; border-radius: 12px; padding: 1.25rem 1.5rem; page-break-inside: avoid; }
   .card h2 { margin-top: 0; font-size: 1.1rem; }

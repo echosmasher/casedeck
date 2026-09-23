@@ -34,7 +34,8 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
       return;
     }
     setErrors(null);
-    const fileName = `${project.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-business-case.html`;
+    const slugify = (s: string) => s.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const fileName = `${slugify(project.code)}-${slugify(project.name)}-business-case.html`;
     downloadTextFile(fileName, result.html, "text/html");
   }
 

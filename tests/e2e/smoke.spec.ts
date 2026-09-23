@@ -59,7 +59,7 @@ test("boot demo, open 001, import actuals, export 003", async ({ page }) => {
     page.waitForEvent("download"),
     downloadButton.click(),
   ]);
-  expect(download.suggestedFilename()).toBe("erp-data-migration-business-case.html");
+  expect(download.suggestedFilename()).toBe("pro-2602-erp-data-migration-business-case.html");
 
   expect(consoleErrors, `unexpected console errors: ${consoleErrors.join("\n")}`).toEqual([]);
 });
