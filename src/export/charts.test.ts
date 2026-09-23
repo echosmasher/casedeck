@@ -102,6 +102,48 @@ describe("renderCumulativeChartSvg", () => {
   });
 });
 
+describe("actuals overlay (ticket 13)", () => {
+  const threePeriods: ScenarioByPeriod = {
+    "2026-01": { expected: 100, worst: -50, best: 250 },
+    "2026-02": { expected: 200, worst: -900, best: 300 },
+    "2026-03": { expected: 150, worst: -100, best: 400 },
+  };
+  const periods3 = Object.keys(threePeriods);
+  const actualsOverlay = {
+    closedPeriods: ["2026-01", "2026-02"],
+    budgetedByPeriod: { "2026-01": 120, "2026-02": 180, "2026-03": 160 },
+  };
+
+  it("renders a shaded actuals region, boundary divider, and Actuals/Budgeted legend entries when periods are closed", () => {
+    const svg = renderBandChartSvg(periods3, threePeriods, { currency: "NOK", displayUnits: "whole", actualsOverlay });
+    expect(svg).toContain('fill-opacity="0.08"');
+    expect(svg).toContain("stroke-dasharray=\"3 3\"");
+    expect(svg).toContain(">Actuals</text>");
+    expect(svg).toContain(">Budgeted</text>");
+    expect(svg).toContain("stroke-dasharray=\"4 4\"");
+  });
+
+  it("omits the shaded region, divider, and actuals legend when no periods are closed", () => {
+    const svg = renderBandChartSvg(periods3, threePeriods, { currency: "NOK", displayUnits: "whole" });
+    expect(svg).not.toContain('fill-opacity="0.08"');
+    expect(svg).not.toContain(">Actuals</text>");
+    expect(svg).not.toContain(">Budgeted</text>");
+  });
+
+  it("draws the actuals overlay in the cumulative chart too", () => {
+    const svg = renderCumulativeChartSvg(periods3, threePeriods, { currency: "NOK", displayUnits: "whole", actualsOverlay });
+    expect(svg).toContain('fill-opacity="0.08"');
+    expect(svg).toContain(">Actuals</text>");
+  });
+
+  it("stays self-contained and offline-safe with the overlay present", () => {
+    const svg = renderBandChartSvg(periods3, threePeriods, { currency: "NOK", displayUnits: "whole", actualsOverlay });
+    expect(svg).not.toContain("<image");
+    expect(svg).not.toContain("xlink:href");
+    expect(svg).not.toMatch(/url\(https?:/);
+  });
+});
+
 describe("formatChartCurrency", () => {
   it("formats whole units and thousands", () => {
     expect(formatChartCurrency(1500, "NOK", "whole")).toBe("1,500 NOK");

@@ -3,6 +3,7 @@
 // DOM/browser APIs, no React runtime. Inline CSS, inline SVG, zero external requests.
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
+import { computeBlendedTotals } from "@/engine/blended";
 import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, ConfidenceBands, Project } from "@/engine/model";
 import { formatChartCurrency, renderBandChartSvg, renderCumulativeChartSvg } from "./charts";
@@ -55,6 +56,8 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
 
   const { project, bands, actuals } = input;
   const scenarios = computeProjectScenarios(project, bands);
+  const blended = computeBlendedTotals(project, actuals, bands);
+  const actualsOverlay = { closedPeriods: project.closedPeriods, budgetedByPeriod: blended.budgetedMarginByPeriod };
   const variance = actuals.length > 0 ? computeVariance(project, actuals, bands) : null;
   const fmt = (v: number) => formatChartCurrency(v, project.currency, project.displayUnits);
 
@@ -81,6 +84,17 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   <p class="meta">Generated ${input.generatedAt.toISOString().slice(0, 10)}</p>
 </header>
 
+${
+  blended.warnings.length > 0
+    ? `<section class="card">
+  <p class="warning-banner"><strong>Data warning:</strong></p>
+  <ul class="warning-banner">
+    ${blended.warnings.map((w) => `<li>${escapeHtml(w)}</li>`).join("")}
+  </ul>
+</section>`
+    : ""
+}
+
 <section class="card">
   <h2>Executive summary</h2>
   <p>${input.executiveSummary ? escapeHtml(input.executiveSummary).replace(/\n/g, "<br />") : "<em>No executive summary provided.</em>"}</p>
@@ -89,15 +103,16 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
 <section class="card">
   <h2>Scenario summary</h2>
   <p class="lead">
-    Expected margin <strong class="${scenarios.totals.margin.expected >= 0 ? "good" : "critical"}">${fmt(scenarios.totals.margin.expected)}</strong>
-    — range ${fmt(Math.min(scenarios.totals.margin.worst, scenarios.totals.margin.best))} to ${fmt(Math.max(scenarios.totals.margin.worst, scenarios.totals.margin.best))}.
+    Expected margin <strong class="${blended.totals.margin.expected >= 0 ? "good" : "critical"}">${fmt(blended.totals.margin.expected)}</strong>
+    — range ${fmt(Math.min(blended.totals.margin.worst, blended.totals.margin.best))} to ${fmt(Math.max(blended.totals.margin.worst, blended.totals.margin.best))}.
   </p>
+  ${blended.lastClosedPeriod ? `<p class="note">Actuals through ${escapeHtml(blended.lastClosedPeriod)}, projected after.</p>` : ""}
   <table class="totals">
     <thead><tr><th></th><th>Worst case</th><th>Expected</th><th>Best case</th></tr></thead>
     <tbody>
-      <tr><th>Cost</th><td>${fmt(scenarios.totals.cost.worst)}</td><td>${fmt(scenarios.totals.cost.expected)}</td><td>${fmt(scenarios.totals.cost.best)}</td></tr>
-      <tr><th>Revenue</th><td>${fmt(scenarios.totals.revenue.worst)}</td><td>${fmt(scenarios.totals.revenue.expected)}</td><td>${fmt(scenarios.totals.revenue.best)}</td></tr>
-      <tr class="emphasis"><th>Margin</th><td>${fmt(scenarios.totals.margin.worst)}</td><td>${fmt(scenarios.totals.margin.expected)}</td><td>${fmt(scenarios.totals.margin.best)}</td></tr>
+      <tr><th>Cost</th><td>${fmt(blended.totals.cost.worst)}</td><td>${fmt(blended.totals.cost.expected)}</td><td>${fmt(blended.totals.cost.best)}</td></tr>
+      <tr><th>Revenue</th><td>${fmt(blended.totals.revenue.worst)}</td><td>${fmt(blended.totals.revenue.expected)}</td><td>${fmt(blended.totals.revenue.best)}</td></tr>
+      <tr class="emphasis"><th>Margin</th><td>${fmt(blended.totals.margin.worst)}</td><td>${fmt(blended.totals.margin.expected)}</td><td>${fmt(blended.totals.margin.best)}</td></tr>
     </tbody>
   </table>
 
@@ -117,28 +132,28 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
 
 <section class="card chart-section">
   <h2>Scenario bands by period</h2>
-  ${renderBandChartSvg(scenarios.periods, scenarios.marginByPeriod, { currency: project.currency, displayUnits: project.displayUnits })}
+  ${renderBandChartSvg(blended.periods, blended.marginByPeriod, { currency: project.currency, displayUnits: project.displayUnits, actualsOverlay })}
 </section>
 
 <section class="card chart-section">
   <h2>Cumulative P&amp;L</h2>
-  ${renderCumulativeChartSvg(scenarios.periods, scenarios.marginByPeriod, { currency: project.currency, displayUnits: project.displayUnits })}
+  ${renderCumulativeChartSvg(blended.periods, blended.marginByPeriod, { currency: project.currency, displayUnits: project.displayUnits, actualsOverlay })}
 </section>
 
 <section class="card">
   <h2>Per-period detail</h2>
   <table class="periods">
     <thead>
-      <tr><th>Period</th>${scenarios.periods.map((p) => `<th>${escapeHtml(p)}</th>`).join("")}</tr>
+      <tr><th>Period</th>${blended.periods.map((p) => `<th>${escapeHtml(p)}${project.closedPeriods.includes(p) ? " (Actual)" : ""}</th>`).join("")}</tr>
     </thead>
     <tbody>
-      <tr><th>Cost</th>${scenarios.periods.map((p) => `<td>${fmt(scenarios.costByPeriod[p].expected)}</td>`).join("")}</tr>
-      <tr><th>Revenue</th>${scenarios.periods.map((p) => `<td>${fmt(scenarios.revenueByPeriod[p].expected)}</td>`).join("")}</tr>
-      <tr class="emphasis"><th>Margin</th>${scenarios.periods.map((p) => `<td>${fmt(scenarios.marginByPeriod[p].expected)}</td>`).join("")}</tr>
+      <tr><th>Cost</th>${blended.periods.map((p) => `<td>${fmt(blended.costByPeriod[p].expected)}</td>`).join("")}</tr>
+      <tr><th>Revenue</th>${blended.periods.map((p) => `<td>${fmt(blended.revenueByPeriod[p].expected)}</td>`).join("")}</tr>
+      <tr class="emphasis"><th>Margin</th>${blended.periods.map((p) => `<td>${fmt(blended.marginByPeriod[p].expected)}</td>`).join("")}</tr>
     </tbody>
   </table>
   <p class="note">Expected values shown above; see the scenario band chart for the worst/best range
-  per period.</p>
+  per period. Closed periods show actual results, not a forecast.</p>
 </section>
 
 <section class="card">
@@ -154,6 +169,13 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
         .join("")}
     </tbody>
   </table>
+  ${
+    blended.lastClosedPeriod
+      ? `<p class="note">Budgeted figures — the engine has no actual breakdown by category.${
+          variance ? ` See "Budget vs. actual" below for actual-to-date by category.` : ""
+        } See the Scenario summary above for the blended cost total.</p>`
+      : ""
+  }
 </section>
 
 ${variance ? renderVarianceSection(variance, fmt, input.riskCommentary) : ""}
@@ -234,6 +256,8 @@ const STYLES = `
   .good { color: #006300; }
   .critical { color: #d03b3b; }
   .warning { color: #a35b00; }
+  .warning-banner { color: #a35b00; margin: 0; padding-left: 1.2rem; }
+  p.warning-banner { padding-left: 0; }
   .note { color: #898781; font-size: 0.8rem; }
   .chart-section svg { width: 100%; height: auto; }
   .footer { color: #898781; font-size: 0.75rem; text-align: center; padding: 1rem 0; }

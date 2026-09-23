@@ -4,7 +4,7 @@
 // export open from file:// with the network disabled: nothing needs to execute client-side to
 // produce the visuals. Colors are literal hex (not CSS custom properties) so the chart renders
 // identically regardless of what stylesheet, if any, ends up wrapping it.
-import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
+import type { DisplayUnits, PeriodKey, PeriodValues, ScenarioByPeriod } from "@/engine/model";
 
 const COLOR = {
   worst: "#e34948",
@@ -41,11 +41,21 @@ export function formatCompactChartCurrency(value: number, currency: string, disp
   return `${formatted}${suffix} ${currency}`;
 }
 
+/** Closed-period boundary plus the budgeted comparison series (ticket 12/13) — mirrors the
+ * dashboard's `ActualsOverlay`, but as plain data rather than a component prop, since this module
+ * has no React/DOM dependency. Closed periods are assumed to be a contiguous block from the start
+ * of the project lifetime, same assumption `computeActualsBoundary` makes on the dashboard. */
+export interface ChartActualsOverlay {
+  closedPeriods: PeriodKey[];
+  budgetedByPeriod: PeriodValues;
+}
+
 export interface BandChartOptions {
   width?: number;
   height?: number;
   currency: string;
   displayUnits: DisplayUnits;
+  actualsOverlay?: ChartActualsOverlay;
 }
 
 interface Row {
@@ -53,6 +63,28 @@ interface Row {
   worst: number;
   expected: number;
   best: number;
+  budgeted: number | null;
+}
+
+interface Boundary {
+  closedSet: Set<PeriodKey>;
+  firstClosed: PeriodKey | null;
+  lastClosed: PeriodKey | null;
+  firstOpenAfterClose: PeriodKey | null;
+}
+
+/** Same boundary computation as the dashboard's `computeActualsBoundary` (src/app/project/
+ * actualsBoundary.ts) — duplicated here rather than imported, since src/export must not depend on
+ * src/app (CLAUDE.md rule 6: the export is a standalone SVG generator over engine output). */
+function computeBoundary(periods: PeriodKey[], closedPeriods: PeriodKey[]): Boundary {
+  const closedSet = new Set(closedPeriods);
+  const closedInOrder = periods.filter((p) => closedSet.has(p));
+  const firstClosed = closedInOrder[0] ?? null;
+  const lastClosed = closedInOrder.at(-1) ?? null;
+  const lastClosedIndex = lastClosed ? periods.indexOf(lastClosed) : -1;
+  const firstOpenAfterClose =
+    lastClosedIndex >= 0 && lastClosedIndex < periods.length - 1 ? periods[lastClosedIndex + 1] : null;
+  return { closedSet, firstClosed, lastClosed, firstOpenAfterClose };
 }
 
 function niceTicks(min: number, max: number, count = 5): number[] {
@@ -84,7 +116,13 @@ export function renderBandChartSvg(
   byPeriod: ScenarioByPeriod,
   options: BandChartOptions,
 ): string {
-  const rows: Row[] = periods.map((period) => ({ period, ...byPeriod[period] }));
+  const closedSet = new Set(options.actualsOverlay?.closedPeriods ?? []);
+  const budgetedByPeriod = options.actualsOverlay?.budgetedByPeriod ?? {};
+  const rows: Row[] = periods.map((period) => ({
+    period,
+    ...byPeriod[period],
+    budgeted: closedSet.has(period) ? (budgetedByPeriod[period] ?? 0) : null,
+  }));
   return renderRows(rows, options);
 }
 
@@ -94,14 +132,22 @@ export function renderCumulativeChartSvg(
   byPeriod: ScenarioByPeriod,
   options: BandChartOptions,
 ): string {
+  const closedSet = new Set(options.actualsOverlay?.closedPeriods ?? []);
+  const budgetedByPeriod = options.actualsOverlay?.budgetedByPeriod ?? {};
   const rows = periods.reduce<Row[]>((acc, period) => {
     const v = byPeriod[period];
     const prev = acc[acc.length - 1];
+    const isClosed = closedSet.has(period);
+    // Cumulative budgeted only diverges from cumulative expected within the closed range — beyond
+    // it the two are identical by construction, matching the dashboard's CumulativeChart. This
+    // relies on closed periods being a contiguous prefix, same assumption as computeBoundary().
+    const cumulativeBudgeted = (prev?.budgeted ?? 0) + (isClosed ? (budgetedByPeriod[period] ?? 0) : v.expected);
     acc.push({
       period,
       worst: (prev?.worst ?? 0) + v.worst,
       expected: (prev?.expected ?? 0) + v.expected,
       best: (prev?.best ?? 0) + v.best,
+      budgeted: isClosed ? cumulativeBudgeted : null,
     });
     return acc;
   }, []);
@@ -118,7 +164,7 @@ function renderRows(rows: Row[], options: BandChartOptions): string {
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
-  const allValues = rows.flatMap((r) => [r.worst, r.expected, r.best]);
+  const allValues = rows.flatMap((r) => [r.worst, r.expected, r.best, ...(r.budgeted !== null ? [r.budgeted] : [])]);
   const rawMin = Math.min(...allValues, 0);
   const rawMax = Math.max(...allValues, 0);
   const pad = (rawMax - rawMin) * 0.1 || 1;
@@ -173,24 +219,69 @@ function renderRows(rows: Row[], options: BandChartOptions): string {
     .map((r, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(r.expected).toFixed(1)}" r="4" fill="${COLOR.expected}" stroke="#fcfcfb" stroke-width="2" />`)
     .join("");
 
+  const boundary = computeBoundary(
+    rows.map((r) => r.period),
+    options.actualsOverlay?.closedPeriods ?? [],
+  );
+
+  const step = rows.length > 1 ? x(1) - x(0) : plotWidth;
+  const shadedRegion =
+    boundary.firstClosed && boundary.lastClosed
+      ? (() => {
+          const i1 = rows.findIndex((r) => r.period === boundary.firstClosed);
+          const i2 = rows.findIndex((r) => r.period === boundary.lastClosed);
+          const rectX1 = Math.max(margin.left, x(i1) - step / 2);
+          const rectX2 = Math.min(width - margin.right, x(i2) + step / 2);
+          return `<rect x="${rectX1.toFixed(1)}" y="${margin.top}" width="${(rectX2 - rectX1).toFixed(1)}" height="${plotHeight}" fill="${COLOR.textMuted}" fill-opacity="0.08" />`;
+        })()
+      : "";
+
+  const boundaryDivider = boundary.firstOpenAfterClose
+    ? (() => {
+        const i = rows.findIndex((r) => r.period === boundary.firstOpenAfterClose);
+        const dx = x(i).toFixed(1);
+        return `<line x1="${dx}" y1="${margin.top}" x2="${dx}" y2="${margin.top + plotHeight}" stroke="${COLOR.textMuted}" stroke-width="1.5" stroke-dasharray="3 3" />`;
+      })()
+    : "";
+
+  const budgetedPoints = rows
+    .map((r, i) => ({ r, i }))
+    .filter(({ r }) => r.budgeted !== null);
+  const budgetedLine =
+    budgetedPoints.length > 0
+      ? `<path d="${budgetedPoints
+          .map(({ r, i }, idx) => `${idx === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(r.budgeted as number).toFixed(1)}`)
+          .join(" ")}" fill="none" stroke="${COLOR.textMuted}" stroke-width="2" stroke-dasharray="4 4" />`
+      : "";
+
   // Sits in its own [0, legendHeight) band, entirely above the translated plot group below —
   // never sharing vertical space with the plot's top gridline/tick label.
+  const actualsLegend =
+    boundary.closedSet.size > 0
+      ? `<rect x="290" y="7" width="16" height="10" fill="${COLOR.textMuted}" fill-opacity="0.2" /><text x="310" y="16">Actuals</text>
+      <line x1="380" y1="12" x2="396" y2="12" stroke="${COLOR.textMuted}" stroke-width="2" stroke-dasharray="4 4" /><text x="400" y="16">Budgeted</text>`
+      : "";
+
   const legend = `
     <g font-size="11" fill="${COLOR.textMuted}">
       <line x1="0" y1="12" x2="16" y2="12" stroke="${COLOR.worst}" stroke-width="2" /><text x="20" y="16">Worst case</text>
       <line x1="100" y1="12" x2="116" y2="12" stroke="${COLOR.expected}" stroke-width="2" /><text x="120" y="16">Expected</text>
       <line x1="190" y1="12" x2="206" y2="12" stroke="${COLOR.best}" stroke-width="2" /><text x="210" y="16">Best case</text>
+      ${actualsLegend}
     </g>`;
 
   return `<svg viewBox="0 0 ${width} ${legendHeight + height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scenario band chart">
   ${legend}
   <g transform="translate(0, ${legendHeight})">
+    ${shadedRegion}
     ${gridlines}
     ${zeroLine}
     <polygon points="${bandPoints}" fill="${COLOR.band}" fill-opacity="0.1" />
     <path d="${worstLine}" fill="none" stroke="${COLOR.worst}" stroke-width="2" />
     <path d="${bestLine}" fill="none" stroke="${COLOR.best}" stroke-width="2" />
     <path d="${expectedLine}" fill="none" stroke="${COLOR.expected}" stroke-width="2" />
+    ${budgetedLine}
+    ${boundaryDivider}
     ${expectedDots}
     ${xLabels}
   </g>
