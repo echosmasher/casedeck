@@ -50,6 +50,9 @@ function SettingsForm() {
   const [confidenceBands, setConfidenceBands] = useState<ConfidenceBands | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleRate, setNewRoleRate] = useState("");
+  const [newRoleError, setNewRoleError] = useState<string | null>(null);
 
   if (!loading && !initialized) {
     setRateCard(config.rateCard);
@@ -61,6 +64,32 @@ function SettingsForm() {
   function updateRate(role: string, value: string) {
     setSaved(false);
     setRateCard((rows) => rows.map((r) => (r.role === role ? { ...r, ratePerHour: Number(value) } : r)));
+  }
+
+  function handleAddRole() {
+    const name = newRoleName.trim();
+    if (!name) {
+      setNewRoleError("Role name is required.");
+      return;
+    }
+    if (rateCard.some((r) => r.role.trim().toLowerCase() === name.toLowerCase())) {
+      setNewRoleError(`A role named "${name}" already exists.`);
+      return;
+    }
+    const rate = Number(newRoleRate);
+    if (newRoleRate.trim() === "" || Number.isNaN(rate)) {
+      setNewRoleError("Enter a valid rate per hour.");
+      return;
+    }
+    if (rate < 0) {
+      setNewRoleError("Rate per hour cannot be negative.");
+      return;
+    }
+    setNewRoleError(null);
+    setSaved(false);
+    setRateCard((rows) => [...rows, { role: name, ratePerHour: rate }]);
+    setNewRoleName("");
+    setNewRoleRate("");
   }
 
   function updateBand(key: keyof ConfidenceBands, value: string) {
@@ -92,8 +121,8 @@ function SettingsForm() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="text-sm text-muted-foreground">
-          Rate card, loaded-cost multiplier, and confidence bands. Changes apply immediately to
-          every project — there are no historical rate snapshots.
+          Rate card, loaded-cost multiplier, and confidence bands. Rates apply to salary lines
+          added from now on. Existing lines keep the rate they were created with.
         </p>
       </div>
 
@@ -117,6 +146,53 @@ function SettingsForm() {
               />
             </div>
           ))}
+
+          <div className="flex flex-col gap-1.5 border-t pt-3 sm:max-w-sm">
+            <Label htmlFor="new-role-name">Add a role</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="new-role-name"
+                placeholder="Role name"
+                value={newRoleName}
+                onChange={(e) => {
+                  setNewRoleError(null);
+                  setNewRoleName(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddRole();
+                  }
+                }}
+              />
+              <Input
+                type="number"
+                min="0"
+                step="1"
+                className="tabular-nums"
+                placeholder="Rate/hour"
+                value={newRoleRate}
+                onChange={(e) => {
+                  setNewRoleError(null);
+                  setNewRoleRate(e.target.value);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddRole();
+                  }
+                }}
+              />
+              <Button type="button" variant="outline" onClick={handleAddRole}>
+                Add
+              </Button>
+            </div>
+            {newRoleError && (
+              <p role="alert" className="text-sm text-destructive">
+                {newRoleError}
+              </p>
+            )}
+          </div>
         </CardContent>
       </Card>
 

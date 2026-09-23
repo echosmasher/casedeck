@@ -14,6 +14,15 @@ describe("mergeRateCard", () => {
       { role: "Senior Developer", ratePerHour: 900 },
     ]);
   });
+
+  it("appends a role that isn't in the bundled rate card (ticket 09: add a new role)", () => {
+    const base = [{ role: "Senior Developer", ratePerHour: 750 }];
+    const merged = mergeRateCard(base, [{ role: "Data Scientist", ratePerHour: 820 }]);
+    expect(merged).toEqual([
+      { role: "Senior Developer", ratePerHour: 750 },
+      { role: "Data Scientist", ratePerHour: 820 },
+    ]);
+  });
 });
 
 describe("buildEffectiveConfig", () => {
