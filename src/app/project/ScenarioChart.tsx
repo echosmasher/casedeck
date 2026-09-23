@@ -12,7 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { formatCurrency } from "../_lib/format";
+import { formatCompactChartCurrency } from "../_lib/format";
 import { ChartDataTable, ChartLegend, ChartTooltip } from "./ScenarioTooltip";
 import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
 
@@ -73,13 +73,15 @@ export function ScenarioChart({
               tick={{ fill: "var(--viz-text-muted)", fontSize: 12 }}
               tickLine={false}
               axisLine={{ stroke: "var(--viz-baseline)" }}
+              interval="preserveStartEnd"
+              minTickGap={24}
             />
             <YAxis
-              tickFormatter={(v: number) => formatCurrency(v, currency, displayUnits)}
+              tickFormatter={(v: number) => formatCompactChartCurrency(v, currency, displayUnits)}
               tick={{ fill: "var(--viz-text-muted)", fontSize: 12 }}
               tickLine={false}
               axisLine={false}
-              width={90}
+              width={72}
             />
             <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />
             <Tooltip
