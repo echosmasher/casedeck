@@ -7,6 +7,7 @@ import { downloadTextFile } from "./_lib/download";
 import { demoSnapshot } from "./_lib/demoSnapshot";
 import { isViewerVisible } from "./_lib/demoViewer";
 import { useRole } from "./_lib/RoleProvider";
+import { isProjectOverdue, OVERDUE_TOOLTIP } from "./_lib/overdue";
 import { serializeSnapshot, parseSnapshot } from "@/storage/snapshot";
 import type { ProjectSummary } from "@/storage/types";
 import { Button } from "@/components/ui/button";
@@ -82,6 +83,7 @@ export default function ProjectListPage() {
   const visibleProjects =
     projects === null ? null : role === "viewer" ? projects.filter(isViewerVisible) : projects;
   const isPlanner = role === "planner";
+  const today = new Date();
 
   return (
     <div className="flex flex-col gap-6">
@@ -150,25 +152,43 @@ export default function ProjectListPage() {
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>End</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {visibleProjects.map((project) => (
-              <TableRow key={project.id}>
-                <TableCell className="font-mono text-xs text-muted-foreground">{project.code}</TableCell>
-                <TableCell>
-                  <Link href={`/project?id=${project.id}`} className="font-medium hover:underline">
-                    {project.name}
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="secondary">{STATUS_LABEL[project.status] ?? project.status}</Badge>
-                </TableCell>
-              </TableRow>
-            ))}
+            {visibleProjects.map((project) => {
+              const overdue = isProjectOverdue(
+                project.status,
+                project.periodization,
+                project.endPeriod,
+                today,
+              );
+              return (
+                <TableRow key={project.id}>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{project.code}</TableCell>
+                  <TableCell>
+                    <Link href={`/project?id=${project.id}`} className="font-medium hover:underline">
+                      {project.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{STATUS_LABEL[project.status] ?? project.status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {overdue ? (
+                      <span className="font-medium text-destructive" title={OVERDUE_TOOLTIP}>
+                        {project.endPeriod} · Overdue
+                      </span>
+                    ) : (
+                      project.endPeriod
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       )}

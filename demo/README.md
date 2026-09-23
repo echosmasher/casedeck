@@ -28,8 +28,11 @@ carries) — there is no separate "actual revenue received" import in this tool.
 
 ## Story 1 — 001 Intranet Relaunch (the overrun story)
 
-Internal project, monthly, Jan–Aug 2026, status `in_progress` (today, 2026-08-14, is inside its
-final budgeted month). Approved with consultancy marked `estimated` (±10% band); salary marked
+Internal project, monthly, Jan–Aug 2026, status `in_progress`. At the time this story was written
+(2026-08-14) "today" was inside its final budgeted month; the project stays `in_progress` with
+`endPeriod: 2026-08` deliberately, so as real time moves past August 2026 the overview's `End`
+column shows it red with an "Overdue" marker — showcasing that feature rather than being kept in
+sync with the calendar. Approved with consultancy marked `estimated` (±10% band); salary marked
 `estimated` too. Four months of actuals are loaded (Jan–Apr 2026); May–Aug are budget-only
 (not yet incurred).
 

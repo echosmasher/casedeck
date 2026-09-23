@@ -79,6 +79,8 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
         type: p.type,
         status: p.status,
         stakeholders: p.stakeholders,
+        periodization: p.periodization,
+        endPeriod: p.endPeriod,
       }))
       .sort((a, b) => a.id.localeCompare(b.id));
   }

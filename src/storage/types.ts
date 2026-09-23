@@ -4,6 +4,8 @@
 import type {
   ActualEntry,
   ConfidenceBands,
+  PeriodKey,
+  Periodization,
   Project,
   ProjectStatus,
   ProjectType,
@@ -21,6 +23,8 @@ export interface ProjectSummary {
   type: ProjectType;
   status: ProjectStatus;
   stakeholders: Stakeholder[];
+  periodization: Periodization;
+  endPeriod: PeriodKey;
 }
 
 /** An ActualEntry as stored: carries its own stable id (assigned once, at creation — never

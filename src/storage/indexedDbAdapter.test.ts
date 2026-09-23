@@ -50,6 +50,8 @@ describe("IndexedDbStorageAdapter — create, edit, reload", () => {
       type: (project001 as Project).type,
       status: (project001 as Project).status,
       stakeholders: (project001 as Project).stakeholders,
+      periodization: (project001 as Project).periodization,
+      endPeriod: (project001 as Project).endPeriod,
     });
   });
 
