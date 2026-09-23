@@ -10,6 +10,7 @@ import { ScenarioChart } from "./ScenarioChart";
 import { CumulativeChart } from "./CumulativeChart";
 import { CategoryBreakdown } from "./CategoryBreakdown";
 import { VarianceSection } from "./VarianceSection";
+import { computeActualsBoundary } from "./actualsBoundary";
 
 export function Dashboard({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
   const { config } = useEffectiveConfig();
@@ -21,6 +22,10 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
   const scenarios = computeProjectScenarios(project, config.confidenceBands);
   const blended = computeBlendedTotals(project, actuals, config.confidenceBands);
   const { currency, displayUnits } = project;
+  const actualsOverlay = {
+    boundary: computeActualsBoundary(blended.periods, project.closedPeriods),
+    budgetedByPeriod: blended.budgetedMarginByPeriod,
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -72,15 +77,17 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
       )}
 
       <ScenarioChart
-        periods={scenarios.periods}
-        byPeriod={scenarios.marginByPeriod}
+        periods={blended.periods}
+        byPeriod={blended.marginByPeriod}
+        actualsOverlay={actualsOverlay}
         currency={currency}
         displayUnits={displayUnits}
       />
 
       <CumulativeChart
-        periods={scenarios.periods}
-        byPeriod={scenarios.marginByPeriod}
+        periods={blended.periods}
+        byPeriod={blended.marginByPeriod}
+        actualsOverlay={actualsOverlay}
         currency={currency}
         displayUnits={displayUnits}
       />

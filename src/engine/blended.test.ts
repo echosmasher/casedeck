@@ -142,4 +142,10 @@ describe("computeBlendedTotals — revenue actuals and warnings", () => {
     expect(blended.budgetedRevenueByPeriod["2026-01"]).toBeCloseTo(100000, 6);
     expect(blended.budgetedRevenueByPeriod["2026-03"]).toBeCloseTo(100000, 6);
   });
+
+  it("budgetedMarginByPeriod is budgeted revenue minus budgeted cost, for every period", () => {
+    const blended = computeBlendedTotals(project, [], bands);
+    expect(blended.budgetedMarginByPeriod["2026-01"]).toBeCloseTo(100000 - 20000, 6);
+    expect(blended.budgetedMarginByPeriod["2026-03"]).toBeCloseTo(100000 - 20000, 6);
+  });
 });

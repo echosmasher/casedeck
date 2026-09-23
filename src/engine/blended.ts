@@ -30,6 +30,9 @@ export interface BlendedTotals {
   marginByPeriod: ScenarioByPeriod;
   budgetedCostByPeriod: PeriodValues;
   budgetedRevenueByPeriod: PeriodValues;
+  /** Budgeted revenue minus budgeted cost per period — the dashboard's dashed "Budgeted" line
+   * (ticket 12), kept as an engine output rather than recomputed in a component. */
+  budgetedMarginByPeriod: PeriodValues;
   totals: { cost: ScenarioValue; revenue: ScenarioValue; margin: ScenarioValue };
   /** Chronologically last closed period, or null when nothing is closed — drives the dashboard's
    * "Actuals through <period>, projected after" caption. */
@@ -85,6 +88,10 @@ export function computeBlendedTotals(
 
   const lastClosedPeriod = periods.filter((p) => closedPeriods.has(p)).at(-1) ?? null;
 
+  const budgetedMarginByPeriod: PeriodValues = Object.fromEntries(
+    periods.map((p) => [p, (budgetedRevenue.byPeriod[p] ?? 0) - (budgetedCost.totalByPeriod[p] ?? 0)]),
+  );
+
   return {
     periods,
     costByPeriod,
@@ -92,6 +99,7 @@ export function computeBlendedTotals(
     marginByPeriod,
     budgetedCostByPeriod: budgetedCost.totalByPeriod,
     budgetedRevenueByPeriod: budgetedRevenue.byPeriod,
+    budgetedMarginByPeriod,
     totals: { cost: totalCost, revenue: totalRevenue, margin: totalMargin },
     lastClosedPeriod,
     warnings,

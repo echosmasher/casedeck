@@ -14,6 +14,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCompactChartCurrency } from "../_lib/format";
 import { ChartDataTable, ChartLegend, ChartTooltip } from "./ScenarioTooltip";
+import { ActualsBoundaryOverlay, BudgetedLine, actualsLegendRows, tooltipStatus } from "./ChartActualsOverlay";
+import type { ActualsOverlay } from "./actualsBoundary";
 import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
 
 interface ChartRow {
@@ -23,19 +25,24 @@ interface ChartRow {
   best: number;
   bandLow: number;
   bandHeight: number;
+  budgeted: number | null;
 }
 
 export function ScenarioChart({
   periods,
   byPeriod,
+  actualsOverlay,
   currency,
   displayUnits,
 }: {
   periods: PeriodKey[];
   byPeriod: ScenarioByPeriod;
+  /** Closed-period boundary plus the budgeted comparison series (ticket 12). */
+  actualsOverlay: ActualsOverlay;
   currency: string;
   displayUnits: DisplayUnits;
 }) {
+  const { boundary, budgetedByPeriod } = actualsOverlay;
   const data: ChartRow[] = periods.map((period) => {
     const v = byPeriod[period];
     return {
@@ -45,6 +52,7 @@ export function ScenarioChart({
       best: v.best,
       bandLow: v.worst,
       bandHeight: v.best - v.worst,
+      budgeted: boundary.closedSet.has(period) ? (budgetedByPeriod[period] ?? 0) : null,
     };
   });
 
@@ -63,6 +71,7 @@ export function ScenarioChart({
             { key: "worst", label: "Worst case", color: "var(--viz-red)" },
             { key: "expected", label: "Expected", color: "var(--viz-text-primary)" },
             { key: "best", label: "Best case", color: "var(--viz-blue)" },
+            ...actualsLegendRows(boundary),
           ]}
         />
         <ResponsiveContainer width="100%" height={280}>
@@ -83,6 +92,7 @@ export function ScenarioChart({
               axisLine={false}
               width={72}
             />
+            <ActualsBoundaryOverlay boundary={boundary} />
             <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />
             <Tooltip
               content={({ active, label, payload }) => (
@@ -91,6 +101,7 @@ export function ScenarioChart({
                   label={label}
                   currency={currency}
                   displayUnits={displayUnits}
+                  status={tooltipStatus(boundary, label)}
                   rows={
                     payload
                       ? [
@@ -141,6 +152,7 @@ export function ScenarioChart({
               dot={{ r: 4, fill: "var(--viz-text-primary)", stroke: "var(--viz-surface)", strokeWidth: 2 }}
               isAnimationActive={false}
             />
+            <BudgetedLine />
           </ComposedChart>
         </ResponsiveContainer>
         <ChartDataTable
@@ -148,10 +160,23 @@ export function ScenarioChart({
           periods={periods}
           currency={currency}
           displayUnits={displayUnits}
+          actualPeriods={boundary.closedSet}
           rows={[
             { key: "worst", label: "Worst case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, byPeriod[p].worst])) },
             { key: "expected", label: "Expected", valueByPeriod: Object.fromEntries(periods.map((p) => [p, byPeriod[p].expected])) },
             { key: "best", label: "Best case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, byPeriod[p].best])) },
+            ...(boundary.closedSet.size > 0
+              ? [
+                  {
+                    key: "budgeted",
+                    label: "Budgeted",
+                    // Equal to "Expected" for open periods by construction: scenario `expected`
+                    // is the raw unbanded value, same source as `budgetedByPeriod`. Shown for
+                    // every period so the row reads as a genuine, continuous budget line.
+                    valueByPeriod: Object.fromEntries(periods.map((p) => [p, budgetedByPeriod[p] ?? 0])),
+                  },
+                ]
+              : []),
           ]}
         />
       </CardContent>
