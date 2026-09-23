@@ -22,6 +22,25 @@ export function formatChartCurrency(value: number, currency: string, displayUnit
   return `${formatted}${displayUnits === "thousands" ? "k" : ""} ${currency}`;
 }
 
+/** Short axis-tick label ("1.0M NOK", "-250k NOK") so wide numbers don't collide with the legend
+ * or plot edges. Exact values stay available in the data table / tooltip via
+ * `formatChartCurrency` — this is for tick labels only. In "thousands" display mode the value is
+ * already expressed in thousands (per `formatChartCurrency`'s convention), so it's left as-is
+ * rather than compacted a second time. */
+export function formatCompactChartCurrency(value: number, currency: string, displayUnits: DisplayUnits): string {
+  if (displayUnits === "thousands") {
+    return formatChartCurrency(value, currency, displayUnits);
+  }
+  const abs = Math.abs(value);
+  const [scaled, suffix] = abs >= 1_000_000 ? [value / 1_000_000, "M"] : abs >= 1_000 ? [value / 1_000, "k"] : [value, ""];
+  const decimals = suffix === "M" ? 1 : 0;
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(scaled);
+  return `${formatted}${suffix} ${currency}`;
+}
+
 export interface BandChartOptions {
   width?: number;
   height?: number;
@@ -92,7 +111,10 @@ export function renderCumulativeChartSvg(
 function renderRows(rows: Row[], options: BandChartOptions): string {
   const width = options.width ?? 640;
   const height = options.height ?? 320;
-  const margin = { top: 28, right: 32, bottom: 32, left: 90 };
+  // The legend gets its own reserved band above the plot so it can never collide with the top
+  // gridline/tick label — the two used to share the same top margin.
+  const legendHeight = 24;
+  const margin = { top: 20, right: 32, bottom: 32, left: 90 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
@@ -100,19 +122,22 @@ function renderRows(rows: Row[], options: BandChartOptions): string {
   const rawMin = Math.min(...allValues, 0);
   const rawMax = Math.max(...allValues, 0);
   const pad = (rawMax - rawMin) * 0.1 || 1;
-  const min = rawMin - pad;
-  const max = rawMax + pad;
+  // Ticks are generated first, then the scale domain is fit to the ticks themselves (not the
+  // raw padded range) — niceTicks() rounds outward past [rawMin - pad, rawMax + pad], so fitting
+  // the scale to the unrounded range let the outermost tick land outside the plot, overlapping
+  // the legend above and the x-axis labels below.
+  const ticks = niceTicks(rawMin - pad, rawMax + pad);
+  const min = ticks[0];
+  const max = ticks[ticks.length - 1];
 
   const x = (i: number) => margin.left + (rows.length <= 1 ? plotWidth / 2 : (i / (rows.length - 1)) * plotWidth);
   const y = (v: number) => margin.top + plotHeight - ((v - min) / (max - min)) * plotHeight;
-
-  const ticks = niceTicks(min, max);
 
   const gridlines = ticks
     .map(
       (t) =>
         `<line x1="${margin.left}" y1="${y(t).toFixed(1)}" x2="${width - margin.right}" y2="${y(t).toFixed(1)}" stroke="${COLOR.gridline}" stroke-width="1" />` +
-        `<text x="${margin.left - 8}" y="${y(t).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="11" fill="${COLOR.textMuted}">${formatChartCurrency(t, options.currency, options.displayUnits)}</text>`,
+        `<text x="${margin.left - 8}" y="${y(t).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="11" fill="${COLOR.textMuted}">${formatCompactChartCurrency(t, options.currency, options.displayUnits)}</text>`,
     )
     .join("");
 
@@ -148,16 +173,18 @@ function renderRows(rows: Row[], options: BandChartOptions): string {
     .map((r, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(r.expected).toFixed(1)}" r="4" fill="${COLOR.expected}" stroke="#fcfcfb" stroke-width="2" />`)
     .join("");
 
+  // Sits in its own [0, legendHeight) band, entirely above the translated plot group below —
+  // never sharing vertical space with the plot's top gridline/tick label.
   const legend = `
     <g font-size="11" fill="${COLOR.textMuted}">
-      <line x1="0" y1="4" x2="16" y2="4" stroke="${COLOR.worst}" stroke-width="2" /><text x="20" y="8">Worst case</text>
-      <line x1="100" y1="4" x2="116" y2="4" stroke="${COLOR.expected}" stroke-width="2" /><text x="120" y="8">Expected</text>
-      <line x1="190" y1="4" x2="206" y2="4" stroke="${COLOR.best}" stroke-width="2" /><text x="210" y="8">Best case</text>
+      <line x1="0" y1="12" x2="16" y2="12" stroke="${COLOR.worst}" stroke-width="2" /><text x="20" y="16">Worst case</text>
+      <line x1="100" y1="12" x2="116" y2="12" stroke="${COLOR.expected}" stroke-width="2" /><text x="120" y="16">Expected</text>
+      <line x1="190" y1="12" x2="206" y2="12" stroke="${COLOR.best}" stroke-width="2" /><text x="210" y="16">Best case</text>
     </g>`;
 
-  return `<svg viewBox="0 0 ${width} ${height + 20}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scenario band chart">
-  <g transform="translate(0, 20)">
-    ${legend}
+  return `<svg viewBox="0 0 ${width} ${legendHeight + height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scenario band chart">
+  ${legend}
+  <g transform="translate(0, ${legendHeight})">
     ${gridlines}
     ${zeroLine}
     <polygon points="${bandPoints}" fill="${COLOR.band}" fill-opacity="0.1" />
