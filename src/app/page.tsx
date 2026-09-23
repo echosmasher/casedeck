@@ -7,6 +7,7 @@ import { downloadTextFile } from "./_lib/download";
 import { demoSnapshot } from "./_lib/demoSnapshot";
 import { isViewerVisible } from "./_lib/demoViewer";
 import { useRole } from "./_lib/RoleProvider";
+import { useHideCompletedProjects } from "./_lib/hideCompletedProjects";
 import { isProjectOverdue, OVERDUE_TOOLTIP } from "./_lib/overdue";
 import { serializeSnapshot, parseSnapshot } from "@/storage/snapshot";
 import type { ProjectSummary } from "@/storage/types";
@@ -32,6 +33,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function ProjectListPage() {
   const { role } = useRole();
+  const [hideCompleted, setHideCompleted] = useHideCompletedProjects();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,8 +82,16 @@ export default function ProjectListPage() {
     }
   }
 
-  const visibleProjects =
+  const roleFilteredProjects =
     projects === null ? null : role === "viewer" ? projects.filter(isViewerVisible) : projects;
+  const visibleProjects =
+    roleFilteredProjects === null
+      ? null
+      : hideCompleted
+        ? roleFilteredProjects.filter((p) => p.status !== "completed")
+        : roleFilteredProjects;
+  const hidingCompletedProjects =
+    hideCompleted && roleFilteredProjects !== null && roleFilteredProjects.length > 0 && visibleProjects?.length === 0;
   const isPlanner = role === "planner";
   const today = new Date();
 
@@ -131,14 +141,35 @@ export default function ProjectListPage() {
         </p>
       )}
 
+      {roleFilteredProjects === null || roleFilteredProjects.length > 0 ? (
+        <label className="flex w-fit items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={hideCompleted}
+            onChange={(e) => setHideCompleted(e.target.checked)}
+            className="h-4 w-4 rounded border-input"
+          />
+          Hide completed
+        </label>
+      ) : null}
+
       {visibleProjects === null ? (
         <p className="text-sm text-muted-foreground">Loading…</p>
       ) : visibleProjects.length === 0 ? (
         <div className="rounded-lg border border-dashed p-10 text-center">
           <p className="text-sm text-muted-foreground">
-            {isPlanner ? "No projects yet." : "No projects visible to the Viewer role."}
+            {hidingCompletedProjects
+              ? "All projects are hidden because they're completed."
+              : isPlanner
+                ? "No projects yet."
+                : "No projects visible to the Viewer role."}
           </p>
-          {isPlanner && (
+          {hidingCompletedProjects && (
+            <Button variant="outline" className="mt-4" onClick={() => setHideCompleted(false)}>
+              Show completed
+            </Button>
+          )}
+          {!hidingCompletedProjects && isPlanner && (
             <Button render={<Link href="/setup" />} nativeButton={false} className="mt-4">
               Create your first project
             </Button>
