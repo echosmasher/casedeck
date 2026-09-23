@@ -119,6 +119,7 @@ function SetupForm({
   existingProject: Project | null;
 }) {
   const { config } = useEffectiveConfig();
+  const [code, setCode] = useState(existingProject?.code ?? "");
   const [name, setName] = useState(existingProject?.name ?? "");
   const [type, setType] = useState<ProjectType>(existingProject?.type ?? "internal");
   const [status, setStatus] = useState<ProjectStatus>(existingProject?.status ?? "planning");
@@ -192,6 +193,7 @@ function SetupForm({
     event.preventDefault();
     const formErrors: string[] = [];
 
+    if (!code.trim()) formErrors.push("Project code is required.");
     if (!name.trim()) formErrors.push("Name is required.");
     if (!PERIOD_PATTERNS[periodization].test(startPeriod)) {
       formErrors.push(`Start period must match ${PERIOD_HINT[periodization]}.`);
@@ -248,9 +250,23 @@ function SetupForm({
     }
 
     const storage = getStorage();
+
+    const trimmedCode = code.trim();
+    if (!existingProject && trimmedCode) {
+      const others = await storage.listProjects();
+      const conflict = others.find(
+        (p) => p.code.trim().toLowerCase() === trimmedCode.toLowerCase(),
+      );
+      if (conflict) {
+        setErrors([`Project code "${trimmedCode}" is already used by "${conflict.name}".`]);
+        return;
+      }
+    }
+
     const id = existingProject?.id ?? (await storage.nextProjectId());
     const project: Project = {
       id,
+      code: existingProject?.code ?? trimmedCode,
       name: name.trim(),
       type,
       status,
@@ -305,7 +321,22 @@ function SetupForm({
           <CardTitle>Identity</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="code">Project code</Label>
+            <Input
+              id="code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              disabled={!!existingProject}
+              readOnly={!!existingProject}
+              required
+            />
+            {existingProject && (
+              <p className="text-xs text-muted-foreground">Locked — set at project creation.</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="name">Project name</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
           </div>

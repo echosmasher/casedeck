@@ -146,7 +146,7 @@ export default function ProjectListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
+              <TableHead>Code</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
@@ -155,7 +155,7 @@ export default function ProjectListPage() {
           <TableBody>
             {visibleProjects.map((project) => (
               <TableRow key={project.id}>
-                <TableCell className="font-mono text-xs text-muted-foreground">{project.id}</TableCell>
+                <TableCell className="font-mono text-xs text-muted-foreground">{project.code}</TableCell>
                 <TableCell>
                   <Link href={`/project?id=${project.id}`} className="font-medium hover:underline">
                     {project.name}

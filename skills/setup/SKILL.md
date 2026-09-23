@@ -65,6 +65,9 @@ Ask for (skip anything the user already told you, or that's obvious from context
   project read-only), dependencies (free text).
 - **Project id** — a 3-digit string. If this is the org's first project, `001` is fine; otherwise
   ask what id to use (or what other project ids already exist, and pick the next one).
+- **Project code** — a free-text code, entered once and locked afterwards. Ask the user what
+  convention they use (e.g. start year + sequence); it must be unique (case-insensitive) across
+  their projects.
 
 Write all of this into a `meta.json` file (use the Write tool) matching this shape:
 
@@ -78,6 +81,7 @@ Write all of this into a `meta.json` file (use the Write tool) matching this sha
   "categoryMapping": [],
   "project": {
     "id": "001",
+    "code": "...",
     "name": "...",
     "type": "internal",
     "status": "planning",

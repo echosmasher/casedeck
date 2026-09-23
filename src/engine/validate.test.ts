@@ -134,6 +134,21 @@ describe("validateProjectInvariants — catches invalid model states", () => {
     expect(errors).toContainEqual(expect.objectContaining({ field: "loadedCostMultiplier" }));
   });
 
+  it("flags a blank project code", () => {
+    const errors = validateProjectInvariants({ ...base, code: "" });
+    expect(errors).toContainEqual(expect.objectContaining({ field: "code" }));
+  });
+
+  it("flags a project code that is only whitespace", () => {
+    const errors = validateProjectInvariants({ ...base, code: "   " });
+    expect(errors).toContainEqual(expect.objectContaining({ field: "code" }));
+  });
+
+  it("accepts a non-blank project code", () => {
+    const errors = validateProjectInvariants({ ...base, code: "PRO-2601" });
+    expect(errors.some((e) => e.field === "code")).toBe(false);
+  });
+
   it("flags a negative ratePerHour on a salary line", () => {
     const project: Project = {
       ...(project001 as Project),

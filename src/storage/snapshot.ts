@@ -11,6 +11,31 @@ function sortedProjects(projects: Project[]): Project[] {
   return [...projects].sort((a, b) => a.id.localeCompare(b.id));
 }
 
+/** Older snapshots (pre-ticket-05) don't carry a project `code` — default to `id`, same
+ * backward-compat pattern as `categoryMappingOverrides`/`settingsOverrides` below. */
+function withFallbackCodes(projects: Project[]): Project[] {
+  return projects.map((project) =>
+    project.code && project.code.trim() ? project : { ...project, code: project.id },
+  );
+}
+
+/** Fails loudly (CLAUDE.md rule 4) on a case-insensitive code collision, naming the conflicting
+ * project rather than silently overwriting one of them. */
+function assertUniqueCodes(projects: Project[]): void {
+  const seen = new Map<string, Project>();
+  for (const project of projects) {
+    const key = project.code.trim().toLowerCase();
+    const conflict = seen.get(key);
+    if (conflict) {
+      throw new Error(
+        `Invalid snapshot file: duplicate project code "${project.code}" — used by both ` +
+          `"${conflict.name}" (${conflict.id}) and "${project.name}" (${project.id})`,
+      );
+    }
+    seen.set(key, project);
+  }
+}
+
 function sortedActuals(actuals: StoredActualEntry[]): StoredActualEntry[] {
   return [...actuals].sort((a, b) => {
     if (a.projectId !== b.projectId) return a.projectId.localeCompare(b.projectId);
@@ -72,5 +97,7 @@ export function parseSnapshot(json: string): Snapshot {
   if (typeof snapshot.settingsOverrides !== "object" || snapshot.settingsOverrides === null) {
     snapshot.settingsOverrides = DEFAULT_SETTINGS_OVERRIDES;
   }
+  snapshot.projects = withFallbackCodes(snapshot.projects);
+  assertUniqueCodes(snapshot.projects);
   return snapshot;
 }

@@ -1,4 +1,5 @@
 import "fake-indexeddb/auto";
+import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
 import { IndexedDbStorageAdapter } from "./indexedDbAdapter";
 import { parseSnapshot, serializeSnapshot } from "./snapshot";
@@ -8,6 +9,13 @@ import project001 from "../../demo/projects/001-intranet-relaunch.json";
 
 function freshDbName(): string {
   return `casedeck-test-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Simulates a pre-ticket-05 project record, before `code` existed. */
+function withoutCode(project: Project): Omit<Project, "code"> {
+  const clone: Partial<Project> = { ...project };
+  delete clone.code;
+  return clone as Omit<Project, "code">;
 }
 
 describe("IndexedDbStorageAdapter — create, edit, reload", () => {
@@ -37,6 +45,7 @@ describe("IndexedDbStorageAdapter — create, edit, reload", () => {
     expect(summaries.map((s) => s.id)).toEqual(["001", "003"]);
     expect(summaries[0]).toEqual({
       id: "001",
+      code: (project001 as Project).code,
       name: (project001 as Project).name,
       type: (project001 as Project).type,
       status: (project001 as Project).status,
@@ -57,6 +66,29 @@ describe("IndexedDbStorageAdapter — create, edit, reload", () => {
 
     expect(await adapter.getProject(project.id)).toBeUndefined();
     expect(await adapter.listActuals(project.id)).toEqual([]);
+  });
+});
+
+describe("IndexedDbStorageAdapter — project code migration (v3 -> v4)", () => {
+  it("backfills code = id for a project stored under the pre-code schema", async () => {
+    const dbName = freshDbName();
+
+    // Simulate a pre-ticket-05 database: a v3 database with a project row that has no `code`.
+    const legacyDb = new Dexie(dbName);
+    legacyDb.version(3).stores({
+      projects: "id",
+      actuals: "id, projectId, [projectId+period]",
+      categoryMappingOverrides: "accountCode",
+      settings: "id",
+    });
+    await legacyDb.table("projects").put(withoutCode(project001 as Project));
+    legacyDb.close();
+
+    // Opening with the current adapter runs the v4 upgrade, which should backfill code = id.
+    const adapter = new IndexedDbStorageAdapter(dbName);
+    const migrated = await adapter.getProject((project001 as Project).id);
+
+    expect(migrated?.code).toBe((project001 as Project).id);
   });
 });
 
@@ -133,6 +165,50 @@ describe("Snapshot export/import round trip — byte-stable modulo exportedAt", 
 
     expect(await adapter.getProject("999")).toBeUndefined();
     expect(await adapter.getProject((project001 as Project).id)).toBeDefined();
+  });
+
+  it("round-trips the project code through export/import", async () => {
+    const source = new IndexedDbStorageAdapter(freshDbName());
+    await source.saveProject(project001 as Project);
+
+    const target = new IndexedDbStorageAdapter(freshDbName());
+    await target.importSnapshot(parseSnapshot(serializeSnapshot(await source.exportSnapshot())));
+
+    expect((await target.getProject((project001 as Project).id))?.code).toBe(
+      (project001 as Project).code,
+    );
+  });
+
+  it("defaults a legacy snapshot's missing project code to its id", () => {
+    const json = JSON.stringify({
+      schemaVersion: "1",
+      exportedAt: "2026-01-01T00:00:00.000Z",
+      projects: [withoutCode(project001 as Project)],
+      actuals: [],
+      categoryMappingOverrides: [],
+      settingsOverrides: { rateCardOverrides: [] },
+    });
+
+    const snapshot = parseSnapshot(json);
+
+    expect(snapshot.projects[0].code).toBe((project001 as Project).id);
+  });
+
+  it("fails loudly on a case-insensitive project code collision", () => {
+    const projectA = { ...(project001 as Project), id: "001", code: "PRO-2601", name: "First" };
+    const projectB = { ...(project001 as Project), id: "002", code: "pro-2601", name: "Second" };
+    const json = JSON.stringify({
+      schemaVersion: "1",
+      exportedAt: "2026-01-01T00:00:00.000Z",
+      projects: [projectA, projectB],
+      actuals: [],
+      categoryMappingOverrides: [],
+      settingsOverrides: { rateCardOverrides: [] },
+    });
+
+    expect(() => parseSnapshot(json)).toThrow(/duplicate project code/i);
+    expect(() => parseSnapshot(json)).toThrow(/First/);
+    expect(() => parseSnapshot(json)).toThrow(/Second/);
   });
 
   it("round-trips category mapping overrides through export/import", async () => {

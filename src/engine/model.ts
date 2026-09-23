@@ -81,6 +81,9 @@ export interface Stakeholder {
 
 export interface Project {
   id: string;
+  /** Planner-entered, trimmed, unique (case-insensitive) identifier — entered at creation and
+   * locked afterwards. User-facing; `id` remains the internal storage key. */
+  code: string;
   name: string;
   type: ProjectType;
   status: ProjectStatus;

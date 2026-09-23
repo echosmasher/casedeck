@@ -76,6 +76,7 @@ describe("bandFraction", () => {
 describe("computeProjectScenarios — fixed-price allocation variants", () => {
   const base: Project = {
     id: "999",
+    code: "999",
     name: "alloc-test",
     type: "customer",
     status: "planning",

@@ -37,6 +37,7 @@ interface Meta {
   statuses?: GroupConfig["statuses"];
   project: {
     id: string;
+    code: string;
     name: string;
     type: "customer" | "internal";
     status: Project["status"];
@@ -102,6 +103,7 @@ const config: GroupConfig = {
 
 const project: Project = {
   id: meta.project.id,
+  code: meta.project.code,
   name: meta.project.name,
   type: meta.project.type,
   status: meta.project.status,

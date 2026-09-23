@@ -51,6 +51,10 @@ export function validateProjectInvariants(project: Project): ModelValidationErro
   const errors: ModelValidationError[] = [];
   const periods = new Set(projectPeriods(project));
 
+  if (!project.code || !project.code.trim()) {
+    errors.push({ field: "code", message: "is required and cannot be blank" });
+  }
+
   project.costs.forEach((line, index) => {
     errors.push(...checkLine(line, index));
   });

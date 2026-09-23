@@ -50,6 +50,7 @@ describe("periodizeCosts — demo fixtures", () => {
   it("treats periods missing from a line's valuesPerPeriod as zero, not undefined", () => {
     const project: Project = {
       id: "997",
+      code: "997",
       name: "sparse",
       type: "internal",
       status: "planning",
@@ -166,6 +167,7 @@ describe("allocation property: periodized revenue always sums to the modeled tot
           );
           const project: Project = {
             id: "999",
+            code: "999",
             name: "prop",
             type: "customer",
             status: "planning",
@@ -197,6 +199,7 @@ describe("allocation property: periodized revenue always sums to the modeled tot
           const total = values.reduce((a, b) => a + b, 0);
           const project: Project = {
             id: "999",
+            code: "999",
             name: "prop",
             type: "customer",
             status: "planning",

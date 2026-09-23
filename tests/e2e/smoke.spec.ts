@@ -21,10 +21,14 @@ test("boot demo, open 001, import actuals, export 003", async ({ page }) => {
   await expect(page.getByRole("link", { name: "ERP Data Migration" })).toBeVisible();
   await expect(page.getByRole("link", { name: /Booking Integration/ })).toBeVisible();
 
+  // Overview shows the project code, not the raw storage id.
+  await expect(page.getByRole("cell", { name: "PRO-2601" })).toBeVisible();
+
   // Open 001.
   await intranetLink.click();
   await expect(page).toHaveURL(/\/project\?id=001/);
   await expect(page.getByRole("heading", { name: "Intranet Relaunch" })).toBeVisible();
+  await expect(page.getByText("PRO-2601")).toBeVisible();
 
   // Dashboard tab (default) already shows the scenario chart; jump to Actuals to import a file.
   await page.getByRole("tab", { name: "Actuals" }).click();

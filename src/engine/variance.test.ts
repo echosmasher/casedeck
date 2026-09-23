@@ -90,6 +90,7 @@ describe("computeVariance — 002 the clean case", () => {
 describe("computeVariance — edge cases", () => {
   const zeroContingencyProject: Project = {
     id: "998",
+    code: "998",
     name: "committed-only",
     type: "internal",
     status: "in_progress",

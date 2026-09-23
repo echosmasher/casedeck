@@ -112,6 +112,7 @@ function ProjectPageContent() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+            <span className="font-mono text-sm text-muted-foreground">{project.code}</span>
             <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
             <Badge variant="secondary">{project.status}</Badge>
           </div>

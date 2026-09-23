@@ -15,6 +15,10 @@ Every project's raw budget lives in its JSON snapshot (`demo/projects/`), source
 `demo/budgets/`. Actuals are separate CSVs in `demo/actuals/`, imported against the same category
 mapping — they are not embedded in the project snapshot.
 
+**Project codes:** 001 Intranet Relaunch → `PRO-2601`, 002 Booking Integration → `PRO-2501`,
+003 ERP Data Migration → `PRO-2602`. Convention is start year + a sequence number — illustrative,
+not a real org's numbering scheme.
+
 **Scope note:** actuals reconciliation in v1 covers **costs only**. Revenue for fixed-price/hourly
 customer work is tracked as planned (per the project's `pricingModel`, at whatever confidence it
 carries) — there is no separate "actual revenue received" import in this tool. This matters for the

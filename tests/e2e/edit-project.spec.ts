@@ -24,8 +24,11 @@ test("editing a project updates status/end period/stakeholders and persists, sta
 
   const startPeriodInput = page.getByLabel("Start period");
   const currencyInput = page.getByLabel("Currency");
+  const codeInput = page.getByLabel("Project code");
   await expect(startPeriodInput).toBeDisabled();
   await expect(currencyInput).toBeDisabled();
+  await expect(codeInput).toBeDisabled();
+  await expect(codeInput).toHaveValue("PRO-2601");
 
   await page.getByLabel("End period").fill("2026-12");
   await page.getByLabel("Status").selectOption("on_hold");

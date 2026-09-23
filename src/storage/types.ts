@@ -16,6 +16,7 @@ import type {
  * Viewer visibility, PLAN.md §5) without a second fetch per project. */
 export interface ProjectSummary {
   id: string;
+  code: string;
   name: string;
   type: ProjectType;
   status: ProjectStatus;

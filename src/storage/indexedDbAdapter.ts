@@ -40,6 +40,25 @@ class CaseDeckDatabase extends Dexie {
       categoryMappingOverrides: "accountCode",
       settings: "id",
     });
+    // v4: `code` added to Project (ticket 05). Backfill code = id on existing rows so nothing is
+    // blank — this is the permanent value for legacy projects, since code is locked after creation.
+    this.version(4)
+      .stores({
+        projects: "id",
+        actuals: "id, projectId, [projectId+period]",
+        categoryMappingOverrides: "accountCode",
+        settings: "id",
+      })
+      .upgrade((tx) =>
+        tx
+          .table("projects")
+          .toCollection()
+          .modify((project: Project) => {
+            if (!project.code || !project.code.trim()) {
+              project.code = project.id;
+            }
+          }),
+      );
   }
 }
 
@@ -53,7 +72,14 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
   async listProjects(): Promise<ProjectSummary[]> {
     const projects = await this.db.projects.toArray();
     return projects
-      .map((p) => ({ id: p.id, name: p.name, type: p.type, status: p.status, stakeholders: p.stakeholders }))
+      .map((p) => ({
+        id: p.id,
+        code: p.code,
+        name: p.name,
+        type: p.type,
+        status: p.status,
+        stakeholders: p.stakeholders,
+      }))
       .sort((a, b) => a.id.localeCompare(b.id));
   }
 
