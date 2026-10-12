@@ -51,3 +51,6 @@ next-env.d.ts
 
 # Session handoff notes - local scratch, never committed
 HANDOFF.md
+
+# impeccable design-tool scratch state (critique snapshots, live server)
+/.impeccable/
