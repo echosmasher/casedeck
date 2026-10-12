@@ -7,7 +7,7 @@ import { formatCurrency } from "../_lib/format";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, Project } from "@/engine/model";
-import { CATEGORY_LABEL, FLAG_META } from "./shared";
+import { blendedFlagLabel, CATEGORY_LABEL, FLAG_META } from "./shared";
 
 export function VarianceSection({
   project,
@@ -22,7 +22,6 @@ export function VarianceSection({
   const variance = computeVariance(project, actuals, config.confidenceBands);
   const categories = Object.keys(variance.byCategory).sort();
   const { currency, displayUnits } = project;
-  const totalMeta = FLAG_META[variance.total.flag];
 
   return (
     <Card>
@@ -52,9 +51,13 @@ export function VarianceSection({
               <li key={key} className={total ? "border-t-2 pt-3" : "border-b py-3 first:pt-0"}>
                 <div className="flex items-center justify-between gap-3">
                   <span className={total ? "font-semibold" : "font-medium"}>{label}</span>
-                  <Badge variant={meta.variant} dot>
-                    {meta.label}
-                  </Badge>
+                  {total ? (
+                    <span className="text-sm text-muted-foreground">{blendedFlagLabel(row.flag)}</span>
+                  ) : (
+                    <Badge variant={meta.variant} dot>
+                      {meta.label}
+                    </Badge>
+                  )}
                 </div>
                 <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
                   <dt className="text-muted-foreground">Actual to date</dt>
@@ -63,7 +66,7 @@ export function VarianceSection({
                   <dd className="text-right" style={{ color: total || row.flag === "ok" ? undefined : meta.ink }}>
                     {formatCurrency(row.projectionToComplete, currency, displayUnits)}
                   </dd>
-                  <dt className="text-muted-foreground">Expected total</dt>
+                  <dt className="text-muted-foreground">Budgeted total</dt>
                   <dd className="text-right text-muted-foreground">
                     {formatCurrency(row.expectedTotal, currency, displayUnits)}
                   </dd>
@@ -83,7 +86,7 @@ export function VarianceSection({
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actual to date</TableHead>
               <TableHead className="text-right">Projection to complete</TableHead>
-              <TableHead className="text-right">Expected total</TableHead>
+              <TableHead className="text-right">Budgeted total</TableHead>
               <TableHead className="text-right">Worst-case ceiling</TableHead>
             </TableRow>
           </TableHeader>
@@ -116,11 +119,7 @@ export function VarianceSection({
             })}
             <TableRow className="border-t-2">
               <TableCell className="font-semibold">Total</TableCell>
-              <TableCell>
-                <Badge variant={totalMeta.variant} dot>
-                  {totalMeta.label}
-                </Badge>
-              </TableCell>
+              <TableCell className="text-sm text-muted-foreground">{blendedFlagLabel(variance.total.flag)}</TableCell>
               <TableCell className="text-right tabular-nums font-semibold">
                 {formatCurrency(variance.total.actualToDate, currency, displayUnits)}
               </TableCell>

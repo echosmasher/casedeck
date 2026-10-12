@@ -6,7 +6,8 @@ import type { HeadlineSummary } from "@/engine/headline";
 import { formatCompactAmount, formatRange } from "../_lib/format";
 
 /** A run of verdict text; `negative` marks an unfavourable figure (set in the critical ink — the
- * words already say "over", "below" or "loss", so colour only reinforces them). */
+ * words already say "over", "below" or "loss", so colour only reinforces them). A budget gap is
+ * only marked when it is flagged (`gapFlagged`), so a drift inside the band reads as neutral. */
 export interface VerdictSegment {
   text: string;
   negative?: boolean;
@@ -54,7 +55,7 @@ function budgetSegments(h: HeadlineSummary, units: DisplayUnits): VerdictSegment
     h.measure === "cost" ? (h.deltaVsBudget > 0 ? "over" : "under") : h.deltaVsBudget < 0 ? "below" : "above";
   return [
     { text: ", " },
-    { text: `${amount}${NBSP}${direction} budget`, negative: h.unfavourable },
+    { text: `${amount}${NBSP}${direction} budget`, negative: h.gapFlagged },
     { text: "." },
   ];
 }
@@ -76,25 +77,35 @@ export function headlineCopy(
     reason = `${categoryLabel(h.driver)} has used over half its contingency.`;
   } else if (h.worstCaseBelowZero) {
     reason = "Worst case is a loss.";
-  } else if (h.lastClosedPeriod && !h.projectedFrom) {
+  } else if (h.stage === "finished") {
     reason = "Every category finished within its range.";
-  } else if (!h.lastClosedPeriod) {
-    reason = "Nothing closed yet.";
+  } else if (h.stage === "not_started") {
+    reason = "Every category is still at its budget.";
   } else {
     reason = "Every category is within its range.";
   }
+  if (h.bestCaseOverBudget) {
+    reason += h.measure === "cost" ? " Even the best case is over budget." : " Even the best case is below budget.";
+  }
 
   let verdict: VerdictSegment[];
-  if (h.measure === "cost") {
-    verdict = [
-      { text: `Expected to cost ${formatCompactAmount(h.value.expected, units)}${NBSP}${currency}` },
-      ...budgetSegments(h, units),
-    ];
+  const expected = `${formatCompactAmount(Math.abs(h.value.expected), units)}${NBSP}${currency}`;
+  if (h.stage === "finished") {
+    // Nothing left to project: the range has collapsed, so report the outcome in the past tense.
+    const lead: VerdictSegment =
+      h.measure === "cost"
+        ? { text: `Finished at a cost of ${expected}` }
+        : h.value.expected < 0
+          ? { text: `Finished with a loss of ${expected}`, negative: true }
+          : { text: `Finished with a ${expected} margin` };
+    verdict = [lead, ...budgetSegments(h, units)];
+  } else if (h.measure === "cost") {
+    verdict = [{ text: `Expected to cost ${expected}` }, ...budgetSegments(h, units)];
   } else {
     const lead =
       h.value.expected < 0
-        ? { text: `Expected loss ${formatCompactAmount(-h.value.expected, units)}${NBSP}${currency}`, negative: true }
-        : { text: `Expected margin ${formatCompactAmount(h.value.expected, units)}${NBSP}${currency}` };
+        ? { text: `Expected loss ${expected}`, negative: true }
+        : { text: `Expected margin ${expected}` };
     verdict = [lead, ...(collapsed ? budgetSegments(h, units) : marginRangeSegments(low, high, units))];
   }
 

@@ -7,11 +7,17 @@
 // - Status: the *worst* category flag from `computeVariance`, not the blended total's own flag — a
 //   single category breaching its worst-case ceiling is exactly what the product exists to surface
 //   before the total shows it (variance.ts header). Same thresholds; none are invented here.
+// - Budget gap flag: how much of the measure's own contingency (budgeted value to its budgeted
+//   worst case) the unfavourable gap consumes, on the same thresholds. A small drift inside the
+//   band (002's 1.2%) stays "ok", so the UI only sets it in the critical ink when it matters.
+// - Stage: not started (nothing closed), in progress, or finished (nothing left to project).
 import { computeBlendedTotals } from "./blended";
-import { computeVariance, type VarianceFlag } from "./variance";
+import { computeProjectScenarios } from "./scenarios";
+import { computeVariance, flagFor, type VarianceFlag } from "./variance";
 import type { ActualEntry, ConfidenceBands, PeriodKey, Project, ScenarioValue } from "./model";
 
 export type HeadlineMeasure = "margin" | "cost";
+export type HeadlineStage = "not_started" | "in_progress" | "finished";
 
 export interface HeadlineSummary {
   measure: HeadlineMeasure;
@@ -25,6 +31,14 @@ export interface HeadlineSummary {
   deltaPct: number | null;
   /** True when the expected value is worse than budget: cost above it, or margin below it. */
   unfavourable: boolean;
+  /** Share of the measure's budgeted contingency the unfavourable gap consumes, as a flag; "ok"
+   * when the gap is favourable. */
+  budgetGapFlag: VarianceFlag;
+  /** True when the gap is unfavourable and either a category is flagged or the gap itself is. */
+  gapFlagged: boolean;
+  /** True while periods remain open and even the best case is worse than budget. */
+  bestCaseOverBudget: boolean;
+  stage: HeadlineStage;
   /** Worst category flag; "ok" when there are no cost categories at all. */
   status: VarianceFlag;
   /** The category driving a non-ok status (highest contingency consumed among the worst flag). */
@@ -72,6 +86,21 @@ export function computeHeadline(
 
   const closed = new Set(project.closedPeriods);
   const open = blended.periods.filter((p) => !closed.has(p));
+  const unfavourable = measure === "cost" ? deltaVsBudget > 0 : deltaVsBudget < 0;
+
+  const budgeted = computeProjectScenarios(project, bands).totals;
+  const budgetWorst = measure === "margin" ? budgeted.margin.worst : budgeted.cost.worst;
+  const contingency = Math.abs(budgetWorst - budget);
+  const shortfall = unfavourable ? Math.abs(deltaVsBudget) : 0;
+  const budgetGapFlag = flagFor(
+    contingency > 0 ? shortfall / contingency : shortfall > 0 ? Number.POSITIVE_INFINITY : 0,
+  );
+
+  const stage: HeadlineStage =
+    blended.lastClosedPeriod === null ? "not_started" : open.length === 0 ? "finished" : "in_progress";
+  const low = Math.min(value.best, value.worst);
+  const high = Math.max(value.best, value.worst);
+  const bestCaseOverBudget = stage !== "finished" && (measure === "cost" ? low > budget : high < budget);
 
   return {
     measure,
@@ -79,7 +108,11 @@ export function computeHeadline(
     budget,
     deltaVsBudget,
     deltaPct: budget === 0 ? null : deltaVsBudget / Math.abs(budget),
-    unfavourable: measure === "cost" ? deltaVsBudget > 0 : deltaVsBudget < 0,
+    unfavourable,
+    budgetGapFlag,
+    gapFlagged: unfavourable && (status !== "ok" || budgetGapFlag !== "ok"),
+    bestCaseOverBudget,
+    stage,
     status,
     driver,
     costActualToDate: variance.total.actualToDate,
@@ -87,7 +120,7 @@ export function computeHeadline(
     lastClosedPeriod: blended.lastClosedPeriod,
     projectedFrom: open[0] ?? null,
     projectedTo: open.at(-1) ?? null,
-    worstCaseBelowZero: measure === "margin" && Math.min(value.worst, value.best) < 0,
+    worstCaseBelowZero: measure === "margin" && low < 0,
   };
 }
 

@@ -206,7 +206,7 @@ function renderVarianceSection(
   <h2>Budget vs. actual</h2>
   ${riskCommentary ? `<p>${escapeHtml(riskCommentary).replace(/\n/g, "<br />")}</p>` : ""}
   <table class="totals">
-    <thead><tr><th>Category</th><th>Status</th><th>Actual to date</th><th>Projection to complete</th><th>Expected total</th><th>Worst-case ceiling</th></tr></thead>
+    <thead><tr><th>Category</th><th>Status</th><th>Actual to date</th><th>Projection to complete</th><th>Budgeted total</th><th>Worst-case ceiling</th></tr></thead>
     <tbody>
       ${Object.entries(variance.byCategory)
         .map(
@@ -214,7 +214,7 @@ function renderVarianceSection(
             `<tr><th>${CATEGORY_LABEL[category] ?? escapeHtml(category)}</th><td class="${flagClass[row.flag]}">${flagLabel[row.flag]}</td><td>${fmt(row.actualToDate)}</td><td>${fmt(row.projectionToComplete)}</td><td>${fmt(row.expectedTotal)}</td><td>${fmt(row.worstCeiling)}</td></tr>`,
         )
         .join("")}
-      <tr class="emphasis"><th>Total</th><td class="${flagClass[variance.total.flag]}">${flagLabel[variance.total.flag]}</td><td>${fmt(variance.total.actualToDate)}</td><td>${fmt(variance.total.projectionToComplete)}</td><td>${fmt(variance.total.expectedTotal)}</td><td>${fmt(variance.total.worstCeiling)}</td></tr>
+      <tr class="emphasis"><th>Total</th><td>Blended: ${flagLabel[variance.total.flag].toLowerCase()}</td><td>${fmt(variance.total.actualToDate)}</td><td>${fmt(variance.total.projectionToComplete)}</td><td>${fmt(variance.total.expectedTotal)}</td><td>${fmt(variance.total.worstCeiling)}</td></tr>
     </tbody>
   </table>
 </section>`;

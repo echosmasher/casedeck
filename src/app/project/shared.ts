@@ -27,3 +27,12 @@ export const FLAG_META: Record<
   warning: { label: "Watch", color: "var(--viz-warning)", ink: "var(--viz-warning-ink)", variant: "status-warning" },
   red: { label: "Over budget", color: "var(--viz-critical)", ink: "var(--viz-critical-ink)", variant: "status-critical" },
 };
+
+/** Headline pill before any period is closed: neutral, because no actual has been checked yet. */
+export const NOT_STARTED_META: { label: string; variant: "outline" } = { label: "Not started", variant: "outline" };
+
+/** The Total row's status: the blended flag in words, without a pill, so it never competes with the
+ * headline's status (which follows the worst category, not the blend). */
+export function blendedFlagLabel(flag: VarianceFlag) {
+  return `Blended: ${FLAG_META[flag].label.toLowerCase()}`;
+}

@@ -5,7 +5,7 @@ import type { HeadlineSummary } from "@/engine/headline";
 import type { Project, ScenarioValue } from "@/engine/model";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
 import { headlineCopy } from "./headlineCopy";
-import { CATEGORY_LABEL, FLAG_META } from "./shared";
+import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
 
 /** The dashboard's lead: status and its reason, a one-sentence verdict, the scenario band as a
  * strip, and where the numbers come from — then the supporting tiles
@@ -22,12 +22,14 @@ export function Headline({
 }) {
   const { currency, displayUnits } = project;
   const copy = headlineCopy(headline, currency, displayUnits, (c) => CATEGORY_LABEL[c] ?? c);
-  const flag = FLAG_META[headline.status];
+  // Nothing closed means nothing has been measured yet, so "On track" would be a claim without
+  // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
+  const flag = headline.stage === "not_started" ? NOT_STARTED_META : FLAG_META[headline.status];
 
   return (
     <section aria-labelledby="dashboard-verdict" className="flex flex-col pt-4">
       <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
-        <Badge variant={flag.variant} dot>
+        <Badge variant={flag.variant} dot={flag.variant !== "outline"}>
           {flag.label}
         </Badge>
         <span>{copy.reason}</span>
@@ -73,7 +75,7 @@ export function Headline({
             <Tile
               label={headline.deltaVsBudget > 0 ? "Over budget by" : headline.deltaVsBudget < 0 ? "Under budget by" : "Against budget"}
               value={formatCurrency(Math.abs(headline.deltaVsBudget), currency, displayUnits)}
-              negative={headline.unfavourable}
+              negative={headline.gapFlagged}
             >
               {headline.deltaPct === null
                 ? "No budget to compare against"

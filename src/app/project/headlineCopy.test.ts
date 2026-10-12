@@ -15,6 +15,10 @@ const base: HeadlineSummary = {
   deltaVsBudget: 79000,
   deltaPct: 79000 / 1473600,
   unfavourable: true,
+  budgetGapFlag: "warning",
+  gapFlagged: true,
+  bestCaseOverBudget: false,
+  stage: "in_progress",
   status: "red",
   driver: "consultancy",
   costActualToDate: 815800,
@@ -44,6 +48,8 @@ describe("headlineCopy", () => {
         deltaVsBudget: 0,
         deltaPct: 0,
         unfavourable: false,
+        gapFlagged: false,
+        stage: "not_started",
         status: "ok",
         driver: null,
         lastClosedPeriod: null,
@@ -61,7 +67,7 @@ describe("headlineCopy", () => {
     expect(copy.source).toBe("No actuals yet; every period is projected");
   });
 
-  it("002 customer, all closed: a collapsed range reads as one value plus the budget comparison", () => {
+  it("002 customer, finished: reported in the past tense, and a drift inside the band is not marked", () => {
     const copy = headlineCopy(
       {
         ...base,
@@ -70,6 +76,9 @@ describe("headlineCopy", () => {
         budget: 236750,
         deltaVsBudget: -2750,
         unfavourable: true,
+        budgetGapFlag: "ok",
+        gapFlagged: false,
+        stage: "finished",
         status: "ok",
         driver: null,
         lastClosedPeriod: "2025-Q4",
@@ -81,13 +90,14 @@ describe("headlineCopy", () => {
       label,
     );
     expect(copy.reason).toBe("Every category finished within its range.");
-    expect(text(copy)).toBe("Expected margin 234k NOK, 3k below budget.");
+    expect(text(copy)).toBe("Finished with a 234k NOK margin, 3k below budget.");
+    expect(negatives(copy)).toEqual([]);
     expect(copy.source).toBe("Actuals for every period, through 2025-Q4");
   });
 
   it("Watch status names the category; cost under budget is not negative", () => {
     const copy = headlineCopy(
-      { ...base, status: "warning", driver: "travel", deltaVsBudget: -12000, unfavourable: false },
+      { ...base, status: "warning", driver: "travel", deltaVsBudget: -12000, unfavourable: false, gapFlagged: false },
       "NOK",
       "whole",
       label,
@@ -121,5 +131,48 @@ describe("headlineCopy", () => {
     );
     expect(text(copy)).toBe("Expected loss 120k NOK, anywhere from a loss of 40k to 210k.");
     expect(negatives(copy)).toEqual(["Expected loss 120k NOK", "a loss of 40k to 210k"]);
+  });
+
+  it("001 with the best case still over budget says so in the reason", () => {
+    const copy = headlineCopy({ ...base, bestCaseOverBudget: true }, "NOK", "whole", label);
+    expect(copy.reason).toBe("Consultancy is past its worst-case ceiling. Even the best case is over budget.");
+  });
+
+  it("a finished internal project, and a finished loss", () => {
+    const cost = headlineCopy(
+      { ...base, value: { expected: 1552600, best: 1552600, worst: 1552600 }, stage: "finished", projectedFrom: null, projectedTo: null },
+      "NOK",
+      "whole",
+      label,
+    );
+    expect(text(cost)).toBe("Finished at a cost of 1.55M NOK, 79k over budget.");
+    const loss = headlineCopy(
+      {
+        ...base,
+        measure: "margin",
+        value: { expected: -50000, best: -50000, worst: -50000 },
+        budget: 20000,
+        deltaVsBudget: -70000,
+        stage: "finished",
+        status: "ok",
+        driver: null,
+        worstCaseBelowZero: true,
+      },
+      "NOK",
+      "whole",
+      label,
+    );
+    expect(text(loss)).toBe("Finished with a loss of 50k NOK, 70k below budget.");
+    expect(negatives(loss)).toEqual(["Finished with a loss of 50k NOK", "70k below budget"]);
+  });
+
+  it("not started without a risk says every category is still at budget", () => {
+    const copy = headlineCopy(
+      { ...base, status: "ok", driver: null, stage: "not_started", deltaVsBudget: 0, gapFlagged: false },
+      "NOK",
+      "whole",
+      label,
+    );
+    expect(copy.reason).toBe("Every category is still at its budget.");
   });
 });
