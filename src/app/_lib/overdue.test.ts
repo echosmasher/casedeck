@@ -47,7 +47,7 @@ describe("isProjectOverdue", () => {
   );
 
   it("exposes a tooltip explaining the marker", () => {
-    expect(OVERDUE_TOOLTIP).toBe("Past end period — mark as completed or extend the end period.");
+    expect(OVERDUE_TOOLTIP).toMatch(/^Past end period with periods still open/);
   });
 });
 

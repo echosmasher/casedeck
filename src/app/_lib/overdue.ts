@@ -3,10 +3,11 @@
 import type { PeriodKey, Periodization, ProjectStatus } from "@/engine/model";
 
 /** Under the project header: what to do about it, via the Edit button beside it. */
-export const OVERDUE_HINT = "Its end period has passed. Use Edit to mark it completed or extend the end period.";
+export const OVERDUE_HINT =
+  "Its end period has passed with periods still open. Record and close the remaining actuals, or use Edit to extend the end period.";
 
 export const OVERDUE_TOOLTIP =
-  "Past end period — mark as completed or extend the end period.";
+  "Past end period with periods still open — record and close the remaining actuals, or extend the end period.";
 
 const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 const QUARTER_PATTERN = /^(\d{4})-Q([1-4])$/;

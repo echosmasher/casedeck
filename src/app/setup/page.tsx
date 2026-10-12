@@ -8,6 +8,8 @@ import { useRole } from "../_lib/RoleProvider";
 import { activeConfig } from "../_lib/activeConfig";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { validateProjectInvariants } from "@/engine/validate";
+import { effectiveStatus } from "@/engine/status";
+import { enumeratePeriods } from "@/engine/periodize";
 import type {
   Allocation,
   Confidence,
@@ -28,6 +30,24 @@ const selectClass =
   "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30";
 
 const STATUS_OPTIONS: { id: ProjectStatus; label: string }[] = activeConfig.statuses;
+
+/** The status the closed periods set (engine/status.ts), or null while none is closed and the
+ * entered status stands. Uses the form's current dates; while they don't parse, it waits. */
+function statusFromPeriods(
+  closedPeriods: string[],
+  periodization: Periodization,
+  startPeriod: string,
+  endPeriod: string,
+): { status: ProjectStatus; closed: number; total: number } | null {
+  if (closedPeriods.length === 0) return null;
+  try {
+    const total = enumeratePeriods(startPeriod, endPeriod, periodization).length;
+    const status = effectiveStatus({ status: "in_progress", closedPeriods, periodization, startPeriod, endPeriod });
+    return { status, closed: closedPeriods.length, total };
+  } catch {
+    return null;
+  }
+}
 
 const PERIOD_PATTERNS: Record<Periodization, RegExp> = {
   monthly: /^\d{4}-(0[1-9]|1[0-2])$/,
@@ -123,6 +143,7 @@ function SetupForm({
   const [name, setName] = useState(existingProject?.name ?? "");
   const [type, setType] = useState<ProjectType>(existingProject?.type ?? "internal");
   const [status, setStatus] = useState<ProjectStatus>(existingProject?.status ?? "planning");
+  const closedPeriods = existingProject?.closedPeriods ?? [];
   const [currency, setCurrency] = useState(existingProject?.currency ?? activeConfig.currency);
   const [displayUnits, setDisplayUnits] = useState<"whole" | "thousands">(
     existingProject?.displayUnits ?? activeConfig.displayUnitsDefault,
@@ -132,6 +153,8 @@ function SetupForm({
   );
   const [startPeriod, setStartPeriod] = useState(existingProject?.startPeriod ?? "");
   const [endPeriod, setEndPeriod] = useState(existingProject?.endPeriod ?? "");
+  const derived = statusFromPeriods(closedPeriods, periodization, startPeriod, endPeriod);
+  const derivedStatus = derived?.status ?? null;
   const [loadedCostMultiplier, setLoadedCostMultiplier] = useState(
     String(existingProject?.loadedCostMultiplier ?? config.loadedCostMultiplier),
   );
@@ -264,12 +287,14 @@ function SetupForm({
     }
 
     const id = existingProject?.id ?? (await storage.nextProjectId());
+    // Once periods are closed the status follows them; only On hold is still a choice.
+    const savedStatus = derivedStatus && status !== "on_hold" ? derivedStatus : status;
     const project: Project = {
       id,
       code: existingProject?.code ?? trimmedCode,
       name: name.trim(),
       type,
-      status,
+      status: savedStatus,
       currency,
       displayUnits,
       periodization,
@@ -376,15 +401,22 @@ function SetupForm({
             <select
               id="status"
               className={selectClass}
-              value={status}
+              value={derivedStatus && status !== "on_hold" ? derivedStatus : status}
               onChange={(e) => setStatus(e.target.value as ProjectStatus)}
+              aria-describedby={derived ? "status-hint" : undefined}
             >
-              {STATUS_OPTIONS.map((s) => (
+              {STATUS_OPTIONS.filter((s) => !derivedStatus || s.id === derivedStatus || s.id === "on_hold").map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label}
                 </option>
               ))}
             </select>
+            {derived && (
+              <p id="status-hint" className="text-xs text-muted-foreground">
+                Set by the closed periods ({derived.closed} of {derived.total}): In progress while any is
+                open, Completed once all are closed. On hold can still be chosen.
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-1.5">

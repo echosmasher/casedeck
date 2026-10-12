@@ -9,6 +9,7 @@ import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, ConfidenceBands, Project } from "@/engine/model";
 import { formatChartCurrency, renderBandChartSvg, renderCumulativeChartSvg } from "./charts";
 import { statusLabel } from "./labels";
+import { effectiveStatus } from "@/engine/status";
 
 export interface BusinessCaseInput {
   project: Project;
@@ -79,7 +80,7 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   <div>
     <h1>${escapeHtml(project.name)} <span class="code">${escapeHtml(project.code)}</span></h1>
     <p class="meta">
-      ${statusLabel(project.status)} · ${escapeHtml(project.id)} ·
+      ${statusLabel(effectiveStatus(project))} · ${escapeHtml(project.id)} ·
       ${escapeHtml(project.periodization)} · ${escapeHtml(project.startPeriod)}–${escapeHtml(project.endPeriod)} ·
       ${escapeHtml(project.currency)} (${project.displayUnits === "thousands" ? "thousands" : "whole units"})
     </p>

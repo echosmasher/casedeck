@@ -40,5 +40,5 @@
   "dependencies": [
     "Testing tool licence runs for the project's four months only"
   ],
-  "closedPeriods": ["2025-12", "2026-01", "2026-02", "2026-03"]
+  "closedPeriods": ["2025-12", "2026-01", "2026-02"]
 }

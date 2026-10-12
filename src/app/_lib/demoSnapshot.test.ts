@@ -2,6 +2,7 @@
 // planted stories exactly — engine fixture test re-run against the reset state"). Loads the bundled
 // snapshot exactly as the reset button would, then re-runs the same assertions Phase 2/5 already
 // verified against the source demo files, proving the bundled copy hasn't drifted from them.
+import { effectiveStatus } from "@/engine/status";
 import { describe, expect, it } from "vitest";
 import { demoSnapshot } from "./demoSnapshot";
 import { computeProjectScenarios } from "@/engine/scenarios";
@@ -55,14 +56,16 @@ describe("demoSnapshot — bundled dataset matches the source demo files exactly
     expect(scenarios.totals.margin.best).toBeCloseTo(1336275, 2);
   });
 
-  it("004: every category is ok, every period closed, 1,300 under budget", () => {
+  it("004: every category is ok, February the last closed period, 550 under plan to date", () => {
     const variance = computeVariance(project("004"), actualsFor("004"), bands);
     expect(variance.byCategory.salary.flag).toBe("ok");
     expect(variance.byCategory.it_systems.flag).toBe("ok");
     expect(variance.total.flag).toBe("ok");
-    expect(variance.total.actualToDate).toBeCloseTo(269300, 2);
-    expect(variance.total.budgetedToDate).toBeCloseTo(270600, 2);
-    expect(project("004").closedPeriods).toEqual(["2025-12", "2026-01", "2026-02", "2026-03"]);
+    expect(variance.total.actualToDate).toBeCloseTo(202400, 2);
+    expect(variance.total.budgetedToDate).toBeCloseTo(202950, 2);
+    expect(project("004").closedPeriods).toEqual(["2025-12", "2026-01", "2026-02"]);
+    // March is open, so the status reads In progress, and its end period is past: Overdue.
+    expect(effectiveStatus(project("004"))).toBe("in_progress");
   });
 
   it("every actual entry carries file/row provenance, as if it had actually been imported", () => {

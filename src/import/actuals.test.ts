@@ -83,13 +83,13 @@ describe("parseActualsFile — 001's real actuals files", () => {
 
 describe("parseActualsFile — 004's actuals file", () => {
   it("parses cleanly with no rejections, matching demo/README.md's numbers", () => {
-    const text = readDemoFile("demo/actuals/004-actuals-2025-12-to-2026-03.csv");
-    const result = parseActualsFile("004-actuals-2025-12-to-2026-03.csv", text, categoryMapping);
+    const text = readDemoFile("demo/actuals/004-actuals-2025-12-to-2026-02.csv");
+    const result = parseActualsFile("004-actuals-2025-12-to-2026-02.csv", text, categoryMapping);
 
     expect(result.rejected).toEqual([]);
     expect(result.unmapped).toEqual([]);
-    expect(result.totalsByCategory.salary).toBeCloseTo(209300, 2);
-    expect(result.totalsByCategory.it_systems).toBeCloseTo(60000, 2);
+    expect(result.totalsByCategory.salary).toBeCloseTo(157400, 2);
+    expect(result.totalsByCategory.it_systems).toBeCloseTo(45000, 2);
   });
 });
 

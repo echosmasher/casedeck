@@ -53,16 +53,14 @@ const actuals002: StoredActualEntry[] = [
   actual("002-a12", "002", "2025-Q4", "travel", 1900, "Reisekostnader Q4", "002-actuals-full-lifetime.csv", 12),
 ];
 
-// demo/actuals/004-actuals-2025-12-to-2026-03.csv — Story 4, ended but never marked completed.
+// demo/actuals/004-actuals-2025-12-to-2026-02.csv — Story 4, ended with March still unbooked.
 const actuals004: StoredActualEntry[] = [
-  actual("004-a1", "004", "2025-12", "salary", 51800, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-03.csv", 1),
-  actual("004-a2", "004", "2025-12", "it_systems", 15000, "Testing tool licence invoice #INV-2201", "004-actuals-2025-12-to-2026-03.csv", 2),
-  actual("004-a3", "004", "2026-01", "salary", 53400, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-03.csv", 3),
-  actual("004-a4", "004", "2026-01", "it_systems", 15000, "Testing tool licence invoice #INV-2215", "004-actuals-2025-12-to-2026-03.csv", 4),
-  actual("004-a5", "004", "2026-02", "salary", 52200, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-03.csv", 5),
-  actual("004-a6", "004", "2026-02", "it_systems", 15000, "Testing tool licence invoice #INV-2230", "004-actuals-2025-12-to-2026-03.csv", 6),
-  actual("004-a7", "004", "2026-03", "salary", 51900, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-03.csv", 7),
-  actual("004-a8", "004", "2026-03", "it_systems", 15000, "Testing tool licence invoice #INV-2244", "004-actuals-2025-12-to-2026-03.csv", 8),
+  actual("004-a1", "004", "2025-12", "salary", 51800, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-02.csv", 1),
+  actual("004-a2", "004", "2025-12", "it_systems", 15000, "Testing tool licence invoice #INV-2201", "004-actuals-2025-12-to-2026-02.csv", 2),
+  actual("004-a3", "004", "2026-01", "salary", 53400, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-02.csv", 3),
+  actual("004-a4", "004", "2026-01", "it_systems", 15000, "Testing tool licence invoice #INV-2215", "004-actuals-2025-12-to-2026-02.csv", 4),
+  actual("004-a5", "004", "2026-02", "salary", 52200, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-02.csv", 5),
+  actual("004-a6", "004", "2026-02", "it_systems", 15000, "Testing tool licence invoice #INV-2230", "004-actuals-2025-12-to-2026-02.csv", 6),
 ];
 
 export const demoSnapshot: Snapshot = {

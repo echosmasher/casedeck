@@ -143,12 +143,13 @@ explicitly rather than picking one number.
 
 ## Story 4 — 004 Website Accessibility Fixes (the overdue story)
 
-Internal project, monthly, Dec 2025–Mar 2026, status `in_progress`. The work is done and every
-month is booked and **closed**, but nobody marked the project completed. As of the demo date
-(2026-05-15) its end period is past, so the overview's `End` column shows it with an "Overdue"
-marker: the prompt to mark it completed or extend it. This is the overdue showcase; it used to
-rely on 001 drifting past its end date in real time, which also made 001's open months look like
-missing actuals.
+Internal project, monthly, Dec 2025–Mar 2026. The work is done, but only December to February are
+booked and **closed**: March's payroll and licence invoice haven't been recorded. A project's
+status follows its closed periods once any is closed (`src/engine/status.ts`), so 004 reads
+**In progress**, and because its end period is past as of the demo date (2026-05-15) it carries an
+"Overdue" marker: the prompt to record and close the remaining actuals, or extend the end period.
+Closing March would make it Completed. (The overdue showcase used to rely on 001 drifting past its
+end date in real time, which also made 001's open months look like missing actuals.)
 
 **Budget (expected case), 4-month totals:**
 | Line | Confidence | Monthly | 4-month total |
@@ -157,13 +158,14 @@ missing actuals.
 | Accessibility testing tool licence | committed | 15,000 | 60,000 |
 | **Total** | | **67,650** | **270,600** |
 
-**Actuals (`004-actuals-2025-12-to-2026-03.csv`):** salary 51,800 / 53,400 / 52,200 / 51,900 =
-209,300 (1,300 under); licence 15,000 each month = 60,000 (exact). Total **269,300**, 1,300 under
-budget. **Nothing is flagged**, and the dashboard reports the outcome in the past tense ("Finished
-at a cost of 269k NOK"), because every period is closed.
+**Actuals (`004-actuals-2025-12-to-2026-02.csv`):** salary 51,800 / 53,400 / 52,200 = 157,400
+(550 under its 157,950 plan); licence 15,000 each month = 45,000 (exact). Total **202,400** against
+202,950 budgeted for those months. **Nothing is flagged.** March still counts at budget, so the
+dashboard reads "Estimated final cost 270k NOK, 550 under budget" and notes that 2026-03 has ended
+with no actuals recorded, with a "Record actuals" link.
 
-**Where visible:** the overview's `End` column, and "Overdue · ended 2026-03" next to the project
-name on its page.
+**Where visible:** the overview's `End` column, "Overdue · ended 2026-03" next to the project name
+on its page, and the ended-period note under the dashboard headline.
 
 ---
 

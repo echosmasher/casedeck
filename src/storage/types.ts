@@ -21,6 +21,7 @@ export interface ProjectSummary {
   code: string;
   name: string;
   type: ProjectType;
+  /** As shown, not as entered: follows the closed periods once any is closed (engine/status.ts). */
   status: ProjectStatus;
   stakeholders: Stakeholder[];
   periodization: Periodization;
