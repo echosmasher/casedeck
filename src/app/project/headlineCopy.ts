@@ -147,8 +147,10 @@ export function headlineCopy(
 }
 
 /** The widest source of the range, as one line under the strip: "Salary is the biggest source of
- * uncertainty: 2 estimated lines (±10%), 99k of the 147k range." `category` is set for a cost
- * category so the name can link to its row in Budget vs. actual. */
+ * remaining uncertainty: 2 estimated lines (±10%), 99k of the 147k range." `category` is set for a
+ * cost category so the name can link to its row in Budget vs. actual. Once actuals are in, the
+ * status reason may name a different category (one already past its ceiling), so the line says
+ * "remaining" to keep the two from reading as a contradiction. */
 export interface SpreadCopy {
   label: string;
   category: string | null;
@@ -160,6 +162,8 @@ export function spreadCopy(
   bands: ConfidenceBands,
   units: DisplayUnits,
   categoryLabel: (category: string) => string,
+  /** Some periods have actuals: what is left uncertain is only the open periods. */
+  hasActuals = false,
 ): SpreadCopy | null {
   const top = drivers.sources[0];
   if (!top || formatCompactAmount(drivers.total, units) === "0") return null;
@@ -177,9 +181,10 @@ export function spreadCopy(
   }
 
   const only = drivers.sources.length === 1;
+  const uncertainty = hasActuals ? "remaining uncertainty" : "uncertainty";
   const detail = only
-    ? ` is the only source of uncertainty: ${how}.`
-    : ` is the biggest source of uncertainty: ${how}, ${formatCompactAmount(top.width, units)} of the ${formatCompactAmount(drivers.total, units)} range.`;
+    ? ` is the only source of ${uncertainty}: ${how}.`
+    : ` is the biggest source of ${uncertainty}: ${how}, ${formatCompactAmount(top.width, units)} of the ${formatCompactAmount(drivers.total, units)} range.`;
 
   return { label: isRevenue ? "Revenue" : categoryLabel(top.source), category: isRevenue ? null : top.source, detail };
 }

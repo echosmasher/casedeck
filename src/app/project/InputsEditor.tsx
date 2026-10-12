@@ -16,7 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { NumberCell } from "@/components/number-cell";
 import { Trash2 } from "lucide-react";
 import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } from "./shared";
-import { useUndoQueue } from "./UndoQueue";
+import { UNDO_WINDOW_MS, useUndoQueue } from "./UndoQueue";
 import { describeCostEdit, describeEffect, describeRevenueEdit, type EditChange } from "./editFeedback";
 
 /** The last saved edit: what it did, and how to put the edited fields back. */
@@ -45,6 +45,8 @@ function describeLine(line: CostLineItem) {
 // with no width of its own contributes its *untruncated* text width to the column's min-content
 // size, silently growing the column past LINE_COL_WIDTH and misaligning the offset above — giving
 // the label wrapper its own definite max-width stops that.
+/** Tailwind's `sm` breakpoint: below it the saved bar clears itself. */
+const SMALL_SCREEN = "(max-width: 639.98px)";
 const LINE_COL_WIDTH = "w-36 sm:w-56";
 const LINE_COL_LEFT_OFFSET = "sm:left-56";
 const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[8rem] sm:max-w-[13rem]";
@@ -95,6 +97,18 @@ export function InputsEditor({
     focusMessage.current = false;
     savedMessage.current?.focus();
   }, [savedEdit]);
+  // On a phone the bar covers a fifth of the screen, so it clears itself after the same window an
+  // undoable delete gets; held open while the pointer or focus is on it (WCAG 2.2.1).
+  const [barHeld, setBarHeld] = useState(false);
+  useEffect(() => {
+    if (!savedEdit || barHeld || !window.matchMedia(SMALL_SCREEN).matches) return;
+    const timer = setTimeout(closeBar, UNDO_WINDOW_MS);
+    return () => clearTimeout(timer);
+  }, [savedEdit, barHeld]);
+  function closeBar() {
+    setSavedEdit(null);
+    setBarHeld(false);
+  }
   const units = { currency: project.currency, displayUnits: project.displayUnits };
 
   function localChange(next: Project) {
@@ -283,7 +297,14 @@ export function InputsEditor({
           in view wherever the edited cell was. */}
       <div role="status" aria-live="polite" className="sticky bottom-3 z-30 empty:hidden">
         {savedEdit && (
-          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-sm tabular-nums shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
+          <div
+            onPointerEnter={() => setBarHeld(true)}
+            onPointerLeave={() => setBarHeld(false)}
+            onFocus={() => setBarHeld(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setBarHeld(false);
+            }}
+            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-sm tabular-nums shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
             <span ref={savedMessage} tabIndex={-1} className="outline-none">
               {savedEdit.message}
             </span>
@@ -293,7 +314,7 @@ export function InputsEditor({
                   Undo
                 </Button>
               )}
-              <Button type="button" variant="ghost" size="sm" onClick={() => setSavedEdit(null)}>
+              <Button type="button" variant="ghost" size="sm" onClick={closeBar}>
                 Dismiss
               </Button>
             </span>

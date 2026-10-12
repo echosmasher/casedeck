@@ -29,13 +29,15 @@ test("arrowing through the close-period select previews but never saves; Apply d
   const select = page.getByLabel("Close periods through");
   await expect(select).toHaveValue("2026-04");
 
-  // Keyboard arrowing used to save once per keypress.
+  // Keyboard arrowing used to save once per keypress. The demo's pinned date (2026-05-15) leaves
+  // 2026-05 as the last period that can be closed; pressing past it stays there (2026-06 hasn't
+  // started, so it's disabled).
   await select.focus();
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("ArrowDown");
-  await expect(select).toHaveValue("2026-06");
+  await expect(select).toHaveValue("2026-05");
   await expect(page.getByRole("heading", { name: "Unsaved change" })).toBeVisible();
-  await expect(page.getByText("2026-05, 2026-06 have no cost actuals.")).toBeVisible();
+  await expect(page.getByText("2026-05 has no cost actuals.")).toBeVisible();
 
   await page.reload();
   await page.getByRole("tab", { name: "Actuals" }).click();

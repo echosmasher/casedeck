@@ -46,6 +46,10 @@ export interface HeadlineSummary {
   /** Recorded cost actuals to date, and the budgeted cost for the same periods. */
   costActualToDate: number;
   costBudgetedToDate: number;
+  /** Budgeted total cost minus the cost recorded so far: negative once spending passes the budget. */
+  costBudgetLeft: number;
+  /** Budgeted cost for the periods not yet recorded (the open periods). */
+  costBudgetedRemaining: number;
   /** Last closed period, or null when nothing is closed. */
   lastClosedPeriod: PeriodKey | null;
   /** First and last open (projected) periods, or null when every period is closed. */
@@ -117,6 +121,8 @@ export function computeHeadline(
     driver,
     costActualToDate: variance.total.actualToDate,
     costBudgetedToDate: variance.total.budgetedToDate,
+    costBudgetLeft: budgetedCost - variance.total.actualToDate,
+    costBudgetedRemaining: budgetedCost - variance.total.budgetedToDate,
     lastClosedPeriod: blended.lastClosedPeriod,
     projectedFrom: open[0] ?? null,
     projectedTo: open.at(-1) ?? null,

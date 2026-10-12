@@ -36,7 +36,7 @@ export function Headline({
   const { currency, displayUnits } = project;
   const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
   const copy = headlineCopy(headline, currency, displayUnits, categoryLabel, endedOpenPeriods);
-  const driver = spreadCopy(spread, bands, displayUnits, categoryLabel);
+  const driver = spreadCopy(spread, bands, displayUnits, categoryLabel, headline.lastClosedPeriod !== null);
   const finished = headline.stage === "finished";
   // Nothing closed means nothing has been measured yet, so "On track" would be a claim without
   // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
@@ -152,6 +152,8 @@ export function Headline({
             </Tile>
           </>
         ) : (
+          // The verdict already states the gap to budget; the tiles add what it doesn't say: how
+          // spending so far compares with its plan, and how much budget is left for the rest.
           <>
             <Tile
               label={finished ? "Final cost" : "Spent to date"}
@@ -162,15 +164,23 @@ export function Headline({
             <Tile label="Budget" value={formatCurrency(headline.budget, currency, displayUnits)}>
               Planned total cost
             </Tile>
-            <Tile
-              label={headline.deltaVsBudget > 0 ? "Over budget by" : headline.deltaVsBudget < 0 ? "Under budget by" : "Against budget"}
-              value={formatCurrency(Math.abs(headline.deltaVsBudget), currency, displayUnits)}
-              negative={headline.gapFlagged}
-            >
-              {headline.deltaPct === null
-                ? "No budget to compare against"
-                : `${headline.deltaPct > 0 ? "+" : headline.deltaPct < 0 ? "\u2212" : ""}${formatPercent(Math.abs(headline.deltaPct))} vs. budget`}
-            </Tile>
+            {finished ? (
+              <Tile
+                label="Against budget"
+                value={headline.deltaPct === null ? "No budget" : signedPercent(headline.deltaPct)}
+                negative={headline.gapFlagged}
+              >
+                Final cost compared with the planned total
+              </Tile>
+            ) : (
+              <Tile
+                label={headline.costBudgetLeft < 0 ? "Spent past budget" : "Left in budget"}
+                value={formatCurrency(Math.abs(headline.costBudgetLeft), currency, displayUnits)}
+                negative={headline.costBudgetLeft < headline.costBudgetedRemaining && headline.gapFlagged}
+              >
+                {budgetLeftNote(headline, currency, displayUnits)}
+              </Tile>
+            )}
           </>
         )}
       </div>
@@ -190,11 +200,23 @@ function rangeNote(value: ScenarioValue, currency: string, units: Project["displ
 }
 
 function spentToDateNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
-  if (!h.lastClosedPeriod && h.costActualToDate === 0) return "No actuals recorded yet";
-  const diff = h.costActualToDate - h.costBudgetedToDate;
-  const amount = formatCurrency(Math.abs(diff), currency, units);
-  if (formatCompactAmount(Math.abs(diff), units) === "0") return "On plan for the periods recorded";
-  return `${amount} ${diff > 0 ? "over" : "under"} plan for the periods recorded`;
+  if (!h.lastClosedPeriod) return "No actuals recorded yet";
+  return `Against ${formatCurrency(h.costBudgetedToDate, currency, units)} planned to date`;
+}
+
+/** Whether what is left covers what the open periods were budgeted at; the shortfall itself is the
+ * verdict's gap, so it isn't repeated here. */
+function budgetLeftNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
+  if (!h.projectedFrom || !h.projectedTo) return "No periods left to plan";
+  const planned = formatCurrency(h.costBudgetedRemaining, currency, units);
+  const periods = h.projectedFrom === h.projectedTo ? h.projectedFrom : `${h.projectedFrom}–${h.projectedTo}`;
+  const short = h.costBudgetLeft < h.costBudgetedRemaining;
+  return keepPeriodsWhole(`${short ? "Short of the" : "Covers the"} ${planned} planned for ${periods}`);
+}
+
+function signedPercent(pct: number) {
+  const sign = pct > 0 ? "+" : pct < 0 ? "\u2212" : "";
+  return `${sign}${formatPercent(Math.abs(pct))}`;
 }
 
 function finalMarginNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {

@@ -15,6 +15,7 @@ import { Headline } from "./Headline";
 import { computeActualsBoundary } from "./actualsBoundary";
 import { hasPeriodEnded } from "../_lib/overdue";
 import { appToday } from "../_lib/today";
+import { fieldLabel } from "../_lib/fieldLabel";
 
 export function Dashboard({
   project,
@@ -28,7 +29,7 @@ export function Dashboard({
   const { config } = useEffectiveConfig();
   const errors = validateProjectInvariants(project);
   if (errors.length > 0) {
-    return <ValidationErrorList errors={errors} />;
+    return <ValidationErrorList errors={errors} project={project} />;
   }
 
   const scenarios = computeProjectScenarios(project, config.confidenceBands);
@@ -173,7 +174,7 @@ function TrendToggle({
   );
 }
 
-function ValidationErrorList({ errors }: { errors: ModelValidationError[] }) {
+function ValidationErrorList({ errors, project }: { errors: ModelValidationError[]; project: Project }) {
   return (
     <div role="alert" className="rounded-lg border border-destructive/50 bg-destructive/10 p-6">
       <h2 className="text-base font-semibold text-destructive">
@@ -186,16 +187,10 @@ function ValidationErrorList({ errors }: { errors: ModelValidationError[] }) {
       <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-destructive">
         {errors.map((e) => (
           <li key={`${e.field}-${e.message}`}>
-            <span className="font-mono text-xs">{translateField(e.field)}</span>: {e.message}
+            <span className="font-medium">{fieldLabel(e.field, project)}</span>: {e.message}
           </li>
         ))}
       </ul>
     </div>
   );
-}
-
-function translateField(field: string): string {
-  const match = /^costs\[(\d+)\]/.exec(field);
-  if (!match) return field;
-  return field.replace(/^costs\[\d+\]/, `cost line ${Number(match[1]) + 1}`);
 }

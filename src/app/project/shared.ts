@@ -31,8 +31,15 @@ export const FLAG_META: Record<
 /** Headline pill before any period is closed: neutral, because no actual has been checked yet. */
 export const NOT_STARTED_META: { label: string; variant: "outline" } = { label: "Not started", variant: "outline" };
 
-/** The Total row's status: the blended flag in words, without a pill, so it never competes with the
- * headline's status (which follows the worst category, not the blend). */
+/** The Total row's status, in words rather than a pill so it never competes with the headline's
+ * (which follows the worst category, not the total). Says what the combined figure has done, not a
+ * second verdict: "Watch" here beside an "Over budget" pill read as a contradiction. */
 export function blendedFlagLabel(flag: VarianceFlag) {
-  return `Blended: ${FLAG_META[flag].label.toLowerCase()}`;
+  return TOTAL_FLAG_LABEL[flag];
 }
+
+const TOTAL_FLAG_LABEL: Record<VarianceFlag, string> = {
+  ok: "Within range",
+  warning: "Over half the contingency used",
+  red: "Past the worst-case ceiling",
+};

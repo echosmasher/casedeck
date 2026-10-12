@@ -66,10 +66,10 @@ test("Export drafts survive switching tabs", async ({ page }) => {
 });
 
 test("periods that haven't started can't be closed", async ({ page }) => {
-  await page.clock.setFixedTime(new Date(2026, 9, 12));
-  await openProject(page, "ERP Data Migration", "Actuals");
+  // The demo config pins "today" to 2026-05-15 (asOf), so 001's May has started and June hasn't.
+  await openProject(page, "Intranet Relaunch", "Actuals");
   const select = page.getByLabel("Close periods through");
-  await expect(select.locator("option", { hasText: "2026-10" })).toBeEnabled();
-  await expect(select.locator("option", { hasText: "2026-11 (not started)" })).toBeDisabled();
+  await expect(select.locator("option", { hasText: "2026-05" })).toBeEnabled();
+  await expect(select.locator("option", { hasText: "2026-06 (not started)" })).toBeDisabled();
   await expect(page.getByText("Periods that haven't started yet can't be closed.")).toBeVisible();
 });

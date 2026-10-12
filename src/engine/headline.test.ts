@@ -65,6 +65,8 @@ describe("computeHeadline — 001 internal, closed through 2026-04 (the overrun 
   it("reports cost to date against plan and the projected span", () => {
     expect(h.costActualToDate).toBeCloseTo(815800, 6);
     expect(h.costBudgetedToDate).toBeCloseTo(736800, 6);
+    expect(h.costBudgetLeft).toBeCloseTo(657800, 6);
+    expect(h.costBudgetedRemaining).toBeCloseTo(736800, 6);
     expect(h.lastClosedPeriod).toBe("2026-04");
     expect(h.projectedFrom).toBe("2026-05");
     expect(h.projectedTo).toBe("2026-08");

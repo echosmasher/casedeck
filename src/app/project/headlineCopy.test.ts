@@ -23,6 +23,8 @@ const base: HeadlineSummary = {
   driver: "consultancy",
   costActualToDate: 815800,
   costBudgetedToDate: 736800,
+  costBudgetLeft: 657800,
+  costBudgetedRemaining: 736800,
   lastClosedPeriod: "2026-04",
   projectedFrom: "2026-05",
   projectedTo: "2026-08",
@@ -199,7 +201,7 @@ describe("spreadCopy", () => {
   const bands = { committed: { bandPct: 0 }, estimated: { bandPct: 10 }, rough: { bandPct: 30 } };
   const sentence = (c: ReturnType<typeof spreadCopy>) => (c ? `${c.label}${c.detail}` : null);
 
-  it("001: names the widest cost category, its lines and confidence, and its share", () => {
+  it("001: names the widest remaining cost category, its lines and confidence, and its share", () => {
     const copy = spreadCopy(
       {
         total: 147360,
@@ -211,9 +213,11 @@ describe("spreadCopy", () => {
       bands,
       "whole",
       (c) => ({ salary: "Salary", consultancy: "Consultancy" })[c] ?? c,
+      true,
     );
+    // "remaining": the status reason names Consultancy (already past its ceiling), not Salary.
     expect(sentence(copy)).toBe(
-      "Salary is the biggest source of uncertainty: 2 estimated lines (±10%), 99k of the 147k range.",
+      "Salary is the biggest source of remaining uncertainty: 2 estimated lines (±10%), 99k of the 147k range.",
     );
     expect(copy?.category).toBe("salary");
   });

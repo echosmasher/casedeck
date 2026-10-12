@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { downloadTextFile } from "../_lib/download";
+import { fieldLabel } from "../_lib/fieldLabel";
 import { renderBusinessCase } from "@/export/businessCase";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import type { ActualEntry, Project } from "@/engine/model";
@@ -74,7 +75,7 @@ export function ExportTab({
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {liveErrors.map((e) => (
                   <li key={`${e.field}-${e.message}`}>
-                    <span className="font-mono text-xs">{e.field}</span>: {e.message}
+                    <span className="font-medium">{fieldLabel(e.field, project)}</span>: {e.message}
                   </li>
                 ))}
               </ul>
