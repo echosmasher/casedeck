@@ -5,6 +5,7 @@ import exampleGroupConfig from "../../demo/example-group.config.json";
 import project001 from "../../demo/projects/001-intranet-relaunch.json";
 import project002 from "../../demo/projects/002-booking-integration-example-hotel-a.json";
 import project003 from "../../demo/projects/003-erp-data-migration.json";
+import project004 from "../../demo/projects/004-website-accessibility-fixes.json";
 import type { CostLineItem, GroupConfig, Project } from "@/engine/model";
 
 const categoryMapping = (exampleGroupConfig as GroupConfig).categoryMapping;
@@ -54,6 +55,18 @@ describe("parseBudgetFile — reproduces the demo projects exactly from their so
       (project003 as Project).costs.map(withoutId),
     );
     expect(result.pricingModel).toEqual((project003 as Project).pricingModel);
+  });
+
+  it("004: one salary line + one IT systems line, no revenue", () => {
+    const text = readDemoFile("demo/budgets/004-website-accessibility-fixes-budget.csv");
+    const result = parseBudgetFile("004-website-accessibility-fixes-budget.csv", text, categoryMapping);
+
+    expect(result.rejected).toEqual([]);
+    expect(result.unmapped).toEqual([]);
+    expect(result.pricingModel).toBeNull();
+    expect(result.costs.map(withoutId)).toEqual(
+      (project004 as Project).costs.map(withoutId),
+    );
   });
 });
 

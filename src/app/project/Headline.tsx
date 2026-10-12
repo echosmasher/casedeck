@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import type { HeadlineSummary } from "@/engine/headline";
-import type { Project, ScenarioValue } from "@/engine/model";
+import type { PeriodKey, Project, ScenarioValue } from "@/engine/model";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
 import { headlineCopy } from "./headlineCopy";
 import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
@@ -16,13 +16,17 @@ export function Headline({
   project,
   headline,
   totals,
+  endedOpenPeriods,
+  onOpenActuals,
 }: {
   project: Project;
   headline: HeadlineSummary;
   totals: { cost: ScenarioValue; revenue: ScenarioValue };
+  endedOpenPeriods: PeriodKey[];
+  onOpenActuals: () => void;
 }) {
   const { currency, displayUnits } = project;
-  const copy = headlineCopy(headline, currency, displayUnits, (c) => CATEGORY_LABEL[c] ?? c);
+  const copy = headlineCopy(headline, currency, displayUnits, (c) => CATEGORY_LABEL[c] ?? c, endedOpenPeriods);
   // Nothing closed means nothing has been measured yet, so "On track" would be a claim without
   // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
   const flag = headline.stage === "not_started" ? NOT_STARTED_META : FLAG_META[headline.status];
@@ -64,6 +68,26 @@ export function Headline({
       </h2>
       <RangeStrip headline={headline} currency={currency} displayUnits={displayUnits} />
       <p className="mt-3 text-sm text-muted-foreground tabular-nums">{keepPeriodsWhole(copy.source)}</p>
+      {copy.missing && (
+        // Ended periods without actuals are the next thing to do, so the note offers the way there.
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm tabular-nums">
+          <span>
+            <span
+              aria-hidden="true"
+              className="mr-1.5 inline-block size-1.5 -translate-y-px rounded-full"
+              style={{ backgroundColor: "var(--viz-status-warning)" }}
+            />
+            {keepPeriodsWhole(copy.missing)}
+          </span>
+          <button
+            type="button"
+            className="font-medium underline decoration-[var(--viz-text-muted)] underline-offset-[3px] hover:decoration-current"
+            onClick={onOpenActuals}
+          >
+            Record actuals
+          </button>
+        </p>
+      )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         {project.type === "customer" ? (

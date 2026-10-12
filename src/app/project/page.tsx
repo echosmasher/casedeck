@@ -8,6 +8,7 @@ import { getStorage } from "../_lib/storage";
 import { useRole } from "../_lib/RoleProvider";
 import { isViewerVisible } from "../_lib/demoViewer";
 import { isProjectOverdue, OVERDUE_TOOLTIP } from "../_lib/overdue";
+import { appToday } from "../_lib/today";
 import { PERIODIZATION_LABEL, statusLabel } from "@/export/labels";
 import type { Project } from "@/engine/model";
 import type { StoredActualEntry } from "@/storage/types";
@@ -32,6 +33,7 @@ function ProjectPageContent() {
   const id = searchParams.get("id");
   const { role } = useRole();
   const [project, setProject] = useState<Project | null | undefined>(undefined);
+  const [tab, setTab] = useState("dashboard");
   const [actuals, setActuals] = useState<StoredActualEntry[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [exportDraft, setExportDraft] = useState<ExportDraft>(EMPTY_EXPORT_DRAFT);
@@ -112,7 +114,7 @@ function ProjectPageContent() {
   }
 
   const readOnly = role === "viewer";
-  const overdue = isProjectOverdue(project.status, project.periodization, project.endPeriod, new Date());
+  const overdue = isProjectOverdue(project.status, project.periodization, project.endPeriod, appToday());
 
   return (
     <div className="flex flex-col gap-6">
@@ -158,7 +160,7 @@ function ProjectPageContent() {
         </p>
       )}
 
-      <Tabs defaultValue="dashboard">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="inputs">Inputs</TabsTrigger>
@@ -169,7 +171,12 @@ function ProjectPageContent() {
           {/* Same project + actuals state as the other tabs — one-way input -> engine -> views
               flow (PLAN.md §6.3), so a quick-adjust change or a committed import is reflected here
               immediately, no separate fetch or sync step. */}
-          <Dashboard key={project.id} project={project} actuals={actuals} />
+          <Dashboard
+            key={project.id}
+            project={project}
+            actuals={actuals}
+            onOpenActuals={() => setTab("actuals")}
+          />
         </TabsContent>
         <TabsContent value="inputs">
           <InputsEditor

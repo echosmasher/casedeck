@@ -38,6 +38,23 @@ describe("headlineCopy", () => {
     expect(copy.source).toBe("Actuals through 2026-04, projected 2026-05–2026-08");
   });
 
+  it("ended periods without actuals: named in a note, and the lead stops forecasting once none are left", () => {
+    const partly = headlineCopy(base, "NOK", "whole", label, ["2026-05", "2026-06", "2026-07"]);
+    expect(text(partly)).toBe("Expected to cost 1.55M NOK, 79k over budget.");
+    expect(partly.missing).toBe(
+      "2026-05–2026-07 have ended with no actuals recorded, so they still count at budget.",
+    );
+
+    const all = headlineCopy(base, "NOK", "whole", label, ["2026-05", "2026-06", "2026-07", "2026-08"]);
+    expect(text(all)).toBe("Estimated final cost 1.55M NOK, 79k over budget.");
+    expect(all.source).toBe("Actuals through 2026-04");
+
+    const one = headlineCopy(base, "NOK", "whole", label, ["2026-05"]);
+    expect(one.missing).toBe("2026-05 has ended with no actuals recorded, so it still counts at budget.");
+
+    expect(headlineCopy(base, "NOK", "whole", label).missing).toBeNull();
+  });
+
   it("003 customer: margin with a range crossing zero, worded as loss and gain", () => {
     const copy = headlineCopy(
       {

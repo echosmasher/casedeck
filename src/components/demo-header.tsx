@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRole } from "@/app/_lib/RoleProvider";
 import { getStorage } from "@/app/_lib/storage";
 import { demoSnapshot } from "@/app/_lib/demoSnapshot";
+import { asOfLabel } from "@/app/_lib/today";
 import { Button } from "@/components/ui/button";
 
 export function DemoHeader() {
@@ -48,6 +49,8 @@ export function DemoHeader() {
           Viewer
         </button>
       </div>
+      {/* The demo is pinned to the date its stories describe, so "today" is stated rather than implied. */}
+      {asOfLabel && <span className="text-sm text-muted-foreground">Data as of {asOfLabel}</span>}
       <Button type="button" variant="outline" size="sm" disabled={resetting} onClick={() => void handleReset()}>
         {resetting ? "Resetting…" : "Demo data — reset"}
       </Button>

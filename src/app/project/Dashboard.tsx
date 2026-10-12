@@ -12,8 +12,18 @@ import { CumulativeChart } from "./CumulativeChart";
 import { VarianceSection } from "./VarianceSection";
 import { Headline } from "./Headline";
 import { computeActualsBoundary } from "./actualsBoundary";
+import { hasPeriodEnded } from "../_lib/overdue";
+import { appToday } from "../_lib/today";
 
-export function Dashboard({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
+export function Dashboard({
+  project,
+  actuals,
+  onOpenActuals,
+}: {
+  project: Project;
+  actuals: ActualEntry[];
+  onOpenActuals: () => void;
+}) {
   const { config } = useEffectiveConfig();
   const errors = validateProjectInvariants(project);
   if (errors.length > 0) {
@@ -24,6 +34,11 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
   const blended = computeBlendedTotals(project, actuals, config.confidenceBands);
   const headline = computeHeadline(project, actuals, config.confidenceBands);
   const { currency, displayUnits } = project;
+  // Open periods the calendar has already passed: their figures are still the budget, not a forecast.
+  const today = appToday();
+  const endedOpenPeriods = blended.periods.filter(
+    (p) => !project.closedPeriods.includes(p) && hasPeriodEnded(project.periodization, p, today),
+  );
   // Charts follow the headline's measure: an internal project plots cost, never margin.
   const isCost = headline.measure === "cost";
   const chartByPeriod = isCost ? blended.costByPeriod : blended.marginByPeriod;
@@ -55,6 +70,8 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
         project={project}
         headline={headline}
         totals={blended.totals}
+        endedOpenPeriods={endedOpenPeriods}
+        onOpenActuals={onOpenActuals}
       />
 
       <VarianceSection project={project} actuals={actuals} scenarios={scenarios} />

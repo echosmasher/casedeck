@@ -44,6 +44,12 @@ export function isFuturePeriod(periodization: Periodization, period: PeriodKey, 
   return periodStartDate(periodization, period).getTime() > atMidnight(today).getTime();
 }
 
+/** True once `period` is fully over on `today`: its last day is before today. The current period
+ * is still running, so it isn't "ended" yet. */
+export function hasPeriodEnded(periodization: Periodization, period: PeriodKey, today: Date): boolean {
+  return atMidnight(today).getTime() > periodEndDate(periodization, period).getTime();
+}
+
 function atMidnight(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

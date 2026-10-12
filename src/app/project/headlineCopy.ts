@@ -1,7 +1,7 @@
 // Words for the dashboard headline (.impeccable/briefs/project-dashboard-headline.md). Every number
 // comes from `computeHeadline` (src/engine/headline.ts); this module only chooses phrasing and
 // formats. Kept free of React so the copy rules are unit-tested on their own.
-import type { DisplayUnits } from "@/engine/model";
+import type { DisplayUnits, PeriodKey } from "@/engine/model";
 import type { HeadlineSummary } from "@/engine/headline";
 import { formatCompactAmount } from "../_lib/format";
 
@@ -21,6 +21,8 @@ export interface HeadlineCopy {
   verdict: VerdictSegment[];
   /** Where the numbers come from: actuals vs. projections. The range itself is on the strip. */
   source: string;
+  /** Open periods that have already ended: they still count at budget until actuals are recorded. */
+  missing: string | null;
 }
 
 /** Keeps a figure on the same line as its unit ("1.55M NOK", "of 810k") in the display-size
@@ -66,6 +68,8 @@ export function headlineCopy(
   currency: string,
   units: DisplayUnits,
   categoryLabel: (category: string) => string,
+  /** Open periods whose calendar end has passed (the caller knows today; the engine doesn't). */
+  endedOpenPeriods: PeriodKey[] = [],
 ): HeadlineCopy {
   const low = Math.min(h.value.best, h.value.worst);
   const high = Math.max(h.value.best, h.value.worst);
@@ -91,6 +95,10 @@ export function headlineCopy(
       ? "Even the best case is over budget."
       : "Even the best case is below budget.";
 
+  // Every open period is over: nothing is left to forecast, only to record, so "expected to" would
+  // read as a future the calendar has already passed.
+  const ended = endedOpenPeriods.length > 0 && endedOpenPeriods.at(-1) === h.projectedTo;
+
   let verdict: VerdictSegment[];
   const expected = `${formatCompactAmount(Math.abs(h.value.expected), units)}${NBSP}${currency}`;
   if (h.stage === "finished") {
@@ -103,17 +111,21 @@ export function headlineCopy(
           : { text: `Finished with a ${expected} margin` };
     verdict = [lead, ...budgetSegments(h, units)];
   } else if (h.measure === "cost") {
-    verdict = [{ text: `Expected to cost ${expected}` }, ...budgetSegments(h, units)];
+    const lead = ended ? `Estimated final cost ${expected}` : `Expected to cost ${expected}`;
+    verdict = [{ text: lead }, ...budgetSegments(h, units)];
   } else {
     const lead =
       h.value.expected < 0
-        ? { text: `Expected loss ${expected}`, negative: true }
-        : { text: `Expected margin ${expected}` };
+        ? { text: `${ended ? "Estimated final loss" : "Expected loss"} ${expected}`, negative: true }
+        : { text: `${ended ? "Estimated final margin" : "Expected margin"} ${expected}` };
     verdict = [lead, ...(collapsed ? budgetSegments(h, units) : marginRangeSegments(low, high, units))];
   }
 
   let source: string;
-  if (h.lastClosedPeriod && h.projectedFrom && h.projectedTo) {
+  if (ended) {
+    // The note below names the ended periods; nothing is left to call "projected".
+    source = h.lastClosedPeriod ? `Actuals through ${h.lastClosedPeriod}` : "No actuals yet";
+  } else if (h.lastClosedPeriod && h.projectedFrom && h.projectedTo) {
     source = `Actuals through ${h.lastClosedPeriod}, projected ${span(h.projectedFrom, h.projectedTo)}`;
   } else if (h.lastClosedPeriod) {
     source = `Actuals for every period, through ${h.lastClosedPeriod}`;
@@ -121,5 +133,14 @@ export function headlineCopy(
     source = "No actuals yet; every period is projected";
   }
 
-  return { reason, reasonNote, verdict, source };
+  let missing: string | null = null;
+  if (endedOpenPeriods.length > 0) {
+    const periods = span(endedOpenPeriods[0], endedOpenPeriods[endedOpenPeriods.length - 1]);
+    missing =
+      endedOpenPeriods.length === 1
+        ? `${periods} has ended with no actuals recorded, so it still counts at budget.`
+        : `${periods} have ended with no actuals recorded, so they still count at budget.`;
+  }
+
+  return { reason, reasonNote, verdict, source, missing };
 }

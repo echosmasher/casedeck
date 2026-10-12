@@ -80,6 +80,11 @@
         }
       }
     },
+    "asOf": {
+      "type": "string",
+      "description": "Optional fixed \"today\" (YYYY-MM-DD) for a demo dataset, so overdue markers, closable periods and missing-actuals notes read as of the date the data describes rather than the wall clock. Omit for real data.",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
     "categoryMapping": {
       "type": "array",
       "description": "Account code -> category. A category value of \"ignore\" excludes matching rows from import; codes absent from this list trigger the import preview's \"ask\" flow.",

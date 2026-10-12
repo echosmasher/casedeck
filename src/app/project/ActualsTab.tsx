@@ -7,6 +7,7 @@ import { activeConfig } from "../_lib/activeConfig";
 import { mergeMapping } from "../_lib/categoryMapping";
 import { formatCurrency } from "../_lib/format";
 import { isFuturePeriod } from "../_lib/overdue";
+import { appToday } from "../_lib/today";
 import { parseActualsFile, type ActualsImportResult } from "@/import/actuals";
 import { projectPeriods } from "@/engine/periodize";
 import type { Project } from "@/engine/model";
@@ -81,7 +82,7 @@ function ClosedPeriodsCard({
   const savedValue = closedThroughPeriod ?? NOT_CLOSED;
   // A period that hasn't started has nothing to record; closing it would count its cost as zero
   // and make the project look under budget.
-  const today = new Date();
+  const today = appToday();
   const future = new Set(periods.filter((p) => isFuturePeriod(project.periodization, p, today)));
 
   const [pick, setPick] = useState<string | null>(null);

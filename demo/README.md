@@ -5,7 +5,7 @@ A Nordic company with internal departments and one external customer, **Example 
 multiplier **1.35**, rate card with invented generic role labels only. All rates, account codes,
 and multipliers are illustrative, not benchmarks — see `example-group.config.json`.
 
-This file documents the three planted stories with their exact numbers, so a reviewer (or a future
+This file documents the four planted stories with their exact numbers, so a reviewer (or a future
 engine test) can verify each one directly against the demo data. It is written and kept accurate
 **before** the engine that will render these numbers exists (Phase 1 precedes Phase 2) — the
 figures below are hand-computed from the raw budget/actuals data and are what the engine in Phase 2
@@ -16,8 +16,15 @@ Every project's raw budget lives in its JSON snapshot (`demo/projects/`), source
 mapping — they are not embedded in the project snapshot.
 
 **Project codes:** 001 Intranet Relaunch → `PRO-2601`, 002 Booking Integration → `PRO-2501`,
-003 ERP Data Migration → `PRO-2602`. Convention is start year + a sequence number — illustrative,
+003 ERP Data Migration → `PRO-2602`, 004 Website Accessibility Fixes → `PRO-2502`. Convention is start year + a sequence number — illustrative,
 not a real org's numbering scheme.
+
+**As-of date:** the demo is pinned to **2026-05-15** (`asOf` in `example-group.config.json`). The
+app reads that date as "today" for the overdue marker, which periods can be closed, and which
+open periods have ended without actuals, and the header shows "Data as of 15 May 2026". The stories
+below describe that date, so they read the same whenever the demo is opened. Real data has no
+`asOf` and uses the clock. Export timestamps and snapshot filenames still use the real date,
+because they record when a file was made.
 
 **Scope note:** actuals reconciliation in v1 covers **costs only**. Revenue for fixed-price/hourly
 customer work is tracked as planned (per the project's `pricingModel`, at whatever confidence it
@@ -28,13 +35,10 @@ carries) — there is no separate "actual revenue received" import in this tool.
 
 ## Story 1 — 001 Intranet Relaunch (the overrun story)
 
-Internal project, monthly, Jan–Aug 2026, status `in_progress`. At the time this story was written
-(2026-08-14) "today" was inside its final budgeted month; the project stays `in_progress` with
-`endPeriod: 2026-08` deliberately, so as real time moves past August 2026 the overview's `End`
-column shows it red with an "Overdue" marker — showcasing that feature rather than being kept in
-sync with the calendar. Approved with consultancy marked `estimated` (±10% band); salary marked
-`estimated` too. Four months of actuals are loaded (Jan–Apr 2026); May–Aug are budget-only
-(not yet incurred). Jan–Apr 2026 are also **closed** (`closedPeriods`) — the months with actuals
+Internal project, monthly, Jan–Aug 2026, status `in_progress`. As of the demo date (2026-05-15)
+the project is in its fifth month: April's books are closed and May is underway. Approved with
+consultancy marked `estimated` (±10% band); salary marked `estimated` too. Four months of actuals
+are loaded (Jan–Apr 2026); May–Aug are budget-only (not yet incurred). Jan–Apr 2026 are also **closed** (`closedPeriods`) — the months with actuals
 loaded; May–Aug stay open/projected.
 
 **Budgeted (expected case), 8-month totals:**
@@ -137,6 +141,32 @@ explicitly rather than picking one number.
 
 ---
 
+## Story 4 — 004 Website Accessibility Fixes (the overdue story)
+
+Internal project, monthly, Dec 2025–Mar 2026, status `in_progress`. The work is done and every
+month is booked and **closed**, but nobody marked the project completed. As of the demo date
+(2026-05-15) its end period is past, so the overview's `End` column shows it with an "Overdue"
+marker: the prompt to mark it completed or extend it. This is the overdue showcase; it used to
+rely on 001 drifting past its end date in real time, which also made 001's open months look like
+missing actuals.
+
+**Budget (expected case), 4-month totals:**
+| Line | Confidence | Monthly | 4-month total |
+|---|---|---|---|
+| Designer, 60h × 650 NOK/h × 1.35 loaded | estimated | 52,650 | 210,600 |
+| Accessibility testing tool licence | committed | 15,000 | 60,000 |
+| **Total** | | **67,650** | **270,600** |
+
+**Actuals (`004-actuals-2025-12-to-2026-03.csv`):** salary 51,800 / 53,400 / 52,200 / 51,900 =
+209,300 (1,300 under); licence 15,000 each month = 60,000 (exact). Total **269,300**, 1,300 under
+budget. **Nothing is flagged**, and the dashboard reports the outcome in the past tense ("Finished
+at a cost of 269k NOK"), because every period is closed.
+
+**Where visible:** the overview's `End` column, and "Overdue · ended 2026-03" next to the project
+name on its page.
+
+---
+
 ## The broken file
 
 `demo/actuals/broken-example.csv` — a generic (not project-scoped) actuals fixture used in docs and
@@ -175,5 +205,5 @@ This reuses the general-purpose `Stakeholder.viewer` flag from the data model (P
 as documented — the "demo mode" behavior is just the app matching on one specific, known persona
 identity, not a separate access-control system.
 
-A visible **"Demo data — reset"** control restores this exact snapshot (all three projects, all of
-001's and 002's real actuals) at any time, discarding any local edits.
+A visible **"Demo data — reset"** control restores this exact snapshot (all four projects, all of
+001's, 002's and 004's real actuals) at any time, discarding any local edits.

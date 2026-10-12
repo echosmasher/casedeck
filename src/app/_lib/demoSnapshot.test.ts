@@ -23,8 +23,8 @@ function actualsFor(id: string) {
 }
 
 describe("demoSnapshot — bundled dataset matches the source demo files exactly", () => {
-  it("carries exactly the three demo projects, unmodified from demo/projects/*.json", () => {
-    expect(demoSnapshot.projects.map((p) => p.id).sort()).toEqual(["001", "002", "003"]);
+  it("carries exactly the four demo projects, unmodified from demo/projects/*.json", () => {
+    expect(demoSnapshot.projects.map((p) => p.id).sort()).toEqual(["001", "002", "003", "004"]);
   });
 
   it("001: consultancy is red (breaches its worst-case ceiling), salary is ok", () => {
@@ -53,6 +53,16 @@ describe("demoSnapshot — bundled dataset matches the source demo files exactly
     expect(scenarios.totals.margin.expected).toBeCloseTo(263250, 2);
     expect(scenarios.totals.margin.worst).toBeCloseTo(-809775, 2);
     expect(scenarios.totals.margin.best).toBeCloseTo(1336275, 2);
+  });
+
+  it("004: every category is ok, every period closed, 1,300 under budget", () => {
+    const variance = computeVariance(project("004"), actualsFor("004"), bands);
+    expect(variance.byCategory.salary.flag).toBe("ok");
+    expect(variance.byCategory.it_systems.flag).toBe("ok");
+    expect(variance.total.flag).toBe("ok");
+    expect(variance.total.actualToDate).toBeCloseTo(269300, 2);
+    expect(variance.total.budgetedToDate).toBeCloseTo(270600, 2);
+    expect(project("004").closedPeriods).toEqual(["2025-12", "2026-01", "2026-02", "2026-03"]);
   });
 
   it("every actual entry carries file/row provenance, as if it had actually been imported", () => {
