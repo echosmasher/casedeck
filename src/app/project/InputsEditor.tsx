@@ -4,6 +4,8 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { formatCurrency } from "../_lib/format";
 import { fieldLabel } from "../_lib/fieldLabel";
+import { SMALL_SCREEN, useSmallScreen } from "../_lib/useSmallScreen";
+import { lineScenarioTotal } from "@/engine/scenarios";
 import { projectPeriods } from "@/engine/periodize";
 import { computeHeadline } from "@/engine/headline";
 import { validateProjectInvariants } from "@/engine/validate";
@@ -48,8 +50,6 @@ function describeLine(line: CostLineItem) {
 // with no width of its own contributes its *untruncated* text width to the column's min-content
 // size, silently growing the column past LINE_COL_WIDTH and misaligning the offset above — giving
 // the label wrapper its own definite max-width stops that.
-/** Tailwind's `sm` breakpoint: below it the saved bar clears itself. */
-const SMALL_SCREEN = "(max-width: 639.98px)";
 const LINE_COL_WIDTH = "w-36 sm:w-56";
 const LINE_COL_LEFT_OFFSET = "sm:left-56";
 const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[8rem] sm:max-w-[13rem]";
@@ -230,6 +230,10 @@ export function InputsEditor({
   }
 
   const modelErrors = validateProjectInvariants(project);
+  const small = useSmallScreen();
+  // Each line's expected total, from the engine, in the project's own display units.
+  const lineTotal = (line: CostLineItem) => lineScenarioTotal(line, project.loadedCostMultiplier, bands).expected;
+  const money = (v: number) => formatCurrency(v, project.currency, project.displayUnits);
 
   return (
     <fieldset disabled={readOnly} className="flex flex-col gap-6 border-0 p-0 m-0 min-w-0">
@@ -281,8 +285,29 @@ export function InputsEditor({
                 {periods.length} {periods.length === 1 ? "period" : "periods"}, {periods[0]}
                 {periods.length > 1 ? `–${periods.at(-1)}` : ""}.
                 {/* Even a 1280px viewport shows only about four period columns. */}
-                {periods.length > 3 && " The grid scrolls sideways for later periods; the line name stays in view."}
+                {small
+                  ? " Open a line to edit its periods."
+                  : periods.length > 3 && " The grid scrolls sideways for later periods; the line name stays in view."}{" "}
+                Arrow keys step a value.
               </p>
+              {small ? (
+                <ul className="flex flex-col">
+                  {project.costs.map((line) => (
+                    <CostLineCard
+                      key={line.id}
+                      line={line}
+                      total={money(lineTotal(line))}
+                      periods={periods}
+                      closedPeriods={project.closedPeriods}
+                      currency={project.currency}
+                      onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
+                      onCommit={(patch) => commitLine(line.id, patch)}
+                      onRemove={() => removeLine(line)}
+                      onReject={rejectEdit}
+                    />
+                  ))}
+                </ul>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -308,10 +333,12 @@ export function InputsEditor({
                       onCommit={(patch) => commitLine(line.id, patch)}
                       onRemove={() => removeLine(line)}
                       onReject={rejectEdit}
+                      total={money(lineTotal(line))}
                     />
                   ))}
                 </TableBody>
               </Table>
+              )}
             </>
           )}
 
@@ -375,23 +402,16 @@ function CostLineRow({
   onCommit,
   onRemove,
   onReject,
-}: {
-  line: CostLineItem;
-  periods: string[];
-  closedPeriods: string[];
-  currency: string;
-  onUpdateLocal: (patch: Partial<CostLineItem>) => void;
-  onCommit: (patch: Partial<CostLineItem>) => void;
-  onRemove: () => void;
-  onReject: (problem: string) => void;
-}) {
+  total,
+}: CostLineProps) {
   const isSalary = line.category === "salary";
 
   return (
     <TableRow>
       <TableCell className={cn("sticky left-0 z-20 bg-card align-top", LINE_COL_WIDTH)}>
         <div className={cn("flex flex-col gap-1", LINE_COL_CONTENT_MAX_WIDTH)}>
-          <span className="truncate font-medium">{line.label}</span>
+          {/* Wraps rather than truncating: two lines can share a role, and only the label tells them apart. */}
+          <span className="font-medium [overflow-wrap:anywhere]">{line.label}</span>
           <span className="truncate text-xs text-muted-foreground">
             {CATEGORY_LABEL[line.category] ?? line.category} · {isSalary ? "hours" : currency} per period
           </span>
@@ -400,6 +420,8 @@ function CostLineRow({
               {line.role} · {line.ratePerHour}/h
             </span>
           )}
+          {/* In the sticky column, so the total stays in view while the periods scroll. */}
+          <span className="text-xs font-medium tabular-nums">{total} total</span>
         </div>
       </TableCell>
       <TableCell className={cn("z-20 bg-card align-top sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
@@ -437,7 +459,7 @@ function CostLineRow({
               id={`${line.id}-${period}`}
               label={`${line.label} ${currency} in ${period}`}
               value={line.valuesPerPeriod[period] ?? 0}
-              step={line.valuesPerPeriod[period] > 0 ? Math.round(line.valuesPerPeriod[period] * 0.1) || 100 : 100}
+              step={stepFor(line, period)}
               onChange={(v) =>
                 onUpdateLocal({ valuesPerPeriod: { ...line.valuesPerPeriod, [period]: v } })
               }
@@ -462,6 +484,108 @@ function CostLineRow({
       </TableCell>
     </TableRow>
   );
+}
+
+/** How far ArrowUp/ArrowDown move a cell: 5 hours, or a tenth of the amount (at least 100). */
+function stepFor(line: CostLineItem, period: string) {
+  if (line.category === "salary") return 5;
+  const value = line.valuesPerPeriod[period] ?? 0;
+  return value > 0 ? Math.round(value * 0.1) || 100 : 100;
+}
+
+/** One cost line on a phone: its name, total and confidence, with its periods listed down the
+ * line on demand rather than in a grid that scrolls sideways under a sticky name column. */
+function CostLineCard({
+  line,
+  periods,
+  closedPeriods,
+  currency,
+  onUpdateLocal,
+  onCommit,
+  onRemove,
+  onReject,
+  total,
+}: CostLineProps) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const isSalary = line.category === "salary";
+  const values = isSalary ? line.hoursPerPeriod : line.valuesPerPeriod;
+  const key = isSalary ? "hoursPerPeriod" : "valuesPerPeriod";
+  const unit = isSalary ? "hours" : currency;
+
+  return (
+    <li className="flex flex-col gap-2 border-b py-3 first:pt-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium [overflow-wrap:anywhere]">{line.label}</span>
+          <span className="text-xs text-muted-foreground">
+            {CATEGORY_LABEL[line.category] ?? line.category} · {unit} per period
+            {isSalary && ` · ${line.role} · ${line.ratePerHour}/h`}
+          </span>
+        </div>
+        <span className="shrink-0 pt-0.5 text-sm font-medium tabular-nums">{total}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <select
+          className={cn(selectClass, "w-auto min-w-0")}
+          aria-label={`Confidence for ${line.label}`}
+          value={line.confidence}
+          onChange={(e) => onCommit({ confidence: e.target.value as Confidence })}
+        >
+          {CONFIDENCE_OPTIONS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <Button type="button" variant="outline" size="sm" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
+          {open ? "Hide periods" : `Edit ${periods.length} periods`}
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="ml-auto" aria-label={`Remove ${line.label}`} onClick={onRemove}>
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+      {open && (
+        <ul id={listId} className="flex flex-col gap-1.5 border-l pl-3">
+          {periods.map((period) => {
+            const closed = closedPeriods.includes(period);
+            const id = `${line.id}-${period}`;
+            return (
+              <li key={period} className="flex items-start justify-between gap-3">
+                <label htmlFor={id} className="pt-1 text-sm tabular-nums">
+                  {period}
+                  {closed && <span className="ml-1.5 text-xs text-muted-foreground">closed</span>}
+                </label>
+                <NumberCell
+                  id={id}
+                  label={isSalary ? `${line.label} hours in ${period}` : `${line.label} ${currency} in ${period}`}
+                  value={values[period] ?? 0}
+                  step={stepFor(line, period)}
+                  onChange={(v) => onUpdateLocal({ [key]: { ...values, [period]: v } })}
+                  onCommit={(v) => onCommit({ [key]: { ...values, [period]: v } })}
+                  onReject={onReject}
+                  className={cn("h-8 w-28 text-right tabular-nums", closed && "bg-muted/40")}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+interface CostLineProps {
+  line: CostLineItem;
+  periods: string[];
+  closedPeriods: string[];
+  currency: string;
+  onUpdateLocal: (patch: Partial<CostLineItem>) => void;
+  onCommit: (patch: Partial<CostLineItem>) => void;
+  onRemove: () => void;
+  onReject: (problem: string) => void;
+  /** The line's expected total, formatted. */
+  total: string;
 }
 
 function AddCostLineForm({
@@ -619,6 +743,7 @@ function RevenueSection({
   onCommit: (next: Project) => void | Promise<unknown>;
   onReject: (problem: string) => void;
 }) {
+  const small = useSmallScreen();
   const model = project.pricingModel;
   if (!model) return null;
 
@@ -643,6 +768,25 @@ function RevenueSection({
       </Card>
     );
   }
+
+  const hoursCell = (period: string, className?: string) => {
+    const update = (v: number) => ({
+      ...project,
+      pricingModel: { ...model, hoursPerPeriod: { ...model.hoursPerPeriod, [period]: v } },
+    });
+    return (
+      <NumberCell
+        id={`revenue-hours-${period}`}
+        label={`Billable hours in ${period}`}
+        value={model.hoursPerPeriod[period] ?? 0}
+        step={5}
+        onChange={(v) => onLocalChange(update(v))}
+        onCommit={(v) => void onCommit(update(v))}
+        onReject={onReject}
+        className={className}
+      />
+    );
+  };
 
   return (
     <Card>
@@ -684,6 +828,20 @@ function RevenueSection({
             </select>
           </div>
         </div>
+        <p className="text-sm font-medium">Billable hours per period</p>
+        {small ? (
+          <ul className="flex flex-col gap-1.5">
+            {periods.map((period) => (
+              <li key={period} className="flex items-start justify-between gap-3">
+                <label htmlFor={`revenue-hours-${period}`} className="pt-1 text-sm tabular-nums">
+                  {period}
+                  {project.closedPeriods.includes(period) && <span className="ml-1.5 text-xs text-muted-foreground">closed</span>}
+                </label>
+                {hoursCell(period, "h-8 w-28 text-right tabular-nums")}
+              </li>
+            ))}
+          </ul>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
@@ -696,36 +854,13 @@ function RevenueSection({
             <TableRow>
               {periods.map((period) => (
                 <TableCell key={period} className={cn(project.closedPeriods.includes(period) && "bg-muted/40")}>
-                  <NumberCell
-                    id={`revenue-hours-${period}`}
-                    label={`Billable hours in ${period}`}
-                    value={model.hoursPerPeriod[period] ?? 0}
-                    step={5}
-                    onChange={(v) =>
-                      onLocalChange({
-                        ...project,
-                        pricingModel: {
-                          ...model,
-                          hoursPerPeriod: { ...model.hoursPerPeriod, [period]: v },
-                        },
-                      })
-                    }
-                    onCommit={(v) =>
-                      void onCommit({
-                        ...project,
-                        pricingModel: {
-                          ...model,
-                          hoursPerPeriod: { ...model.hoursPerPeriod, [period]: v },
-                        },
-                      })
-                    }
-                    onReject={onReject}
-                  />
+                  {hoursCell(period)}
                 </TableCell>
               ))}
             </TableRow>
           </TableBody>
         </Table>
+        )}
       </CardContent>
     </Card>
   );
