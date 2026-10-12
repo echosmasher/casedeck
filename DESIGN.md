@@ -49,6 +49,18 @@ colors:
   on-background: '#1a1b22'
   surface-variant: '#e3e1ec'
 typography:
+  display-verdict:
+    fontFamily: Geist
+    fontSize: 40px
+    fontWeight: '600'
+    lineHeight: 46px
+    letterSpacing: -0.03em
+  display-verdict-mobile:
+    fontFamily: Geist
+    fontSize: 28px
+    fontWeight: '600'
+    lineHeight: 34px
+    letterSpacing: -0.025em
   display-xl:
     fontFamily: Geist
     fontSize: 32px
@@ -137,7 +149,7 @@ spacing:
 
 ## Brand & Style
 
-This design system embodies high-conviction financial engineering, architectural restraint, and analytical clarity. Tailored for corporate FP&A leads, CFOs, and strategic operators executing scenario modeling and variance analysis, the visual tone eliminates decorative noise in favor of data legibility, low visual fatigue, and spatial discipline.
+This design system embodies high-conviction financial engineering, architectural restraint, and analytical clarity. Tailored for the project manager who owns a budget and runs the monthly actuals loop, and legible in seconds to a reviewer opening the live demo (see PRODUCT.md), with the CFO reading only the exported business case, the visual tone eliminates decorative noise in favor of data legibility, low visual fatigue, and spatial discipline.
 
 ### Aesthetic Principles
 - **Monochromatic Control:** Rely strictly on an austere slate-zinc grayscale foundation. Chromatic accents are reserved strictly for deterministic status communication (variance delta, run-rate alerts, confidence thresholds).
@@ -160,10 +172,15 @@ The palette operates under a high-contrast monochromatic core with razor-thin li
 - **On-Track / Favorable:** `#059669` (Emerald 600) ink with `#ECFDF5` (Emerald 50) soft fill and `#A7F3D0` (Emerald 200) boundary.
 - **Watch / Caution:** `#D97706` (Amber 600) ink with `#FFFBEB` (Amber 50) soft fill and `#FDE68A` (Amber 200) boundary.
 - **Over-Budget / Unfavorable:** `#E11D48` (Rose 600) ink with `#FFF1F2` (Rose 50) soft fill and `#FECDD3` (Rose 200) boundary.
+- **Unfavorable figure set as text:** `#BE123C` (Rose 700, 6.3:1 on white) — the headline verdict's "over budget" / "loss" phrase and an over-budget tile value. Rose 600 stays for marks, dots, and lines.
 
 ## Typography
 
 The typographic hierarchy relies on **Geist**, an ultra-refined neutral geometric sans-serif engineered for precision instruments. 
+
+### Editorial Lead
+- **Verdict sentence (`display-verdict`):** the project dashboard opens with one sentence that answers "on budget, still profitable?" (e.g. *Expected to cost 1.55M NOK, 79k over budget.*). 40px/46px at ≥640px, 28px/34px below, weight 600, tracking −0.03em (−0.025em mobile), balanced wrapping, measure capped near 24ch. It is the only type on the page larger than `display-xl`.
+- **Step-down beneath it:** the status pill and its reason sit above the verdict at body size; the range strip and source line follow in `label-sm`/`body-sm`; supporting KPI tiles use `metric-lg` (24px), not `display-xl`, so the verdict is unmistakably the lead.
 
 ### Implementation Rules
 - **Tabular Figures (`tnum`):** All financial values, roll-up sums, variance deltas, percentages, and dates must enforce OpenType tabular figures (`font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "cv01" 1;`). This prevents horizontal jittering during live re-calculation and keeps vertical decimal alignments locked.

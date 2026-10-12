@@ -1,23 +1,13 @@
 "use client";
 
-import { Badge, type badgeVariants } from "@/components/ui/badge";
-import type { VariantProps } from "class-variance-authority";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "../_lib/format";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
-import { computeVariance, type VarianceFlag } from "@/engine/variance";
+import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, Project } from "@/engine/model";
-import { CATEGORY_LABEL } from "./shared";
-
-const FLAG_META: Record<
-  VarianceFlag,
-  { label: string; color: string; variant: NonNullable<VariantProps<typeof badgeVariants>["variant"]> }
-> = {
-  ok: { label: "On track", color: "var(--viz-good)", variant: "status-good" },
-  warning: { label: "Watch", color: "var(--viz-warning)", variant: "status-warning" },
-  red: { label: "Over budget", color: "var(--viz-critical)", variant: "status-critical" },
-};
+import { CATEGORY_LABEL, FLAG_META } from "./shared";
 
 export function VarianceSection({
   project,

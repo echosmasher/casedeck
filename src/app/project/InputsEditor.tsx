@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumberCell } from "@/components/number-cell";
 import { Trash2 } from "lucide-react";
@@ -38,6 +38,8 @@ export function InputsEditor({
   readOnly?: boolean;
 }) {
   const periods = projectPeriods(project);
+  const { config } = useEffectiveConfig();
+  const bands = config.confidenceBands;
 
   // Keystroke-level edits update local state only — nothing is written to IndexedDB until the
   // field is committed (blur, a discrete select/button action). Persisting on every keystroke
@@ -85,6 +87,12 @@ export function InputsEditor({
       <Card>
         <CardHeader>
           <CardTitle>Costs</CardTitle>
+          <CardDescription>
+            Each line&apos;s confidence sets how wide its range is on the dashboard: committed (a
+            signed number) ±{bands.committed.bandPct}%, estimated (a planning figure) ±
+            {bands.estimated.bandPct}%, rough (an early guess) ±{bands.rough.bandPct}%. Planners can
+            change these percentages in Settings.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {project.costs.length === 0 ? (

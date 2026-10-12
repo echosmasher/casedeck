@@ -116,20 +116,35 @@ describe("computeBlendedTotals — revenue actuals and warnings", () => {
     const janMargin = blended.marginByPeriod["2026-01"];
     expect(janMargin.expected).toBeCloseTo(110000 - 18000, 6);
 
-    // 2026-02 is closed but has no actuals at all: treated as zero cost and revenue, with a warning.
+    // 2026-02 is closed but has no actuals at all: zero cost (warned), planned revenue kept.
     expect(blended.costByPeriod["2026-02"]).toEqual({ expected: 0, best: 0, worst: 0 });
-    expect(blended.revenueByPeriod["2026-02"]).toEqual({ expected: 0, best: 0, worst: 0 });
-    expect(blended.warnings).toEqual(["2026-02 is closed but has no actuals"]);
+    expect(blended.revenueByPeriod["2026-02"]).toEqual(
+      computeProjectScenarios(project, bands).revenueByPeriod["2026-02"],
+    );
+    expect(blended.warnings).toEqual(["2026-02 is closed but has no cost actuals, so its cost counts as zero"]);
   });
 
-  it("a closed period with only cost actuals (no revenue entry) is not warned about", () => {
+  it("a closed period with cost actuals but no revenue entry keeps its planned revenue, unwarned", () => {
     const actuals: ActualEntry[] = [
       { period: "2026-01", category: "it_systems", amount: 18000, description: "invoice", source: "csv" },
       { period: "2026-02", category: "it_systems", amount: 21000, description: "invoice", source: "csv" },
     ];
     const blended = computeBlendedTotals(project, actuals, bands);
     expect(blended.warnings).toEqual([]);
-    expect(blended.revenueByPeriod["2026-02"]).toEqual({ expected: 0, best: 0, worst: 0 });
+    const planned = computeProjectScenarios(project, bands).revenueByPeriod["2026-02"];
+    expect(planned.expected).toBeCloseTo(100000, 6);
+    expect(blended.revenueByPeriod["2026-02"]).toEqual(planned);
+    expect(blended.marginByPeriod["2026-02"].expected).toBeCloseTo(100000 - 21000, 6);
+  });
+
+  it("a closed period with revenue actuals but no cost actuals is warned about (cost counts as zero)", () => {
+    const actuals: ActualEntry[] = [
+      { period: "2026-01", category: "it_systems", amount: 18000, description: "invoice", source: "csv" },
+      { period: "2026-02", category: "revenue", amount: 95000, description: "customer invoice", source: "csv" },
+    ];
+    const blended = computeBlendedTotals(project, actuals, bands);
+    expect(blended.warnings).toEqual(["2026-02 is closed but has no cost actuals, so its cost counts as zero"]);
+    expect(blended.revenueByPeriod["2026-02"]).toEqual({ expected: 95000, best: 95000, worst: 95000 });
   });
 
   it("returns budgeted values for every period regardless of closed state", () => {

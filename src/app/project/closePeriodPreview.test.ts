@@ -19,7 +19,8 @@ describe("previewClosePeriods", () => {
       { period: "2026-04", hasCost: false, hasRevenue: false },
     ]);
     expect(preview.reopening).toEqual([]);
-    expect(preview.closingWithoutActuals).toEqual(["2026-04"]);
+    // 2026-03 has revenue but no cost: its cost still counts as zero, so it is flagged too.
+    expect(preview.closingWithoutCost).toEqual(["2026-03", "2026-04"]);
     expect(preview.unchanged).toBe(false);
   });
 
@@ -28,7 +29,7 @@ describe("previewClosePeriods", () => {
     expect(preview.nextClosedPeriods).toEqual(["2026-01"]);
     expect(preview.closing).toEqual([]);
     expect(preview.reopening).toEqual(["2026-02", "2026-03"]);
-    expect(preview.closingWithoutActuals).toEqual([]);
+    expect(preview.closingWithoutCost).toEqual([]);
   });
 
   it("null target reopens every closed period", () => {
@@ -44,7 +45,7 @@ describe("previewClosePeriods", () => {
 
   it("closing from nothing with no actuals at all flags every period", () => {
     const preview = previewClosePeriods(PERIODS, [], "2026-02", []);
-    expect(preview.closingWithoutActuals).toEqual(["2026-01", "2026-02"]);
+    expect(preview.closingWithoutCost).toEqual(["2026-01", "2026-02"]);
   });
 
   it("rejects a period outside the project, naming it and the valid range", () => {

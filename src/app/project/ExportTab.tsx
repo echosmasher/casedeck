@@ -68,7 +68,7 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
             <Textarea
               id="executiveSummary"
               rows={4}
-              placeholder="Paste narrative drafted by the /business-case skill, or write your own."
+              placeholder="Two or three sentences for whoever approves the budget: what the project is, and what the numbers above say."
               value={executiveSummary}
               onChange={(e) => setExecutiveSummary(e.target.value)}
             />

@@ -1,9 +1,10 @@
 // Pure diff for the "Close periods through" control (DASHBOARD-CRITIQUE-PLAN.md Phase 1a).
 // Picking a value in the select no longer commits it — the Actuals tab shows this preview first,
 // then an explicit Apply saves `nextClosedPeriods`. No engine math here: it only works out which
-// periods switch between projected and actuals, and which newly closed ones have nothing recorded
-// (the same "closed but no actuals at all" rule `blendedProjection` warns about in
-// src/engine/blended.ts, checked ahead of the save instead of after it).
+// periods switch between projected and actuals, and which newly closed ones have no cost recorded
+// (the same "closed but no cost actuals" rule `computeBlendedTotals` warns about in
+// src/engine/blended.ts, checked ahead of the save instead of after it). Revenue is not part of
+// that rule: a closed period with no revenue recorded keeps its planned revenue.
 import type { PeriodKey } from "@/engine/model";
 
 export interface ClosingPeriod {
@@ -19,8 +20,8 @@ export interface ClosePeriodPreview {
   closing: ClosingPeriod[];
   /** Periods that switch from actuals back to projected, in period order. */
   reopening: PeriodKey[];
-  /** Closing periods with no actuals recorded at all — they will count as zero. */
-  closingWithoutActuals: PeriodKey[];
+  /** Closing periods with no cost actuals recorded — their cost will count as zero. */
+  closingWithoutCost: PeriodKey[];
   /** True when the pick matches what is already saved, so there is nothing to apply. */
   unchanged: boolean;
 }
@@ -62,7 +63,7 @@ export function previewClosePeriods(
     nextClosedPeriods,
     closing,
     reopening,
-    closingWithoutActuals: closing.filter((c) => !c.hasCost && !c.hasRevenue).map((c) => c.period),
+    closingWithoutCost: closing.filter((c) => !c.hasCost).map((c) => c.period),
     unchanged: closing.length === 0 && reopening.length === 0,
   };
 }

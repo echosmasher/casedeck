@@ -63,8 +63,8 @@ total would. The arithmetic is a deterministic, pure engine; AI appears only at 
 - Errors name the file, row, column and expected format; rejected rows are always listed (rule 4).
 - Revenue for closed periods: recorded revenue actuals when any exist for the period, otherwise
   the planned revenue (decided 2026-10-12; demo/README.md: revenue is tracked as planned, not
-  reconciled). The engine change lands in DASHBOARD-CRITIQUE-PLAN.md Phase 3a; until then demo 002
-  shows −666k NOK instead of its planned +234k margin.
+  reconciled; `src/engine/blended.ts`). Variance is cost-only: revenue actuals are not a variance
+  category.
 
 ## Brand Commitments
 

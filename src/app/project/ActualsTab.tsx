@@ -89,7 +89,7 @@ function ClosedPeriodsCard({
       : previewClosePeriods(periods, project.closedPeriods, pick === NOT_CLOSED ? null : pick, actuals);
   const closing = new Set(preview?.closing.map((c) => c.period));
   const reopening = new Set(preview?.reopening);
-  const needsConfirm = (preview?.closingWithoutActuals.length ?? 0) > 0;
+  const needsConfirm = (preview?.closingWithoutCost.length ?? 0) > 0;
   const isCustomer = project.type === "customer";
 
   function handlePick(value: string) {
@@ -183,11 +183,9 @@ function ClosedPeriodsCard({
                       <span className="font-medium">{c.period}</span>
                       <span className="text-muted-foreground">
                         {" — "}
-                        {!c.hasCost && !c.hasRevenue
-                          ? "no actuals recorded"
-                          : isCustomer
-                            ? `cost ${c.hasCost ? "recorded" : "not recorded"}, revenue ${c.hasRevenue ? "recorded" : "not recorded"}`
-                            : "cost recorded"}
+                        {c.hasCost ? "cost recorded" : "no cost recorded"}
+                        {isCustomer &&
+                          (c.hasRevenue ? ", revenue recorded" : ", planned revenue kept")}
                       </span>
                     </li>
                   ))}
@@ -209,17 +207,17 @@ function ClosedPeriodsCard({
                   <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-[var(--viz-status-warning)]" />
                   <span>
                     <span className="font-medium">
-                      {preview.closingWithoutActuals.map((p, i) => (
+                      {preview.closingWithoutCost.map((p, i) => (
                         <span key={p} className="whitespace-nowrap">
                           {p}
-                          {i < preview.closingWithoutActuals.length - 1 ? ", " : ""}
+                          {i < preview.closingWithoutCost.length - 1 ? ", " : ""}
                         </span>
                       ))}{" "}
-                      {preview.closingWithoutActuals.length === 1 ? "has" : "have"} no actuals.
+                      {preview.closingWithoutCost.length === 1 ? "has" : "have"} no cost actuals.
                     </span>{" "}
-                    Closed, {preview.closingWithoutActuals.length === 1 ? "it" : "they"} will count
-                    as 0 cost{isCustomer ? " and 0 revenue" : ""}. Import or enter actuals first,
-                    or confirm below.
+                    Closed, {preview.closingWithoutCost.length === 1 ? "its" : "their"} cost will
+                    count as 0{isCustomer ? " (planned revenue is kept)" : ""}. Import or enter
+                    actuals first, or confirm below.
                   </span>
                 </p>
                 <label className="flex items-start gap-2 pl-6">
@@ -231,8 +229,8 @@ function ClosedPeriodsCard({
                   />
                   <span>
                     Close anyway and count{" "}
-                    <span className="whitespace-nowrap">{periodSpan(preview.closingWithoutActuals)}</span> as
-                    zero
+                    <span className="whitespace-nowrap">{periodSpan(preview.closingWithoutCost)}</span>{" "}
+                    cost as zero
                   </span>
                 </label>
               </div>
@@ -801,7 +799,7 @@ function RecordedActualsCard({
               <TableRow>
                 <TableHead>Period</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead>Amount</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead />
@@ -812,7 +810,9 @@ function RecordedActualsCard({
                 <TableRow key={entry.id}>
                   <TableCell>{entry.period}</TableCell>
                   <TableCell>{CATEGORY_LABEL[entry.category] ?? entry.category}</TableCell>
-                  <TableCell className="tabular-nums">{entry.amount.toLocaleString()}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {formatCurrency(entry.amount, project.currency, "whole")}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">{entry.description}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {entry.source === "csv" ? `${entry.sourceFile} (row ${entry.sourceRow})` : "manual"}

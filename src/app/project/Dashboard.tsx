@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
-import { formatCurrency, formatRange } from "../_lib/format";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
 import { computeBlendedTotals } from "@/engine/blended";
-import type { ActualEntry, Project, ScenarioValue } from "@/engine/model";
+import { computeHeadline } from "@/engine/headline";
+import type { ActualEntry, Project } from "@/engine/model";
 import { ScenarioChart } from "./ScenarioChart";
 import { CumulativeChart } from "./CumulativeChart";
 import { CategoryBreakdown } from "./CategoryBreakdown";
 import { VarianceSection } from "./VarianceSection";
+import { Headline } from "./Headline";
 import { computeActualsBoundary } from "./actualsBoundary";
 
 export function Dashboard({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
@@ -38,10 +39,7 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
             backgroundColor: "var(--viz-warning-bg)",
           }}
         >
-          <ul
-            className="list-disc space-y-1 pl-5 text-sm"
-            style={{ color: "var(--viz-warning)" }}
-          >
+          <ul className="list-disc space-y-1 pl-5 text-sm marker:text-[var(--viz-status-warning)]">
             {blended.warnings.map((warning) => (
               <li key={warning}>{warning}</li>
             ))}
@@ -49,32 +47,11 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatTile
-          label="Total cost"
-          value={blended.totals.cost}
-          currency={currency}
-          displayUnits={displayUnits}
-        />
-        <StatTile
-          label="Total revenue"
-          value={blended.totals.revenue}
-          currency={currency}
-          displayUnits={displayUnits}
-        />
-        <StatTile
-          label="Margin"
-          value={blended.totals.margin}
-          currency={currency}
-          displayUnits={displayUnits}
-          polarity
-        />
-      </div>
-      {blended.lastClosedPeriod && (
-        <p className="-mt-2 text-caption text-muted-foreground">
-          Actuals through {blended.lastClosedPeriod}, projected after
-        </p>
-      )}
+      <Headline
+        project={project}
+        headline={computeHeadline(project, actuals, config.confidenceBands)}
+        totals={blended.totals}
+      />
 
       <ScenarioChart
         periods={blended.periods}
@@ -95,38 +72,6 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
       <VarianceSection project={project} actuals={actuals} />
 
       <CategoryBreakdown project={project} scenarios={scenarios} />
-    </div>
-  );
-}
-
-function StatTile({
-  label,
-  value,
-  currency,
-  displayUnits,
-  polarity,
-}: {
-  label: string;
-  value: ScenarioValue;
-  currency: string;
-  displayUnits: Project["displayUnits"];
-  polarity?: boolean;
-}) {
-  const color = polarity
-    ? value.expected >= 0
-      ? "var(--viz-good)"
-      : "var(--viz-critical)"
-    : "var(--viz-text-primary)";
-
-  return (
-    <div className="rounded-[0.5rem] border border-border p-4">
-      <p className="text-label-caps text-muted-foreground">{label}</p>
-      <p className="mt-1 text-display-xl tabular-nums" style={{ color }}>
-        {formatCurrency(value.expected, currency, displayUnits)}
-      </p>
-      <p className="mt-1 text-caption text-muted-foreground tabular-nums">
-        {formatRange(value.worst, value.best, currency, displayUnits)} range
-      </p>
     </div>
   );
 }

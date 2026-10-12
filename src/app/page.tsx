@@ -21,15 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const STATUS_LABEL: Record<string, string> = {
-  planning: "Planning",
-  ready_for_approval: "Ready for Approval",
-  approved: "Approved",
-  in_progress: "In Progress",
-  completed: "Completed",
-  on_hold: "On Hold",
-};
+import { statusLabel } from "@/export/labels";
 
 export default function ProjectListPage() {
   const { role } = useRole();
@@ -206,7 +198,7 @@ export default function ProjectListPage() {
                     <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{STATUS_LABEL[project.status] ?? project.status}</Badge>
+                    <Badge variant="secondary">{statusLabel(project.status)}</Badge>
                   </TableCell>
                   <TableCell>
                     {overdue ? (

@@ -95,6 +95,8 @@
   --viz-good: #059669;
   --viz-critical: #e11d48;
   --viz-warning: #d97706;
+  /* Unfavourable figures set as text (headline verdict): rose 700, 6.2:1 on white. */
+  --viz-critical-text: #be123c;
 
   /* status palette — fixed, never themed; same hex in both modes.
      For icons/marks/badge fills only — none of these three meet 4.5:1 as text on
@@ -159,6 +161,7 @@
   --viz-good: #059669;
   --viz-critical: #e11d48;
   --viz-warning: #d97706;
+  --viz-critical-text: #fb7185;
 
   --viz-status-good: #059669;
   --viz-status-warning: #d97706;
@@ -198,6 +201,21 @@
     font-weight: 600;
     line-height: 40px;
     letter-spacing: -0.025em;
+  }
+  /* The dashboard's headline verdict sentence (DESIGN.md display-verdict). */
+  .text-display-verdict {
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 34px;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+  }
+  @media (min-width: 640px) {
+    .text-display-verdict {
+      font-size: 40px;
+      line-height: 46px;
+      letter-spacing: -0.03em;
+    }
   }
   .text-headline-lg {
     font-size: 20px;

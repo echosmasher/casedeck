@@ -1,10 +1,13 @@
 // Blends actuals with projections into a single best/expected/worst series (PLAN.md ticket 11).
-// Closed periods (`project.closedPeriods`) use actual cost (every cost category) and actual
-// revenue (the `revenue` mapped category) with a zero-width band — expected = best = worst, since
-// a closed period is a fact, not a forecast. Open periods are exactly `computeProjectScenarios`'s
-// projected numbers. Also returns the budgeted values per period (tickets 12/13's "actuals vs.
-// budget" markers) and warnings for closed periods with no actuals at all, which are treated as
-// zero rather than silently dropped (CLAUDE.md rule 4).
+// Closed periods (`project.closedPeriods`) use actual cost (every cost category) with a zero-width
+// band — expected = best = worst, since a closed period's cost is a fact, not a forecast. Revenue
+// in a closed period is the recorded `revenue` actuals when any exist for that period, and
+// otherwise stays the planned (projected) revenue: v1 reconciles costs, not revenue receipts
+// (demo/README.md scope note), so a closed period with no revenue recorded must not read as zero
+// income. Open periods are exactly `computeProjectScenarios`'s projected numbers. Also returns the
+// budgeted values per period (tickets 12/13's "actuals vs. budget" markers) and warnings for closed
+// periods with no cost actuals, whose cost is treated as zero rather than silently dropped
+// (CLAUDE.md rule 4).
 import { periodizeCosts, periodizeRevenue, projectPeriods } from "./periodize";
 import { addScenario, computeProjectScenarios, subtractScenario, ZERO_SCENARIO } from "./scenarios";
 import type {
@@ -17,7 +20,7 @@ import type {
   ScenarioValue,
 } from "./model";
 
-const REVENUE_CATEGORY = "revenue";
+export const REVENUE_CATEGORY = "revenue";
 
 function actualScenarioValue(value: number): ScenarioValue {
   return { expected: value, best: value, worst: value };
@@ -66,11 +69,13 @@ export function computeBlendedTotals(
     if (closedPeriods.has(period)) {
       const hasCost = actualCostByPeriod[period] !== undefined;
       const hasRevenue = actualRevenueByPeriod[period] !== undefined;
-      if (!hasCost && !hasRevenue) {
-        warnings.push(`${period} is closed but has no actuals`);
+      if (!hasCost) {
+        warnings.push(`${period} is closed but has no cost actuals, so its cost counts as zero`);
       }
       costByPeriod[period] = actualScenarioValue(actualCostByPeriod[period] ?? 0);
-      revenueByPeriod[period] = actualScenarioValue(actualRevenueByPeriod[period] ?? 0);
+      revenueByPeriod[period] = hasRevenue
+        ? actualScenarioValue(actualRevenueByPeriod[period])
+        : (scenarios.revenueByPeriod[period] ?? ZERO_SCENARIO);
     } else {
       costByPeriod[period] = scenarios.costByPeriod[period] ?? ZERO_SCENARIO;
       revenueByPeriod[period] = scenarios.revenueByPeriod[period] ?? ZERO_SCENARIO;
