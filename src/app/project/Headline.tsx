@@ -27,7 +27,9 @@ export function Headline({
   return (
     <section aria-labelledby="dashboard-verdict" className="flex flex-col pt-4">
       <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
-        <Badge variant={flag.variant}>{flag.label}</Badge>
+        <Badge variant={flag.variant} dot>
+          {flag.label}
+        </Badge>
         <span>{copy.reason}</span>
       </p>
       <h2 id="dashboard-verdict" className="mt-3 max-w-[26ch] text-display-verdict tabular-nums">

@@ -175,3 +175,20 @@ describe("formatCompactChartCurrency", () => {
     );
   });
 });
+
+describe("end-of-line labels (WCAG 1.4.1: worst vs. best not by colour alone)", () => {
+  it("labels worst, expected and best at the last point", () => {
+    const svg = renderBandChartSvg(periods, byPeriod, { currency: "NOK", displayUnits: "whole" });
+    expect(svg).toContain(">Worst</text>");
+    expect(svg).toContain(">Best</text>");
+    expect(svg).toContain(">Expected</text>");
+  });
+
+  it("labels only expected when the band has collapsed at the last point", () => {
+    const closed: ScenarioByPeriod = { "2026-01": { expected: 10, worst: 10, best: 10 } };
+    const svg = renderBandChartSvg(["2026-01"], closed, { currency: "NOK", displayUnits: "whole" });
+    expect(svg).toContain(">Expected</text>");
+    expect(svg).not.toContain(">Worst</text>");
+    expect(svg).not.toContain(">Best</text>");
+  });
+});

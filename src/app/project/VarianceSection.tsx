@@ -60,7 +60,7 @@ export function VarianceSection({
                   <TableCell className="tabular-nums">
                     {formatCurrency(row.actualToDate, currency, displayUnits)}
                   </TableCell>
-                  <TableCell className="tabular-nums" style={{ color: row.flag === "ok" ? undefined : meta.color }}>
+                  <TableCell className="tabular-nums" style={{ color: row.flag === "ok" ? undefined : meta.ink }}>
                     {formatCurrency(row.projectionToComplete, currency, displayUnits)}
                   </TableCell>
                   <TableCell className="tabular-nums text-muted-foreground">

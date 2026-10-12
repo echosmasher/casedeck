@@ -61,10 +61,14 @@
   --secondary: #f4f4f5;
   --secondary-foreground: #18181b;
   --muted: #f4f4f5;
-  --muted-foreground: #71717a;
+  /* Secondary ink: zinc 500 darkened a step so it holds 4.5:1 on the #f4f4f5 table-header and
+     tab-track fills too (5.1:1 there, 5.6:1 on white) — WCAG AA, audit 2026-10-12. */
+  --muted-foreground: #67676f;
   --accent: #f4f4f5;
   --accent-foreground: #18181b;
-  --destructive: #e11d48;
+  /* Rose 700 as the text/action ink (6.3:1 on white, ≥5:1 on its own 10% tint); rose 600 stays
+     for chart marks via --viz-critical. */
+  --destructive: #be123c;
   --border: #e4e4e7;
   --input: #e4e4e7;
   --ring: #18181b;
@@ -86,11 +90,13 @@
   /* dataviz palette (references/palette.md), realigned to DESIGN.md — light mode */
   --viz-surface: #ffffff;
   --viz-text-primary: #18181b;
-  --viz-text-secondary: #71717a;
+  --viz-text-secondary: #67676f;
   --viz-text-muted: #a1a1aa;
   --viz-gridline: #e4e4e7;
   --viz-baseline: #d4d4d8;
   --viz-blue: #2a78d6;
+  /* Blue as text (end-of-line "Best" label): 6.4:1 on white. */
+  --viz-blue-ink: #1d5fae;
   --viz-red: #e11d48;
   --viz-good: #059669;
   --viz-critical: #e11d48;
@@ -113,6 +119,12 @@
   --viz-warning-border: #fde68a;
   --viz-critical-bg: #fff1f2;
   --viz-critical-border: #fecdd3;
+
+  /* Status pill / status-figure text inks (DESIGN.md Status Pill Tags: 800 shades) — the 600
+     hues above are for dots and marks only; as text they fall to 3.1–4.3:1 on the soft fills. */
+  --viz-good-ink: #065f46;
+  --viz-warning-ink: #92400e;
+  --viz-critical-ink: #9f1239;
 }
 
 .dark {
@@ -171,6 +183,10 @@
   --viz-good-border: #a7f3d0;
   --viz-warning-bg: #fffbeb;
   --viz-warning-border: #fde68a;
+  --viz-blue-ink: #7cb3f0;
+  --viz-good-ink: #6ee7b7;
+  --viz-warning-ink: #fcd34d;
+  --viz-critical-ink: #fda4af;
   --viz-critical-bg: #fff1f2;
   --viz-critical-border: #fecdd3;
 }

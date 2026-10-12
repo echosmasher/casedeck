@@ -416,6 +416,7 @@ function ImportCard({ project, onCommitted }: { project: Project; onCommitted: (
             ref={fileInputRef}
             type="file"
             accept=".csv,text/csv"
+            aria-label="Actuals CSV file"
             disabled={!ready}
             className="sr-only"
             onChange={(e) => {

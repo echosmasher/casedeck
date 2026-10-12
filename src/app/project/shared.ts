@@ -21,9 +21,9 @@ export const CONFIDENCE_OPTIONS: Confidence[] = ["committed", "estimated", "roug
 /** Variance status labels and pill variants — one map for the headline and "Budget vs. actual". */
 export const FLAG_META: Record<
   VarianceFlag,
-  { label: string; color: string; variant: NonNullable<VariantProps<typeof badgeVariants>["variant"]> }
+  { label: string; color: string; ink: string; variant: NonNullable<VariantProps<typeof badgeVariants>["variant"]> }
 > = {
-  ok: { label: "On track", color: "var(--viz-good)", variant: "status-good" },
-  warning: { label: "Watch", color: "var(--viz-warning)", variant: "status-warning" },
-  red: { label: "Over budget", color: "var(--viz-critical)", variant: "status-critical" },
+  ok: { label: "On track", color: "var(--viz-good)", ink: "var(--viz-good-ink)", variant: "status-good" },
+  warning: { label: "Watch", color: "var(--viz-warning)", ink: "var(--viz-warning-ink)", variant: "status-warning" },
+  red: { label: "Over budget", color: "var(--viz-critical)", ink: "var(--viz-critical-ink)", variant: "status-critical" },
 };

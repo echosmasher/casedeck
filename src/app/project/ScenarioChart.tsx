@@ -14,7 +14,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCompactChartCurrency } from "../_lib/format";
 import { ChartDataTable, ChartLegend, ChartTooltip } from "./ScenarioTooltip";
-import { ActualsBoundaryOverlay, BudgetedLine, actualsLegendRows, tooltipStatus } from "./ChartActualsOverlay";
+import {
+  ActualsBoundaryOverlay,
+  BudgetedLine,
+  END_LABEL_MARGIN,
+  actualsLegendRows,
+  endLabel,
+  tooltipStatus,
+} from "./ChartActualsOverlay";
 import type { ActualsOverlay } from "./actualsBoundary";
 import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
 
@@ -56,6 +63,10 @@ export function ScenarioChart({
     };
   });
 
+  const lastIndex = data.length - 1;
+  const lastRow = data[lastIndex];
+  const collapsedAtEnd = !lastRow || lastRow.best === lastRow.worst;
+
   return (
     <Card>
       <CardHeader>
@@ -75,11 +86,11 @@ export function ScenarioChart({
           ]}
         />
         <ResponsiveContainer width="100%" height={280}>
-          <ComposedChart data={data} margin={{ top: 16, right: 8, bottom: 0, left: 0 }}>
+          <ComposedChart data={data} margin={{ top: 16, right: END_LABEL_MARGIN, bottom: 0, left: 0 }}>
             <CartesianGrid stroke="var(--viz-gridline)" vertical={false} />
             <XAxis
               dataKey="period"
-              tick={{ fill: "var(--viz-text-muted)", fontSize: 12 }}
+              tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
               tickLine={false}
               axisLine={{ stroke: "var(--viz-baseline)" }}
               interval="preserveStartEnd"
@@ -87,7 +98,7 @@ export function ScenarioChart({
             />
             <YAxis
               tickFormatter={(v: number) => formatCompactChartCurrency(v, currency, displayUnits)}
-              tick={{ fill: "var(--viz-text-muted)", fontSize: 12 }}
+              tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
               tickLine={false}
               axisLine={false}
               width={72}
@@ -136,6 +147,7 @@ export function ScenarioChart({
               stroke="var(--viz-red)"
               strokeWidth={2}
               dot={false}
+              label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, "below", collapsedAtEnd)}
               isAnimationActive={false}
             />
             <Line
@@ -143,6 +155,7 @@ export function ScenarioChart({
               stroke="var(--viz-blue)"
               strokeWidth={2}
               dot={false}
+              label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, "above", collapsedAtEnd)}
               isAnimationActive={false}
             />
             <Line
@@ -150,6 +163,7 @@ export function ScenarioChart({
               stroke="var(--viz-text-primary)"
               strokeWidth={2}
               dot={{ r: 4, fill: "var(--viz-text-primary)", stroke: "var(--viz-surface)", strokeWidth: 2 }}
+              label={endLabel("Expected", "var(--viz-text-primary)", lastIndex, "middle")}
               isAnimationActive={false}
             />
             <BudgetedLine />

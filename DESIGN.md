@@ -165,13 +165,15 @@ The palette operates under a high-contrast monochromatic core with razor-thin li
 - **Sub-Canvas / Shading (`#F4F4F5`, `#FAFAFA`):** Used strictly for table header bars, segmented control tracks, and structural navigation columns.
 - **Structural Borders (`#E4E4E7`):** Systematic 1px division line applied to card perimeters, column boundaries, row dividers, and input strokes.
 - **Primary Ink (`#18181B`):** Deep zinc-black utilized for active states, key data aggregates, and high-emphasis action triggers.
-- **Secondary Ink (`#71717A`):** Neutral slate for auxiliary metrics, column labels, breadcrumbs, and non-active tool states.
-- **Muted Ink (`#A1A1AA`):** Used for placeholder text, disabled actions, and table gridlines.
+- **Secondary Ink (`#67676F`):** Neutral slate for auxiliary metrics, column labels, breadcrumbs, chart ticks, and non-active tool states. One step darker than zinc 500 so it holds 4.5:1 on the `#F4F4F5` header and tab fills as well as on white (audit 2026-10-12).
+- **Muted Ink (`#A1A1AA`):** Non-text only: closed-period shading, disabled marks, gridline-weight strokes. Never for readable text (2.6:1 on white).
 
 ### Deterministic Status Colors
 - **On-Track / Favorable:** `#059669` (Emerald 600) ink with `#ECFDF5` (Emerald 50) soft fill and `#A7F3D0` (Emerald 200) boundary.
 - **Watch / Caution:** `#D97706` (Amber 600) ink with `#FFFBEB` (Amber 50) soft fill and `#FDE68A` (Amber 200) boundary.
 - **Over-Budget / Unfavorable:** `#E11D48` (Rose 600) ink with `#FFF1F2` (Rose 50) soft fill and `#FECDD3` (Rose 200) boundary.
+- **Status as text:** pill labels and flagged figures use the 800-shade inks (`#065F46`, `#92400E`, `#9F1239`; ≥6.8:1 on their soft fills); the 600 hues are for dots, lines, and marks. Chart end-of-line labels use the same inks, with `#1D5FAE` for "Best" (6.4:1).
+- **Destructive / error text:** `#BE123C` (Rose 700), so alert text holds ≥5:1 on its own 10% rose tint.
 - **Unfavorable figure set as text:** `#BE123C` (Rose 700, 6.3:1 on white) — the headline verdict's "over budget" / "loss" phrase and an over-budget tile value. Rose 600 stays for marks, dots, and lines.
 
 ## Typography
@@ -240,7 +242,7 @@ The shape hierarchy is compact and utilitarian (`roundedness: 1`). Soft curves a
   - *Over-Budget:* Rose dot (`#E11D48`), Rose background (`#FFF1F2`), 1px border (`#FECDD3`), text (`#9F1239`).
 
 ### Data Tables (Budget-vs-Actual)
-- **Header:** Sticky top, `32px` height, `#FAFAFA` fill, `1px solid #E4E4E7` bottom border. Labels use `label-caps` in `#71717A`.
+- **Header:** Sticky top, `32px` height, `#FAFAFA` fill, `1px solid #E4E4E7` bottom border. Labels use `label-caps` in `#67676F`.
 - **Rows:** `36px` compact data height. Single-line borders (`#F4F4F5` horizontal line; `#E4E4E7` on section summaries). Alternating hover effect using `#FAFAFA`.
 - **Cells:** Text left-aligned; all currencies, percentages, and variances right-aligned with forced `tabular-nums`. 
 - **Variance Markers:** Positive/favorable deltas preceded by `+` in muted emerald (`#059669`); negative/unfavorable deltas preceded by `-` in sharp rose (`#E11D48`).

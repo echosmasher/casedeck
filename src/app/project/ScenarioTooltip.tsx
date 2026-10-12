@@ -87,8 +87,8 @@ function LegendSwatch({ color, shape }: { color: string; shape: "line" | "dashed
     return (
       <span
         aria-hidden
-        className="inline-block h-2.5 w-2.5 rounded-[0.125rem]"
-        style={{ background: color, opacity: 0.35 }}
+        className="inline-block h-2.5 w-2.5 rounded-[0.125rem] border border-[var(--viz-baseline)]"
+        style={{ background: `color-mix(in srgb, ${color} 25%, transparent)` }}
       />
     );
   }

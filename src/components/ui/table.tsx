@@ -4,15 +4,40 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+/** True while the element's content is wider than its box, i.e. it scrolls horizontally. */
+function useScrollsHorizontally(ref: React.RefObject<HTMLElement | null>) {
+  const [scrolls, setScrolls] = React.useState(false)
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () => setScrolls(el.scrollWidth > el.clientWidth + 1)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(el)
+    if (el.firstElementChild) observer.observe(el.firstElementChild)
+    return () => observer.disconnect()
+  }, [ref])
+  return scrolls
+}
+
 function Table({
   className,
   containerClassName,
   ...props
 }: React.ComponentProps<"table"> & { containerClassName?: string }) {
+  const containerRef = React.useRef<HTMLDivElement>(null)
+  // A table wider than its container gets a tab stop so keyboard users can scroll it with the
+  // arrow keys even when it holds no focusable controls (e.g. Viewer role) — WCAG 2.1.1.
+  const scrolls = useScrollsHorizontally(containerRef)
   return (
     <div
+      ref={containerRef}
       data-slot="table-container"
-      className={cn("relative w-full overflow-x-auto", containerClassName)}
+      tabIndex={scrolls ? 0 : undefined}
+      className={cn(
+        "relative w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        containerClassName
+      )}
     >
       <table
         data-slot="table"
