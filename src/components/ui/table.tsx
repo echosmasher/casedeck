@@ -4,46 +4,99 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-/** True while the element's content is wider than its box, i.e. it scrolls horizontally. */
-function useScrollsHorizontally(ref: React.RefObject<HTMLElement | null>) {
-  const [scrolls, setScrolls] = React.useState(false)
+/** Which horizontal edges of a scroll container still hide content. */
+function useHorizontalOverflow(ref: React.RefObject<HTMLElement | null>) {
+  const [edges, setEdges] = React.useState({ scrolls: false, left: false, right: false })
   React.useEffect(() => {
     const el = ref.current
     if (!el) return
-    const update = () => setScrolls(el.scrollWidth > el.clientWidth + 1)
+    const update = () => {
+      const scrolls = el.scrollWidth > el.clientWidth + 1
+      const left = scrolls && el.scrollLeft > 1
+      const right = scrolls && el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+      setEdges((prev) =>
+        prev.scrolls === scrolls && prev.left === left && prev.right === right ? prev : { scrolls, left, right }
+      )
+    }
     update()
     const observer = new ResizeObserver(update)
     observer.observe(el)
     if (el.firstElementChild) observer.observe(el.firstElementChild)
-    return () => observer.disconnect()
+    el.addEventListener("scroll", update, { passive: true })
+    return () => {
+      observer.disconnect()
+      el.removeEventListener("scroll", update)
+    }
   }, [ref])
-  return scrolls
+  return edges
 }
+
+const STICKY_FIRST_COLUMN =
+  "[&_tr>*:first-child]:sticky [&_tr>*:first-child]:left-0 [&_tr>*:first-child]:z-10 [&_td:first-child]:bg-card [&_th:first-child]:bg-muted"
+
+const STICKY_LAST_COLUMN =
+  "[&_tr>*:last-child]:sticky [&_tr>*:last-child]:right-0 [&_tr>*:last-child]:z-10 [&_td:last-child]:bg-card [&_th:last-child]:bg-muted [&_tr>*:last-child]:shadow-[-6px_0_6px_-6px_rgb(0_0_0/0.15)]"
 
 function Table({
   className,
   containerClassName,
+  stickyFirstColumn = false,
+  stickyLastColumn = false,
   ...props
-}: React.ComponentProps<"table"> & { containerClassName?: string }) {
+}: React.ComponentProps<"table"> & {
+  containerClassName?: string
+  /** Keep the first column in view while the rest of the table scrolls sideways. */
+  stickyFirstColumn?: boolean
+  /** Keep the last column (e.g. a row action) in view at the right edge; its own edge shadow
+   * replaces the right-hand scroll fade. */
+  stickyLastColumn?: boolean
+}) {
   const containerRef = React.useRef<HTMLDivElement>(null)
-  // A table wider than its container gets a tab stop so keyboard users can scroll it with the
-  // arrow keys even when it holds no focusable controls (e.g. Viewer role) — WCAG 2.1.1.
-  const scrolls = useScrollsHorizontally(containerRef)
+  const { scrolls, left, right } = useHorizontalOverflow(containerRef)
   return (
-    <div
-      ref={containerRef}
-      data-slot="table-container"
-      tabIndex={scrolls ? 0 : undefined}
-      className={cn(
-        "relative w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-        containerClassName
+    <div className="relative min-w-0">
+      {/* A table wider than its container gets a tab stop so keyboard users can scroll it with the
+          arrow keys even when it holds no focusable controls (e.g. Viewer role) — WCAG 2.1.1 —
+          plus an always-visible scrollbar and edge fades so touch users can see there is more. */}
+      <div
+        ref={containerRef}
+        data-slot="table-container"
+        tabIndex={scrolls ? 0 : undefined}
+        className={cn(
+          "relative w-full overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+          scrolls && "scrollbar-always-visible",
+          containerClassName
+        )}
+      >
+        <table
+          data-slot="table"
+          className={cn(
+            "w-full caption-bottom text-sm",
+            stickyFirstColumn && STICKY_FIRST_COLUMN,
+            stickyLastColumn && STICKY_LAST_COLUMN,
+            className
+          )}
+          {...props}
+        />
+      </div>
+      {!stickyLastColumn && (
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card to-transparent transition-opacity",
+            right ? "opacity-100" : "opacity-0"
+          )}
+        />
       )}
-    >
-      <table
-        data-slot="table"
-        className={cn("w-full caption-bottom text-sm", className)}
-        {...props}
-      />
+      {!stickyFirstColumn && (
+        <div
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-card to-transparent transition-opacity",
+            left ? "opacity-100" : "opacity-0"
+          )}
+        />
+      )}
     </div>
   )
 }

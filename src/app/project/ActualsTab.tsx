@@ -260,7 +260,7 @@ function ClosedPeriodsCard({
           )}
         </p>
 
-        <Table>
+        <Table stickyFirstColumn>
           <TableHeader>
             <TableRow>
               <TableHead>Period</TableHead>
@@ -795,7 +795,7 @@ function RecordedActualsCard({
         {sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground">No actuals recorded yet.</p>
         ) : (
-          <Table>
+          <Table stickyFirstColumn stickyLastColumn>
             <TableHeader>
               <TableRow>
                 <TableHead>Period</TableHead>
@@ -803,7 +803,9 @@ function RecordedActualsCard({
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Source</TableHead>
-                <TableHead />
+                <TableHead>
+                  <span className="sr-only">Delete</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -814,10 +816,11 @@ function RecordedActualsCard({
                   <TableCell className="text-right tabular-nums">
                     {formatCurrency(entry.amount, project.currency, "whole")}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{entry.description}</TableCell>
+                  <TableCell className="min-w-48 whitespace-normal text-muted-foreground">{entry.description}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     {entry.source === "csv" ? `${entry.sourceFile} (row ${entry.sourceRow})` : "manual"}
                   </TableCell>
+                  {/* Delete stays in view at the right edge while the row scrolls on a phone. */}
                   <TableCell>
                     <Button
                       type="button"

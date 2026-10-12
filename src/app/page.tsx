@@ -171,8 +171,8 @@ export default function ProjectListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Name</TableHead>
+              <TableHead className="hidden sm:table-cell">Code</TableHead>
+              <TableHead className="sticky left-0 z-10 bg-muted sm:static">Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>End</TableHead>
@@ -188,11 +188,16 @@ export default function ProjectListPage() {
               );
               return (
                 <TableRow key={project.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{project.code}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
+                    {project.code}
+                  </TableCell>
+                  {/* On phones the code folds under the name and the name stays in view while
+                      Type / Status / End scroll beside it. */}
+                  <TableCell className="sticky left-0 z-10 min-w-40 max-w-56 whitespace-normal bg-card sm:static sm:max-w-none">
                     <Link href={`/project?id=${project.id}`} className="font-medium hover:underline">
                       {project.name}
                     </Link>
+                    <span className="block font-mono text-xs text-muted-foreground sm:hidden">{project.code}</span>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
