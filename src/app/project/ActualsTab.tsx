@@ -247,7 +247,8 @@ function ClosedPeriodsCard({
               ))}
             </select>
             <p id={`${formId}-close-hint`} className="text-xs text-muted-foreground">
-              Pick an earlier period to reopen back to it. Nothing is saved until you apply.
+              {closedThroughPeriod && "Pick an earlier period to reopen back to it. "}Nothing is saved until
+              you apply.
               {future.size > 0 && " Periods that haven't started yet can't be closed."}
             </p>
           </div>

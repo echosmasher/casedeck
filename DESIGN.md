@@ -238,10 +238,10 @@ The shape hierarchy is compact and utilitarian (`roundedness: 1`). Soft curves a
 ### Status Pill Tags
 - **Structure:** `20px` total height, horizontal padding of `6px` or `8px`, pill radius (`9999px`), `label-sm` font.
 - **Indicator Dot:** Integrated `6px` solid spherical indicator positioned left of the text with a 4px gap.
-- **Status Variants:**
-  - *On-Track:* Emerald dot (`#059669`), Emerald background (`#ECFDF5`), 1px border (`#A7F3D0`), text (`#065F46`).
-  - *Watch:* Amber dot (`#D97706`), Amber background (`#FFFBEB`), 1px border (`#FDE68A`), text (`#92400E`).
-  - *Over-Budget:* Rose dot (`#E11D48`), Rose background (`#FFF1F2`), 1px border (`#FECDD3`), text (`#9F1239`).
+- **Status Variants** (labels in `src/export/labels.ts`; they place a category against its own range, never the gap to budget, which the verdict states in words):
+  - *Within range:* Emerald dot (`#059669`), Emerald background (`#ECFDF5`), 1px border (`#A7F3D0`), text (`#065F46`).
+  - *Near its ceiling:* Amber dot (`#D97706`), Amber background (`#FFFBEB`), 1px border (`#FDE68A`), text (`#92400E`).
+  - *Past its ceiling:* Rose dot (`#E11D48`), Rose background (`#FFF1F2`), 1px border (`#FECDD3`), text (`#9F1239`).
 
 ### Data Tables (Budget-vs-Actual)
 - **Header:** Sticky top, `32px` height, `#FAFAFA` fill, `1px solid #E4E4E7` bottom border. Labels use `label-caps` in `#67676F`.

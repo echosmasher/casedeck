@@ -245,7 +245,7 @@ function renderVarianceSection(
       <tr class="emphasis"><th>Total</th><td>${VARIANCE_FLAG_LABEL[variance.total.flag]}</td><td>${fmt(variance.total.actualToDate)}</td><td>${fmt(variance.total.projectionToComplete)}</td><td>${fmt(variance.total.expectedTotal)}</td><td>${fmt(variance.total.worstCeiling)}</td></tr>
     </tbody>
   </table>
-  ${note ? `<p>${escapeHtml(note)}</p>` : ""}
+  ${note ? `<p class="note">${escapeHtml(note)}</p>` : ""}
 </section>`;
 }
 
