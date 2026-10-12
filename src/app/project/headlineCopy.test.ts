@@ -109,12 +109,12 @@ describe("headlineCopy", () => {
       label,
     );
     expect(copy.reason).toBe("Every category finished within its range.");
-    expect(text(copy)).toBe("Finished with a 234k NOK margin, 3k below budget.");
+    expect(text(copy)).toBe("Finished with a 234k NOK margin, 3k short of the budgeted margin.");
     expect(negatives(copy)).toEqual([]);
     expect(copy.source).toBe("Actuals for every period, through 2025-Q4");
   });
 
-  it("Watch status names the category; cost under budget is not negative", () => {
+  it("Near-its-ceiling status names the category; cost under budget is not negative", () => {
     const copy = headlineCopy(
       { ...base, status: "warning", driver: "travel", deltaVsBudget: -12000, unfavourable: false, gapFlagged: false },
       "NOK",
@@ -182,8 +182,8 @@ describe("headlineCopy", () => {
       "whole",
       label,
     );
-    expect(text(loss)).toBe("Finished with a loss of 50k NOK, 70k below budget.");
-    expect(negatives(loss)).toEqual(["Finished with a loss of 50k NOK", "70k below budget"]);
+    expect(text(loss)).toBe("Finished with a loss of 50k NOK, 70k short of the budgeted margin.");
+    expect(negatives(loss)).toEqual(["Finished with a loss of 50k NOK", "70k short of the budgeted margin"]);
   });
 
   it("not started without a risk says every category is still at budget", () => {

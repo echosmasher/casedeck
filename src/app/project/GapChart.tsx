@@ -31,10 +31,10 @@ export function GapChart({
   action?: React.ReactNode;
 }) {
   const isCost = measure === "cost";
-  // Over budget is bad for a cost; below budget is bad for a margin.
+  // Over budget is bad for a cost; short of budget is bad for a margin.
   const unfavourable = (gap: number) => (isCost ? gap > 0 : gap < 0);
   const words = (gap: number) =>
-    gap === 0 ? "On budget" : isCost ? (gap > 0 ? "Over budget" : "Under budget") : gap > 0 ? "Above budget" : "Below budget";
+    gap === 0 ? "On budget" : isCost ? (gap > 0 ? "Over budget" : "Under budget") : gap > 0 ? "Ahead of budget" : "Short of budget";
   const data = periods.map((period) => ({ period, gap: gapByPeriod[period] ?? 0 }));
   const worse = data.filter((d) => unfavourable(d.gap)).length;
   const title = `${isCost ? "Cost" : "Margin"} against budget, by period`;
@@ -56,7 +56,7 @@ export function GapChart({
       <CardContent>
         <div
           role="figure"
-          aria-label={`${title}: ${worse} of ${periods.length} periods ${isCost ? "over" : "below"} budget.`}
+          aria-label={`${title}: ${worse} of ${periods.length} periods ${isCost ? "over" : "short of"} budget.`}
         >
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data} margin={{ top: 16, right: 16, bottom: 0, left: 0 }}>

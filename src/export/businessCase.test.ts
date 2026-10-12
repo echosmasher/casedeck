@@ -105,10 +105,12 @@ describe("renderBusinessCase — 001 with actuals (the overrun story)", () => {
     riskCommentary: "Consultancy is running well over budget.",
   });
 
-  it("surfaces the consultancy overrun as Over budget", () => {
+  it("surfaces the consultancy overrun as past its ceiling, and says why the total isn't", () => {
     if (!result.ok) throw new Error("expected ok result");
     expect(result.html).toContain("Budget vs. actual");
-    expect(result.html).toContain("Over budget");
+    expect(result.html).toContain("Past its ceiling");
+    expect(result.html).not.toContain("Over budget");
+    expect(result.html).toContain("Each category is checked against its own ceiling");
     expect(result.html).toContain("Consultancy is running well over budget.");
   });
 

@@ -6,7 +6,7 @@ import type { ConfidenceBands, PeriodKey, Project, ScenarioValue } from "@/engin
 import type { SpreadDrivers } from "@/engine/spread";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
 import { headlineCopy, spreadCopy } from "./headlineCopy";
-import { CATEGORY_LABEL, FLAG_META, flagLabel, NOT_STARTED_META } from "./shared";
+import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
 import { revealVarianceRow, VARIANCE_SECTION_ID } from "./VarianceSection";
 
 /** The dashboard's lead: status and its reason, a one-sentence verdict, the scenario band as a
@@ -38,12 +38,9 @@ export function Headline({
   const copy = headlineCopy(headline, currency, displayUnits, categoryLabel, endedOpenPeriods);
   const driver = spreadCopy(spread, bands, displayUnits, categoryLabel, headline.lastClosedPeriod !== null);
   const finished = headline.stage === "finished";
-  // Nothing closed means nothing has been measured yet, so "On track" would be a claim without
+  // Nothing closed means nothing has been measured yet, so "Within range" would be a claim without
   // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
-  const flag =
-    headline.stage === "not_started"
-      ? NOT_STARTED_META
-      : { ...FLAG_META[headline.status], label: flagLabel(headline.status, headline.stage === "finished") };
+  const flag = headline.stage === "not_started" ? NOT_STARTED_META : FLAG_META[headline.status];
 
   return (
     <section aria-labelledby="dashboard-verdict" className="flex flex-col pt-4">
@@ -236,15 +233,15 @@ function signedPercent(pct: number) {
 
 function finalMarginNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
   const budget = formatCurrency(h.budget, currency, units);
-  if (formatCompactAmount(Math.abs(h.deltaVsBudget), units) === "0") return `Matches the ${budget} budget`;
+  if (formatCompactAmount(Math.abs(h.deltaVsBudget), units) === "0") return `Matches the ${budget} budgeted margin`;
   const amount = formatCurrency(Math.abs(h.deltaVsBudget), currency, units);
-  return `${amount} ${h.deltaVsBudget < 0 ? "below" : "above"} the ${budget} budget`;
+  return `${amount} ${h.deltaVsBudget < 0 ? "short of" : "ahead of"} the ${budget} budgeted margin`;
 }
 
 function budgetedMarginNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
   if (formatCompactAmount(Math.abs(h.deltaVsBudget), units) === "0") return "Expected margin matches it";
   const amount = formatCurrency(Math.abs(h.deltaVsBudget), currency, units);
-  return `Expected margin is ${amount} ${h.deltaVsBudget < 0 ? "below" : "above"} it`;
+  return `Expected margin is ${amount} ${h.deltaVsBudget < 0 ? "short of" : "ahead of"} it`;
 }
 
 function Tile({

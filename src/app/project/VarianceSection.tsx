@@ -11,7 +11,8 @@ import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { computeVariance, type CategoryVariance } from "@/engine/variance";
 import { lineScenarioTotal, type ProjectScenarios } from "@/engine/scenarios";
 import type { ActualEntry, CostLineItem, Project, ScenarioValue } from "@/engine/model";
-import { blendedFlagLabel, CATEGORY_LABEL, FLAG_META, flagLabel } from "./shared";
+import { totalStatusNote } from "@/export/varianceCopy";
+import { CATEGORY_LABEL, FLAG_META } from "./shared";
 
 /** Anchor for the section; the headline's reason links here (QA-ROUND-3-PLAN.md Phase 4). */
 export const VARIANCE_SECTION_ID = "budget-vs-actual";
@@ -76,6 +77,7 @@ export function VarianceSection({
   const hasVariance = variance !== null;
   // Every period closed: the projection is just the actual, so the table reports the outcome.
   const complete = hasVariance && scenarios.periods.every((p) => project.closedPeriods.includes(p));
+  const totalNote = variance ? totalStatusNote(variance, money, complete) : null;
 
   return (
     <Card id={VARIANCE_SECTION_ID} className="scroll-mt-4">
@@ -114,7 +116,7 @@ export function VarianceSection({
                         controls={listId}
                         onToggle={() => toggle(row.category)}
                       />
-                      {row.variance && <FlagBadge row={row.variance} complete={complete} />}
+                      {row.variance && <FlagBadge row={row.variance} />}
                     </div>
                     <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
                       <Figures variance={row.variance} budget={row.budget} money={money} complete={complete} />
@@ -139,7 +141,7 @@ export function VarianceSection({
                 <div className="flex items-center justify-between gap-3">
                   <span className="font-semibold">Total</span>
                   {variance && (
-                    <span className="text-sm text-muted-foreground">{blendedFlagLabel(variance.total.flag)}</span>
+                    <span className="text-sm text-muted-foreground">{FLAG_META[variance.total.flag].label}</span>
                   )}
                 </div>
                 <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
@@ -184,7 +186,7 @@ export function VarianceSection({
                       {row.variance ? (
                         <>
                           <TableCell>
-                            <FlagBadge row={row.variance} complete={complete} />
+                            <FlagBadge row={row.variance} />
                           </TableCell>
                           <TableCell
                             className="text-right tabular-nums"
@@ -247,7 +249,7 @@ export function VarianceSection({
                   {variance ? (
                     <>
                       <TableCell className="text-sm text-muted-foreground">
-                        {blendedFlagLabel(variance.total.flag)}
+                        {FLAG_META[variance.total.flag].label}
                       </TableCell>
                       <TableCell className="text-right tabular-nums font-semibold">
                         {money(variance.total.actualToDate)}
@@ -272,6 +274,7 @@ export function VarianceSection({
                 </TableRow>
               </TableBody>
             </Table>
+            {totalNote && <p className="mt-3 max-w-[75ch] text-sm text-muted-foreground">{totalNote}</p>}
           </>
         )}
       </CardContent>
@@ -318,11 +321,11 @@ function ExpandButton({
   );
 }
 
-function FlagBadge({ row, complete }: { row: CategoryVariance; complete: boolean }) {
+function FlagBadge({ row }: { row: CategoryVariance }) {
   const meta = FLAG_META[row.flag];
   return (
     <Badge variant={meta.variant} dot>
-      {flagLabel(row.flag, complete)}
+      {meta.label}
     </Badge>
   );
 }

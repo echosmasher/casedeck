@@ -51,15 +51,19 @@ function marginRangeSegments(low: number, high: number, units: DisplayUnits): Ve
   return [{ text: `, anywhere from ${amount(low)} to ${amount(high)}.` }];
 }
 
-/** ", 79k over budget." / ", 12k under budget." / ", on budget." — for the measure in hand. */
+/** ", 79k over budget." / ", 12k under budget." / ", on budget." for a cost. A margin says "short
+ * of" / "ahead of the budgeted margin": "3k below budget" read as an under-budget win when the
+ * margin had in fact shrunk. */
 function budgetSegments(h: HeadlineSummary, units: DisplayUnits): VerdictSegment[] {
   const amount = formatCompactAmount(Math.abs(h.deltaVsBudget), units);
   if (amount === "0") return [{ text: ", on budget." }];
-  const direction =
-    h.measure === "cost" ? (h.deltaVsBudget > 0 ? "over" : "under") : h.deltaVsBudget < 0 ? "below" : "above";
+  const gap =
+    h.measure === "cost"
+      ? `${h.deltaVsBudget > 0 ? "over" : "under"} budget`
+      : `${h.deltaVsBudget < 0 ? "short of" : "ahead of"} the budgeted margin`;
   return [
     { text: ", " },
-    { text: `${amount}${NBSP}${direction} budget`, negative: h.gapFlagged },
+    { text: `${amount}${NBSP}${gap}`, negative: h.gapFlagged },
     { text: "." },
   ];
 }
@@ -94,7 +98,7 @@ export function headlineCopy(
     ? null
     : h.measure === "cost"
       ? "Even the best case is over budget."
-      : "Even the best case is below budget.";
+      : "Even the best case falls short of the budgeted margin.";
 
   // Every open period is over: nothing is left to forecast, only to record, so "expected to" would
   // read as a future the calendar has already passed.

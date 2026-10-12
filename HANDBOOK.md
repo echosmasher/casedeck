@@ -31,14 +31,18 @@ project's periodization):
    If anything in the file is malformed, CaseDeck tells you exactly which row and column, and why —
    it never silently drops a row or guesses at a bad value.
 3. **Read the "Budget vs. actual" view.** Each cost category gets one of three statuses:
-   - **On track** — actuals plus the remaining budgeted periods (the *projection-to-complete*) stay
-     within that category's own worst-case ceiling. No action needed.
-   - **Watch** — the projection-to-complete has already consumed at least half of that category's
+   - **Within range** — actuals plus the remaining budgeted periods (the *projection-to-complete*)
+     stay well inside that category's own worst-case ceiling. No action needed.
+   - **Near its ceiling** — the projection-to-complete has already consumed at least half of that category's
      contingency (the gap between its expected and worst-case figures). Not a crisis, but worth a
      look before it becomes one.
-   - **Over budget** — the projection-to-complete has already exceeded that category's worst-case
+   - **Past its ceiling** — the projection-to-complete has already exceeded that category's worst-case
      ceiling. This is a real breach, not a rounding difference — worth raising before the next
      status update, not after.
+
+   These statuses measure a category against its own range, not against its budget. A category can
+   be a little over budget and still be within range. The "over budget" figure in the dashboard
+   headline is the gap to budget, which is a separate measure.
 4. **Act on categories, not just the project total.** A category can go red while the project's
    *total* is still inside its overall worst case — that's not a bug, it's the point. A blended
    total can hide a real problem in one line item for months if you only ever look at the bottom
@@ -60,7 +64,7 @@ CaseDeck doesn't have a separate "re-baseline" button — a budget line is just 
 re-baselining is simply going back into that line and changing its value or confidence level once
 you have new information. Do it when:
 
-- A category's status has gone to **Watch** or **Over budget** *and* you've confirmed the underlying
+- A category's status has gone to **Near its ceiling** or **Past its ceiling** *and* you've confirmed the underlying
   cause is real and ongoing (not a one-off) — update the remaining periods' budgeted values to
   reflect what you now expect, rather than leaving stale numbers that will keep triggering the same
   flag every month.

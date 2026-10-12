@@ -8,7 +8,8 @@ import { computeHeadline } from "@/engine/headline";
 import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, ConfidenceBands, Project } from "@/engine/model";
 import { formatChartCurrency, renderBandChartSvg, renderCumulativeChartSvg } from "./charts";
-import { statusLabel } from "./labels";
+import { statusLabel, VARIANCE_FLAG_LABEL } from "./labels";
+import { totalStatusNote } from "./varianceCopy";
 import { effectiveStatus } from "@/engine/status";
 
 export interface BusinessCaseInput {
@@ -196,7 +197,7 @@ ${
   }
 </section>
 
-${variance ? renderVarianceSection(variance, fmt, input.riskCommentary) : ""}
+${variance ? renderVarianceSection(variance, fmt, input.riskCommentary, blended.periods.every((p) => project.closedPeriods.includes(p))) : ""}
 
 <section class="card">
   <h2>Assumptions &amp; dependencies</h2>
@@ -224,8 +225,9 @@ function renderVarianceSection(
   variance: ReturnType<typeof computeVariance>,
   fmt: (v: number) => string,
   riskCommentary: string | undefined,
+  complete: boolean,
 ): string {
-  const flagLabel: Record<string, string> = { ok: "On track", warning: "Watch", red: "Over budget" };
+  const note = totalStatusNote(variance, fmt, complete);
   const flagClass: Record<string, string> = { ok: "good", warning: "warning", red: "critical" };
 
   return `<section class="card">
@@ -237,12 +239,13 @@ function renderVarianceSection(
       ${Object.entries(variance.byCategory)
         .map(
           ([category, row]) =>
-            `<tr><th>${CATEGORY_LABEL[category] ?? escapeHtml(category)}</th><td class="${flagClass[row.flag]}">${flagLabel[row.flag]}</td><td>${fmt(row.actualToDate)}</td><td>${fmt(row.projectionToComplete)}</td><td>${fmt(row.expectedTotal)}</td><td>${fmt(row.worstCeiling)}</td></tr>`,
+            `<tr><th>${CATEGORY_LABEL[category] ?? escapeHtml(category)}</th><td class="${flagClass[row.flag]}">${VARIANCE_FLAG_LABEL[row.flag]}</td><td>${fmt(row.actualToDate)}</td><td>${fmt(row.projectionToComplete)}</td><td>${fmt(row.expectedTotal)}</td><td>${fmt(row.worstCeiling)}</td></tr>`,
         )
         .join("")}
-      <tr class="emphasis"><th>Total</th><td>Blended: ${flagLabel[variance.total.flag].toLowerCase()}</td><td>${fmt(variance.total.actualToDate)}</td><td>${fmt(variance.total.projectionToComplete)}</td><td>${fmt(variance.total.expectedTotal)}</td><td>${fmt(variance.total.worstCeiling)}</td></tr>
+      <tr class="emphasis"><th>Total</th><td>${VARIANCE_FLAG_LABEL[variance.total.flag]}</td><td>${fmt(variance.total.actualToDate)}</td><td>${fmt(variance.total.projectionToComplete)}</td><td>${fmt(variance.total.expectedTotal)}</td><td>${fmt(variance.total.worstCeiling)}</td></tr>
     </tbody>
   </table>
+  ${note ? `<p>${escapeHtml(note)}</p>` : ""}
 </section>`;
 }
 
