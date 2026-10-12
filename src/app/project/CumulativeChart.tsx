@@ -125,6 +125,8 @@ export function CumulativeChart({
         )}
       </CardHeader>
       <CardContent>
+        {/* No entry for the total budget line: it is labelled where it is drawn ("Budget 271k"),
+            and a legend entry would be a second dashed swatch beside "Budgeted". */}
         <ChartLegend
           rows={[
             ...(settled
@@ -138,7 +140,6 @@ export function CumulativeChart({
                   { key: "best", label: "Best case", color: "var(--viz-blue)" },
                   ...actualsLegendRows(boundary),
                 ]),
-            ...(isCost ? [{ key: "budget", label: "Total budget", color: "var(--viz-text-primary)", swatch: "dashed" as const }] : []),
           ]}
         />
         <div
@@ -210,7 +211,8 @@ export function CumulativeChart({
                     displayUnits={displayUnits}
                     status={settled ? undefined : tooltipStatus(boundary, label)}
                     rows={
-                      payload && settled
+                      // A closed period's running total is actual: show it against the running budget.
+                      payload && (settled || tooltipStatus(boundary, label) === "Actual")
                         ? [
                             { key: "expected", label: "Actual", color: "var(--viz-text-primary)", value: Number(payload.find((p) => p.dataKey === "expected")?.value ?? 0) },
                             { key: "budgeted", label: "Budgeted", color: "var(--viz-text-secondary)", value: Number(payload.find((p) => p.dataKey === "budgeted")?.value ?? 0) },

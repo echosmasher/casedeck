@@ -7,9 +7,10 @@ import { computeProjectScenarios } from "@/engine/scenarios";
 import { computeBlendedTotals, REVENUE_CATEGORY } from "@/engine/blended";
 import { computeHeadline } from "@/engine/headline";
 import { computeSpreadDrivers } from "@/engine/spread";
-import type { ActualEntry, Project } from "@/engine/model";
+import type { ActualEntry, PeriodValues, Project } from "@/engine/model";
 import { ScenarioChart } from "./ScenarioChart";
 import { CumulativeChart } from "./CumulativeChart";
+import { GapChart } from "./GapChart";
 import { VarianceSection } from "./VarianceSection";
 import { Headline } from "./Headline";
 import { computeActualsBoundary } from "./actualsBoundary";
@@ -47,7 +48,9 @@ export function Dashboard({
   // The running total tells a finished project's story, and revenue that lands in one period makes
   // the per-period view a trough and a spike rather than a trend.
   const lumpyRevenue = project.pricingModel?.type === "fixed" && project.pricingModel.allocation.type === "at_period";
-  const trendDefault: TrendView = headline.stage === "finished" || lumpyRevenue ? "cumulative" : "period";
+  // A finished project opens on its per-period gap to budget, the one view where actual and plan
+  // don't sit on top of each other.
+  const trendDefault: TrendView = settled ? "period" : headline.stage === "finished" || lumpyRevenue ? "cumulative" : "period";
   // Charts follow the headline's measure: an internal project plots cost, never margin.
   const isCost = headline.measure === "cost";
   const chartByPeriod = isCost ? blended.costByPeriod : blended.marginByPeriod;
@@ -96,6 +99,7 @@ export function Dashboard({
         periods={blended.periods}
         byPeriod={chartByPeriod}
         actualsOverlay={actualsOverlay}
+        gapByPeriod={isCost ? blended.costVsBudgetByPeriod : blended.marginVsBudgetByPeriod}
         currency={currency}
         displayUnits={displayUnits}
       />
@@ -110,8 +114,12 @@ type TrendView = "period" | "cumulative";
 function TrendChart({
   budgetTotal,
   defaultView,
+  gapByPeriod,
   ...props
-}: Omit<React.ComponentProps<typeof CumulativeChart>, "action"> & { defaultView: TrendView }) {
+}: Omit<React.ComponentProps<typeof CumulativeChart>, "action"> & {
+  defaultView: TrendView;
+  gapByPeriod: PeriodValues;
+}) {
   const [view, setView] = useState<TrendView>(defaultView);
   // The toggle lives in the chart's header, so switching remounts it; put focus back on the
   // pressed option instead of letting it fall to <body>.
@@ -133,11 +141,22 @@ function TrendChart({
       }}
     />
   );
-  return view === "cumulative" ? (
-    <CumulativeChart {...props} budgetTotal={budgetTotal} action={toggle} />
-  ) : (
-    <ScenarioChart {...props} action={toggle} />
-  );
+  if (view === "cumulative") return <CumulativeChart {...props} budgetTotal={budgetTotal} action={toggle} />;
+  if (props.settled) {
+    return (
+      <GapChart
+        measure={props.measure}
+        periods={props.periods}
+        byPeriod={props.byPeriod}
+        budgetedByPeriod={props.actualsOverlay.budgetedByPeriod}
+        gapByPeriod={gapByPeriod}
+        currency={props.currency}
+        displayUnits={props.displayUnits}
+        action={toggle}
+      />
+    );
+  }
+  return <ScenarioChart {...props} action={toggle} />;
 }
 
 function TrendToggle({

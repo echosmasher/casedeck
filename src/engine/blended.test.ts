@@ -66,6 +66,16 @@ describe("computeBlendedTotals — 001 closed through 2026-04", () => {
   it("has no warnings — every closed period has actuals", () => {
     expect(blended.warnings).toEqual([]);
   });
+
+  it("reports each period's gap to budget: the closed overrun, zero for open periods", () => {
+    // The closed months add up to the 79,000 overrun the headline reports.
+    const closed = ["2026-01", "2026-02", "2026-03", "2026-04"];
+    const overrun = closed.reduce((sum, p) => sum + blended.costVsBudgetByPeriod[p], 0);
+    expect(overrun).toBeCloseTo(79000, 2);
+    expect(blended.costVsBudgetByPeriod["2026-05"]).toBe(0);
+    // No revenue, so the margin gap is the cost gap with its sign flipped.
+    expect(blended.marginVsBudgetByPeriod["2026-02"]).toBeCloseTo(-blended.costVsBudgetByPeriod["2026-02"], 2);
+  });
 });
 
 describe("computeBlendedTotals — revenue actuals and warnings", () => {
