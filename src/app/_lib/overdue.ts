@@ -31,6 +31,19 @@ function periodEndDate(periodization: Periodization, endPeriod: PeriodKey): Date
   return new Date(Number(match[1]), 12, 0);
 }
 
+/** First calendar day of `period` per the project's periodization. */
+function periodStartDate(periodization: Periodization, period: PeriodKey): Date {
+  const end = periodEndDate(periodization, period);
+  const months = periodization === "monthly" ? 1 : periodization === "quarterly" ? 3 : 12;
+  return new Date(end.getFullYear(), end.getMonth() - months + 1, 1);
+}
+
+/** True when `period` hasn't started yet on `today` — later than the current month. Such a period
+ * has no actuals to record, so it can't be closed (QA-ROUND-3-PLAN.md Phase 3). */
+export function isFuturePeriod(periodization: Periodization, period: PeriodKey, today: Date): boolean {
+  return periodStartDate(periodization, period).getTime() > atMidnight(today).getTime();
+}
+
 function atMidnight(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate());
 }

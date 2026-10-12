@@ -17,7 +17,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputsEditor } from "./InputsEditor";
 import { Dashboard } from "./Dashboard";
 import { ActualsTab } from "./ActualsTab";
-import { ExportTab } from "./ExportTab";
+import { EMPTY_EXPORT_DRAFT, ExportTab, type ExportDraft } from "./ExportTab";
 
 export default function ProjectPage() {
   return (
@@ -34,6 +34,7 @@ function ProjectPageContent() {
   const [project, setProject] = useState<Project | null | undefined>(undefined);
   const [actuals, setActuals] = useState<StoredActualEntry[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [exportDraft, setExportDraft] = useState<ExportDraft>(EMPTY_EXPORT_DRAFT);
 
   useEffect(() => {
     if (!id) return;
@@ -190,7 +191,13 @@ function ProjectPageContent() {
           />
         </TabsContent>
         <TabsContent value="export">
-          <ExportTab key={project.id} project={project} actuals={actuals} />
+          <ExportTab
+            key={project.id}
+            project={project}
+            actuals={actuals}
+            draft={exportDraft}
+            onDraftChange={setExportDraft}
+          />
         </TabsContent>
       </Tabs>
     </div>

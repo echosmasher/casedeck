@@ -11,10 +11,28 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-export function ExportTab({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
+/** Commentary typed on the Export tab. Held by the page, not this tab, so switching tabs (which
+ * unmounts the panel) doesn't wipe a draft. */
+export interface ExportDraft {
+  executiveSummary: string;
+  riskCommentary: string;
+}
+
+export const EMPTY_EXPORT_DRAFT: ExportDraft = { executiveSummary: "", riskCommentary: "" };
+
+export function ExportTab({
+  project,
+  actuals,
+  draft,
+  onDraftChange,
+}: {
+  project: Project;
+  actuals: ActualEntry[];
+  draft: ExportDraft;
+  onDraftChange: (next: ExportDraft) => void;
+}) {
   const { config } = useEffectiveConfig();
-  const [executiveSummary, setExecutiveSummary] = useState("");
-  const [riskCommentary, setRiskCommentary] = useState("");
+  const { executiveSummary, riskCommentary } = draft;
   const [errors, setErrors] = useState<ModelValidationError[] | null>(null);
 
   const liveErrors = validateProjectInvariants(project);
@@ -70,7 +88,7 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
               rows={4}
               placeholder="Two or three sentences for whoever approves the budget: what the project is, and what the numbers above say."
               value={executiveSummary}
-              onChange={(e) => setExecutiveSummary(e.target.value)}
+              onChange={(e) => onDraftChange({ ...draft, executiveSummary: e.target.value })}
             />
           </div>
 
@@ -82,7 +100,7 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
                 rows={3}
                 placeholder="Commentary on the budget-vs-actual picture, if any category needs explaining."
                 value={riskCommentary}
-                onChange={(e) => setRiskCommentary(e.target.value)}
+                onChange={(e) => onDraftChange({ ...draft, riskCommentary: e.target.value })}
               />
             </div>
           )}

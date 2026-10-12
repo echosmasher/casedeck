@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { projectPeriods } from "@/engine/periodize";
 import type { Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
@@ -13,6 +13,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { NumberCell } from "@/components/number-cell";
 import { Trash2 } from "lucide-react";
 import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } from "./shared";
+import { useUndoQueue } from "./UndoQueue";
+
+/** A removed cost line and where it sat, so Undo puts it back in the same place. */
+interface RemovedLine {
+  id: string;
+  line: CostLineItem;
+  index: number;
+}
+
+function describeLine(line: CostLineItem) {
+  return `${line.label} (${CATEGORY_LABEL[line.category] ?? line.category})`;
+}
 
 // The Costs table pins its first two columns while period columns scroll underneath — on a phone
 // only the Line column (narrower there), since two pinned columns filled the whole 390px width
@@ -62,12 +74,35 @@ export function InputsEditor({
     void onCommit({ ...project, costs });
   }
 
-  function removeLine(lineId: string) {
-    void onCommit({ ...project, costs: project.costs.filter((l) => l.id !== lineId) });
+  // Undo runs after later edits may have landed, so it restores into the latest project, not the
+  // one captured when the line was removed.
+  const latestProject = useRef(project);
+  useEffect(() => {
+    latestProject.current = project;
+  }, [project]);
+
+  const undoQueue = useUndoQueue<RemovedLine>({
+    describe: ({ line }) => describeLine(line),
+    restore: async ({ line, index }) => {
+      const current = latestProject.current;
+      if (current.costs.some((l) => l.id === line.id)) return;
+      const costs = [...current.costs.slice(0, index), line, ...current.costs.slice(index)];
+      if ((await onCommit({ ...current, costs })) === false) throw new Error("the change wasn't saved");
+    },
+  });
+
+  function removeLine(line: CostLineItem) {
+    const index = project.costs.findIndex((l) => l.id === line.id);
+    void undoQueue.remove({ id: line.id, line, index }, async () => {
+      const saved = await onCommit({ ...project, costs: project.costs.filter((l) => l.id !== line.id) });
+      // `false` means the page-level alert already names the storage error.
+      return saved === false ? false : undefined;
+    });
   }
 
-  function addLine(line: CostLineItem) {
-    void onCommit({ ...project, costs: [...project.costs, line] });
+  async function addLine(line: CostLineItem) {
+    if ((await onCommit({ ...project, costs: [...project.costs, line] })) === false) return;
+    undoQueue.announce(`Added ${describeLine(line)}. Enter its amounts per period in the grid.`);
   }
 
   return (
@@ -97,6 +132,7 @@ export function InputsEditor({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {undoQueue.panel}
           {project.costs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No cost lines yet.</p>
           ) : (
@@ -128,7 +164,7 @@ export function InputsEditor({
                       periods={periods}
                       onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
                       onCommit={(patch) => commitLine(line.id, patch)}
-                      onRemove={() => removeLine(line.id)}
+                      onRemove={() => removeLine(line)}
                     />
                   ))}
                 </TableBody>
@@ -136,7 +172,7 @@ export function InputsEditor({
             </>
           )}
 
-          <AddCostLineForm periods={periods} onAdd={addLine} />
+          <AddCostLineForm periods={periods} onAdd={(line) => void addLine(line)} />
         </CardContent>
       </Card>
     </fieldset>
@@ -238,7 +274,7 @@ function AddCostLineForm({
   onAdd,
 }: {
   periods: string[];
-  onAdd: (line: CostLineItem) => void;
+  onAdd: (line: CostLineItem) => void | Promise<void>;
 }) {
   const formId = useId();
   const { config } = useEffectiveConfig();
@@ -247,10 +283,17 @@ function AddCostLineForm({
   const [role, setRole] = useState(config.rateCard[0]?.role ?? "");
   const [ratePerHour, setRatePerHour] = useState(String(config.rateCard[0]?.ratePerHour ?? 0));
   const [confidence, setConfidence] = useState<Confidence>("estimated");
+  const [labelError, setLabelError] = useState(false);
+  const labelInput = useRef<HTMLInputElement>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!label.trim()) return;
+    if (!label.trim()) {
+      setLabelError(true);
+      labelInput.current?.focus();
+      return;
+    }
+    setLabelError(false);
 
     const zeroedPeriods = Object.fromEntries(periods.map((p) => [p, 0]));
     const id = `${category}-${Date.now()}`;
@@ -297,7 +340,17 @@ function AddCostLineForm({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${formId}-label`}>Label</Label>
-        <Input id={`${formId}-label`} value={label} onChange={(e) => setLabel(e.target.value)} />
+        <Input
+          ref={labelInput}
+          id={`${formId}-label`}
+          value={label}
+          aria-invalid={labelError || undefined}
+          aria-describedby={labelError ? `${formId}-label-error` : undefined}
+          onChange={(e) => {
+            setLabel(e.target.value);
+            if (e.target.value.trim()) setLabelError(false);
+          }}
+        />
       </div>
       {category === "salary" && (
         <>
@@ -349,6 +402,11 @@ function AddCostLineForm({
         </select>
       </div>
       <Button type="submit">Add line</Button>
+      {labelError && (
+        <p id={`${formId}-label-error`} role="alert" className="basis-full text-sm text-destructive">
+          Give the line a label first, for example &ldquo;CMS licence&rdquo;.
+        </p>
+      )}
     </form>
   );
 }
