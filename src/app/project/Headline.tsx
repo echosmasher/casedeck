@@ -6,7 +6,7 @@ import type { ConfidenceBands, PeriodKey, Project, ScenarioValue } from "@/engin
 import type { SpreadDrivers } from "@/engine/spread";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
 import { headlineCopy, spreadCopy } from "./headlineCopy";
-import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
+import { CATEGORY_LABEL, FLAG_META, flagLabel, NOT_STARTED_META } from "./shared";
 import { revealVarianceRow, VARIANCE_SECTION_ID } from "./VarianceSection";
 
 /** The dashboard's lead: status and its reason, a one-sentence verdict, the scenario band as a
@@ -40,7 +40,10 @@ export function Headline({
   const finished = headline.stage === "finished";
   // Nothing closed means nothing has been measured yet, so "On track" would be a claim without
   // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
-  const flag = headline.stage === "not_started" ? NOT_STARTED_META : FLAG_META[headline.status];
+  const flag =
+    headline.stage === "not_started"
+      ? NOT_STARTED_META
+      : { ...FLAG_META[headline.status], label: flagLabel(headline.status, headline.stage === "finished") };
 
   return (
     <section aria-labelledby="dashboard-verdict" className="flex flex-col pt-4">
@@ -176,7 +179,7 @@ export function Headline({
               <Tile
                 label={headline.costBudgetLeft < 0 ? "Spent past budget" : "Left in budget"}
                 value={formatCurrency(Math.abs(headline.costBudgetLeft), currency, displayUnits)}
-                negative={headline.costBudgetLeft < headline.costBudgetedRemaining && headline.gapFlagged}
+                negative={headline.costBudgetLeft < 0}
               >
                 {budgetLeftNote(headline, currency, displayUnits)}
               </Tile>
@@ -208,13 +211,22 @@ function spentToDateNote(h: HeadlineSummary, currency: string, units: Project["d
 }
 
 /** Whether what is left covers what the open periods were budgeted at; the shortfall itself is the
- * verdict's gap, so it isn't repeated here. */
+ * verdict's gap, so it isn't repeated here. The amount left is a neutral figure; only "Short of"
+ * carries the warning, since the money left isn't the problem, the gap is. */
 function budgetLeftNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
   if (!h.projectedFrom || !h.projectedTo) return "No periods left to plan";
   const planned = formatCurrency(h.costBudgetedRemaining, currency, units);
   const periods = h.projectedFrom === h.projectedTo ? h.projectedFrom : `${h.projectedFrom}–${h.projectedTo}`;
-  const short = h.costBudgetLeft < h.costBudgetedRemaining;
-  return keepPeriodsWhole(`${short ? "Short of the" : "Covers the"} ${planned} planned for ${periods}`);
+  const rest = keepPeriodsWhole(` the ${planned} planned for ${periods}`);
+  if (h.costBudgetLeft >= h.costBudgetedRemaining) return `Covers${rest}`;
+  return (
+    <>
+      <span className="font-medium" style={{ color: "var(--viz-critical-text)" }}>
+        Short of
+      </span>
+      {rest}
+    </>
+  );
 }
 
 function signedPercent(pct: number) {

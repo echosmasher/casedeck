@@ -28,8 +28,23 @@ export const FLAG_META: Record<
   red: { label: "Over budget", color: "var(--viz-critical)", ink: "var(--viz-critical-ink)", variant: "status-critical" },
 };
 
-/** Headline pill before any period is closed: neutral, because no actual has been checked yet. */
-export const NOT_STARTED_META: { label: string; variant: "outline" } = { label: "Not started", variant: "outline" };
+/** Headline pill before any period is closed: neutral, because no actual has been checked yet.
+ * Says what is missing rather than "Not started", which clashed with a "Planning" or "Approved"
+ * project status beside it. */
+export const NOT_STARTED_META: { label: string; variant: "outline" } = { label: "No actuals yet", variant: "outline" };
+
+/** The same flags once every period is closed: an outcome against the range, not a trajectory
+ * ("On track" implied the project was still running). */
+export const FINISHED_FLAG_LABEL: Record<VarianceFlag, string> = {
+  ok: "Within range",
+  warning: "Near its ceiling",
+  red: "Past its ceiling",
+};
+
+/** The pill label for a flag, in the past tense once the project is finished. */
+export function flagLabel(flag: VarianceFlag, finished: boolean) {
+  return finished ? FINISHED_FLAG_LABEL[flag] : FLAG_META[flag].label;
+}
 
 /** The Total row's status, in words rather than a pill so it never competes with the headline's
  * (which follows the worst category, not the total). Says what the combined figure has done, not a

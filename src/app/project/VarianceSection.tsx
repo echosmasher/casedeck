@@ -11,7 +11,7 @@ import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { computeVariance, type CategoryVariance } from "@/engine/variance";
 import { lineScenarioTotal, type ProjectScenarios } from "@/engine/scenarios";
 import type { ActualEntry, CostLineItem, Project, ScenarioValue } from "@/engine/model";
-import { blendedFlagLabel, CATEGORY_LABEL, FLAG_META } from "./shared";
+import { blendedFlagLabel, CATEGORY_LABEL, FLAG_META, flagLabel } from "./shared";
 
 /** Anchor for the section; the headline's reason links here (QA-ROUND-3-PLAN.md Phase 4). */
 export const VARIANCE_SECTION_ID = "budget-vs-actual";
@@ -114,7 +114,7 @@ export function VarianceSection({
                         controls={listId}
                         onToggle={() => toggle(row.category)}
                       />
-                      {row.variance && <FlagBadge row={row.variance} />}
+                      {row.variance && <FlagBadge row={row.variance} complete={complete} />}
                     </div>
                     <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
                       <Figures variance={row.variance} budget={row.budget} money={money} complete={complete} />
@@ -184,7 +184,7 @@ export function VarianceSection({
                       {row.variance ? (
                         <>
                           <TableCell>
-                            <FlagBadge row={row.variance} />
+                            <FlagBadge row={row.variance} complete={complete} />
                           </TableCell>
                           <TableCell
                             className="text-right tabular-nums"
@@ -318,11 +318,11 @@ function ExpandButton({
   );
 }
 
-function FlagBadge({ row }: { row: CategoryVariance }) {
+function FlagBadge({ row, complete }: { row: CategoryVariance; complete: boolean }) {
   const meta = FLAG_META[row.flag];
   return (
     <Badge variant={meta.variant} dot>
-      {meta.label}
+      {flagLabel(row.flag, complete)}
     </Badge>
   );
 }
