@@ -34,7 +34,7 @@ export function InputsEditor({
 }: {
   project: Project;
   onLocalChange: (next: Project) => void;
-  onCommit: (next: Project) => void | Promise<void>;
+  onCommit: (next: Project) => void | Promise<unknown>;
   readOnly?: boolean;
 }) {
   const periods = projectPeriods(project);
@@ -344,7 +344,7 @@ function RevenueSection({
   project: Project;
   periods: string[];
   onLocalChange: (next: Project) => void;
-  onCommit: (next: Project) => void | Promise<void>;
+  onCommit: (next: Project) => void | Promise<unknown>;
 }) {
   const model = project.pricingModel;
   if (!model) return null;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { TriangleAlert, CircleCheck, Trash2 } from "lucide-react";
 import { getStorage } from "../_lib/storage";
 import { activeConfig } from "../_lib/activeConfig";
 import { mergeMapping } from "../_lib/categoryMapping";
@@ -15,7 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 import { selectClass, CATEGORY_LABEL } from "./shared";
+import { previewClosePeriods } from "./closePeriodPreview";
 
 export function ActualsTab({
   project,
@@ -27,7 +29,8 @@ export function ActualsTab({
   project: Project;
   actuals: StoredActualEntry[];
   onActualsChanged: () => void;
-  onProjectChanged: (next: Project) => void;
+  /** Resolves `true` once the change is saved. */
+  onProjectChanged: (next: Project) => Promise<boolean>;
   readOnly?: boolean;
 }) {
   return (
@@ -40,17 +43,24 @@ export function ActualsTab({
       <ClosedPeriodsCard project={project} actuals={actuals} onChanged={onProjectChanged} readOnly={readOnly} />
       <ImportCard project={project} onCommitted={onActualsChanged} />
       <ManualEntryCard project={project} onAdded={onActualsChanged} />
-      <RecordedActualsCard actuals={actuals} onDeleted={onActualsChanged} />
+      <RecordedActualsCard project={project} actuals={actuals} onDeleted={onActualsChanged} />
     </fieldset>
   );
 }
 
 const NOT_CLOSED = "__not_closed__";
 
+/** "2026-03" or "2026-03–2026-05" — the span a run of contiguous periods covers. */
+function periodSpan(periods: string[]) {
+  return periods.length === 1 ? periods[0] : `${periods[0]}–${periods.at(-1)}`;
+}
+
 /** Planner control for closing periods contiguously from the project start (QA-ROUND-2-PLAN.md
  * D1/D3). A single "close through" selector both closes forward and reopens backward — picking an
  * earlier period than the current close point shrinks `closedPeriods` back to it, which is exactly
- * "reopen". */
+ * "reopen". Picking only stages the change: the preview names every period that switches, warns
+ * about periods closing with nothing recorded, and nothing is saved until Apply
+ * (DASHBOARD-CRITIQUE-PLAN.md Phase 1a — arrowing through the select used to save per keypress). */
 function ClosedPeriodsCard({
   project,
   actuals,
@@ -59,26 +69,61 @@ function ClosedPeriodsCard({
 }: {
   project: Project;
   actuals: StoredActualEntry[];
-  onChanged: (next: Project) => void;
+  onChanged: (next: Project) => Promise<boolean>;
   readOnly: boolean;
 }) {
   const formId = useId();
   const periods = projectPeriods(project);
   const closedThroughIndex = project.closedPeriods.length - 1;
   const closedThroughPeriod = closedThroughIndex >= 0 ? periods[closedThroughIndex] : null;
+  const savedValue = closedThroughPeriod ?? NOT_CLOSED;
 
-  function handleChange(value: string) {
-    const nextClosedPeriods = value === NOT_CLOSED ? [] : periods.slice(0, periods.indexOf(value) + 1);
-    onChanged({ ...project, closedPeriods: nextClosedPeriods });
+  const [pick, setPick] = useState<string | null>(null);
+  const [confirmedEmpty, setConfirmedEmpty] = useState(false);
+  const [applying, setApplying] = useState(false);
+  const [savedMessage, setSavedMessage] = useState<string | null>(null);
+
+  const preview =
+    pick === null || pick === savedValue
+      ? null
+      : previewClosePeriods(periods, project.closedPeriods, pick === NOT_CLOSED ? null : pick, actuals);
+  const closing = new Set(preview?.closing.map((c) => c.period));
+  const reopening = new Set(preview?.reopening);
+  const needsConfirm = (preview?.closingWithoutActuals.length ?? 0) > 0;
+  const isCustomer = project.type === "customer";
+
+  function handlePick(value: string) {
+    setPick(value === savedValue ? null : value);
+    setConfirmedEmpty(false);
+    setSavedMessage(null);
   }
 
-  function summaryFor(period: string) {
-    const forPeriod = actuals.filter((a) => a.period === period);
-    return {
-      hasCost: forPeriod.some((a) => a.category !== "revenue"),
-      hasRevenue: forPeriod.some((a) => a.category === "revenue"),
-    };
+  function handleCancel() {
+    setPick(null);
+    setConfirmedEmpty(false);
   }
+
+  async function handleApply() {
+    if (!preview || (needsConfirm && !confirmedEmpty)) return;
+    setApplying(true);
+    const boundary = preview.nextClosedPeriods.at(-1);
+    const saved = await onChanged({ ...project, closedPeriods: preview.nextClosedPeriods });
+    setApplying(false);
+    if (!saved) return; // the page-level alert names the storage error
+    setPick(null);
+    setConfirmedEmpty(false);
+    setSavedMessage(
+      boundary
+        ? `Saved. Actuals through ${boundary}; later periods are projected.`
+        : "Saved. Nothing closed; every period is projected.",
+    );
+  }
+
+  const applyLabel = !preview
+    ? ""
+    : preview.closing.length > 0
+      ? `Close through ${pick}`
+      : `Reopen ${periodSpan(preview.reopening)}`;
 
   return (
     <Card>
@@ -102,9 +147,11 @@ function ClosedPeriodsCard({
             <Label htmlFor={`${formId}-close-through`}>Close periods through</Label>
             <select
               id={`${formId}-close-through`}
-              className={`${selectClass} w-fit`}
-              value={closedThroughPeriod ?? NOT_CLOSED}
-              onChange={(e) => handleChange(e.target.value)}
+              className={cn(selectClass, "w-fit")}
+              value={pick ?? savedValue}
+              disabled={applying}
+              aria-describedby={`${formId}-close-hint`}
+              onChange={(e) => handlePick(e.target.value)}
             >
               <option value={NOT_CLOSED}>Not closed</option>
               {periods.map((p) => (
@@ -113,11 +160,107 @@ function ClosedPeriodsCard({
                 </option>
               ))}
             </select>
-            <p className="text-xs text-muted-foreground">
-              Pick an earlier period to reopen back to it.
+            <p id={`${formId}-close-hint`} className="text-xs text-muted-foreground">
+              Pick an earlier period to reopen back to it. Nothing is saved until you apply.
             </p>
           </div>
         )}
+
+        {preview && (
+          <section
+            aria-labelledby={`${formId}-preview-title`}
+            className="flex flex-col gap-3 rounded-lg border p-4 text-sm"
+          >
+            <h3 id={`${formId}-preview-title`} className="font-medium">
+              Unsaved change
+            </h3>
+            {preview.closing.length > 0 && (
+              <div className="flex flex-col gap-1">
+                <p>These periods switch from projections to recorded actuals:</p>
+                <ul className="flex flex-col gap-0.5">
+                  {preview.closing.map((c) => (
+                    <li key={c.period} className="tabular-nums">
+                      <span className="font-medium">{c.period}</span>
+                      <span className="text-muted-foreground">
+                        {" — "}
+                        {!c.hasCost && !c.hasRevenue
+                          ? "no actuals recorded"
+                          : isCustomer
+                            ? `cost ${c.hasCost ? "recorded" : "not recorded"}, revenue ${c.hasRevenue ? "recorded" : "not recorded"}`
+                            : "cost recorded"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {preview.reopening.length > 0 && (
+              <p>
+                <span className="font-medium whitespace-nowrap">{periodSpan(preview.reopening)}</span>{" "}
+                {preview.reopening.length === 1 ? "goes" : "go"} back to projections. Recorded
+                actuals stay saved and count again if you close{" "}
+                {preview.reopening.length === 1 ? "it" : "them"} later.
+              </p>
+            )}
+
+            {needsConfirm && (
+              <div className="flex flex-col gap-2 rounded-md border border-[var(--viz-warning-border)] bg-[var(--viz-warning-bg)] p-3">
+                <p className="flex gap-2">
+                  <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0 text-[var(--viz-status-warning)]" />
+                  <span>
+                    <span className="font-medium">
+                      {preview.closingWithoutActuals.map((p, i) => (
+                        <span key={p} className="whitespace-nowrap">
+                          {p}
+                          {i < preview.closingWithoutActuals.length - 1 ? ", " : ""}
+                        </span>
+                      ))}{" "}
+                      {preview.closingWithoutActuals.length === 1 ? "has" : "have"} no actuals.
+                    </span>{" "}
+                    Closed, {preview.closingWithoutActuals.length === 1 ? "it" : "they"} will count
+                    as 0 cost{isCustomer ? " and 0 revenue" : ""}. Import or enter actuals first,
+                    or confirm below.
+                  </span>
+                </p>
+                <label className="flex items-start gap-2 pl-6">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={confirmedEmpty}
+                    onChange={(e) => setConfirmedEmpty(e.target.checked)}
+                  />
+                  <span>
+                    Close anyway and count{" "}
+                    <span className="whitespace-nowrap">{periodSpan(preview.closingWithoutActuals)}</span> as
+                    zero
+                  </span>
+                </label>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                disabled={applying || (needsConfirm && !confirmedEmpty)}
+                onClick={() => void handleApply()}
+              >
+                {applying ? "Saving…" : applyLabel}
+              </Button>
+              <Button type="button" variant="ghost" disabled={applying} onClick={handleCancel}>
+                Cancel
+              </Button>
+            </div>
+          </section>
+        )}
+
+        <p role="status" className="flex items-start gap-2 text-sm empty:hidden">
+          {savedMessage && (
+            <>
+              <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-[var(--viz-status-good)]" />
+              {savedMessage}
+            </>
+          )}
+        </p>
 
         <Table>
           <TableHeader>
@@ -130,12 +273,22 @@ function ClosedPeriodsCard({
           </TableHeader>
           <TableBody>
             {periods.map((p, index) => {
-              const { hasCost, hasRevenue } = summaryFor(p);
+              const { hasCost, hasRevenue } = summaryFor(actuals, p);
               const isClosed = index <= closedThroughIndex;
               return (
                 <TableRow key={p}>
                   <TableCell>{p}</TableCell>
-                  <TableCell>{isClosed ? "Closed" : "Open"}</TableCell>
+                  <TableCell>
+                    {closing.has(p) ? (
+                      <span className="font-medium">Open → Closed</span>
+                    ) : reopening.has(p) ? (
+                      <span className="font-medium">Closed → Open</span>
+                    ) : isClosed ? (
+                      "Closed"
+                    ) : (
+                      "Open"
+                    )}
+                  </TableCell>
                   <TableCell>{hasCost ? "Yes" : "No"}</TableCell>
                   <TableCell>{hasRevenue ? "Yes" : "No"}</TableCell>
                 </TableRow>
@@ -146,6 +299,14 @@ function ClosedPeriodsCard({
       </CardContent>
     </Card>
   );
+}
+
+function summaryFor(actuals: StoredActualEntry[], period: string) {
+  const forPeriod = actuals.filter((a) => a.period === period);
+  return {
+    hasCost: forPeriod.some((a) => a.category !== "revenue"),
+    hasRevenue: forPeriod.some((a) => a.category === "revenue"),
+  };
 }
 
 function useEffectiveMapping() {
@@ -475,18 +636,115 @@ function ManualEntryCard({ project, onAdded }: { project: Project; onAdded: () =
   );
 }
 
+/** How long a deleted actual stays restorable. Paused while the pointer or focus is on it. */
+const UNDO_WINDOW_MS = 8000;
+
+/** Period · category · amount · description — specific enough to tell two rows apart in a
+ * screen-reader button label or an undo message. */
+function describeEntry(entry: StoredActualEntry, currency: string) {
+  return [
+    entry.period,
+    CATEGORY_LABEL[entry.category] ?? entry.category,
+    formatCurrency(entry.amount, currency, "whole"),
+    entry.description,
+  ].join(" · ");
+}
+
+/** Recorded actuals with one-click delete. Each delete is saved immediately but stays undoable
+ * for UNDO_WINDOW_MS; Undo writes the same entry (same id) back through the StorageAdapter
+ * (DASHBOARD-CRITIQUE-PLAN.md Phase 1b). */
 function RecordedActualsCard({
+  project,
   actuals,
   onDeleted,
 }: {
+  project: Project;
   actuals: StoredActualEntry[];
   onDeleted: () => void;
 }) {
   const sorted = [...actuals].sort((a, b) => a.period.localeCompare(b.period));
+  const [deleted, setDeleted] = useState<StoredActualEntry[]>([]);
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
+  const undoButtons = useRef(new Map<string, HTMLButtonElement>());
+  const focusUndoFor = useRef<string | null>(null);
 
-  async function handleDelete(id: string) {
-    await getStorage().deleteActual(id);
-    onDeleted();
+  useEffect(() => {
+    const pending = timers.current;
+    return () => pending.forEach((t) => clearTimeout(t));
+  }, []);
+
+  // The deleted row's button is gone, so hand keyboard focus to its Undo instead of <body>.
+  useEffect(() => {
+    const id = focusUndoFor.current;
+    if (!id) return;
+    focusUndoFor.current = null;
+    undoButtons.current.get(id)?.focus();
+  }, [deleted]);
+
+  function setBusy(id: string, busy: boolean) {
+    setBusyIds((prev) => {
+      const next = new Set(prev);
+      if (busy) next.add(id);
+      else next.delete(id);
+      return next;
+    });
+  }
+
+  function dismiss(id: string) {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
+    setDeleted((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  function startTimer(id: string) {
+    clearTimeout(timers.current.get(id));
+    timers.current.set(id, setTimeout(() => dismiss(id), UNDO_WINDOW_MS));
+  }
+
+  function pauseTimer(id: string) {
+    clearTimeout(timers.current.get(id));
+    timers.current.delete(id);
+  }
+
+  async function handleDelete(entry: StoredActualEntry) {
+    setBusy(entry.id, true);
+    setError(null);
+    setStatusMessage(null);
+    try {
+      await getStorage().deleteActual(entry.id);
+      focusUndoFor.current = entry.id;
+      setDeleted((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
+      startTimer(entry.id);
+      onDeleted();
+    } catch (err) {
+      setError(
+        `Couldn't delete ${describeEntry(entry, project.currency)}: ${err instanceof Error ? err.message : "storage error"}`,
+      );
+    } finally {
+      setBusy(entry.id, false);
+    }
+  }
+
+  async function handleUndo(entry: StoredActualEntry) {
+    pauseTimer(entry.id);
+    setBusy(entry.id, true);
+    setError(null);
+    try {
+      await getStorage().saveActuals([entry]);
+      dismiss(entry.id);
+      setStatusMessage(`Restored ${describeEntry(entry, project.currency)}.`);
+      onDeleted();
+    } catch (err) {
+      startTimer(entry.id);
+      setError(
+        `Couldn't restore ${describeEntry(entry, project.currency)}: ${err instanceof Error ? err.message : "storage error"}`,
+      );
+    } finally {
+      setBusy(entry.id, false);
+    }
   }
 
   return (
@@ -494,7 +752,47 @@ function RecordedActualsCard({
       <CardHeader>
         <CardTitle>Recorded actuals</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col gap-3">
+        <ul aria-live="polite" className="flex flex-col gap-2 empty:hidden">
+          {deleted.map((entry) => (
+            <li
+              key={entry.id}
+              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md border bg-muted px-3 py-2 text-sm"
+              onMouseEnter={() => pauseTimer(entry.id)}
+              onMouseLeave={() => startTimer(entry.id)}
+              onFocus={() => pauseTimer(entry.id)}
+              onBlur={() => startTimer(entry.id)}
+            >
+              <span className="min-w-0">
+                <span className="font-medium">Deleted</span>{" "}
+                <span className="tabular-nums">{describeEntry(entry, project.currency)}</span>
+              </span>
+              <Button
+                ref={(el) => {
+                  if (el) undoButtons.current.set(entry.id, el);
+                  else undoButtons.current.delete(entry.id);
+                }}
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busyIds.has(entry.id)}
+                aria-label={`Undo delete of ${describeEntry(entry, project.currency)}`}
+                onClick={() => void handleUndo(entry)}
+              >
+                Undo
+              </Button>
+            </li>
+          ))}
+        </ul>
+        <p role="status" className="text-sm text-muted-foreground empty:hidden">
+          {statusMessage}
+        </p>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
         {sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground">No actuals recorded yet.</p>
         ) : (
@@ -524,8 +822,9 @@ function RecordedActualsCard({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      aria-label={`Delete actual entry for ${entry.period}`}
-                      onClick={() => void handleDelete(entry.id)}
+                      disabled={busyIds.has(entry.id)}
+                      aria-label={`Delete actual: ${describeEntry(entry, project.currency)}`}
+                      onClick={() => void handleDelete(entry)}
                     >
                       <Trash2 className="size-4" />
                     </Button>

@@ -66,13 +66,16 @@ function ProjectPageContent() {
     setProject(next);
   }
 
-  async function commit(next: Project) {
+  /** Resolves `true` once the change is persisted; on failure the page-level alert shows why. */
+  async function commit(next: Project): Promise<boolean> {
     setProject(next);
     try {
       await getStorage().saveProject(next);
       setSaveError(null);
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save changes");
+      return false;
     }
   }
 
@@ -172,7 +175,7 @@ function ProjectPageContent() {
             project={project}
             actuals={actuals}
             onActualsChanged={() => void reloadActuals(project.id)}
-            onProjectChanged={(next) => void commit(next)}
+            onProjectChanged={commit}
             readOnly={readOnly}
           />
         </TabsContent>
