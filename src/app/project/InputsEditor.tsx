@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { formatCurrency } from "../_lib/format";
+import { fieldLabel } from "../_lib/fieldLabel";
 import { projectPeriods } from "@/engine/periodize";
 import { computeHeadline } from "@/engine/headline";
 import { validateProjectInvariants } from "@/engine/validate";
@@ -23,6 +24,8 @@ import { describeCostEdit, describeEffect, describeRevenueEdit, type EditChange 
 interface SavedEdit {
   message: string;
   revert: ((current: Project) => Project) | null;
+  /** The edit was refused: the bar reads as an error, not a confirmation. */
+  rejected?: boolean;
 }
 
 /** A removed cost line and where it sat, so Undo puts it back in the same place. */
@@ -146,6 +149,12 @@ export function InputsEditor({
     );
   }
 
+  /** A cell refused what was typed and went back to its last good value; say so where "Saved."
+   * would otherwise have appeared, so a bad value never looks accepted. */
+  function rejectEdit(problem: string) {
+    setSavedEdit({ message: `Not saved. ${problem}.`, revert: null, rejected: true });
+  }
+
   async function undoEdit() {
     if (!savedEdit?.revert) return;
     const next = savedEdit.revert(latestProject.current);
@@ -220,6 +229,8 @@ export function InputsEditor({
     undoQueue.announce(`Added ${describeLine(line)}. Enter its amounts per period in the grid.`);
   }
 
+  const modelErrors = validateProjectInvariants(project);
+
   return (
     <fieldset disabled={readOnly} className="flex flex-col gap-6 border-0 p-0 m-0 min-w-0">
       {readOnly && (
@@ -227,12 +238,26 @@ export function InputsEditor({
           Viewer role — read only. Switch to Planner to edit.
         </p>
       )}
+      {modelErrors.length > 0 && (
+        // The same list the dashboard shows in place of its figures, here where the fix happens.
+        <div role="alert" className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <p className="font-medium">The dashboard can&apos;t show this project until these are fixed:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {modelErrors.map((e) => (
+              <li key={`${e.field}-${e.message}`}>
+                <span className="font-medium">{fieldLabel(e.field, project)}</span>: {e.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {project.pricingModel && (
         <RevenueSection
           project={project}
           periods={periods}
           onLocalChange={localChange}
           onCommit={commitRevenue}
+          onReject={rejectEdit}
         />
       )}
 
@@ -282,6 +307,7 @@ export function InputsEditor({
                       onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
                       onCommit={(patch) => commitLine(line.id, patch)}
                       onRemove={() => removeLine(line)}
+                      onReject={rejectEdit}
                     />
                   ))}
                 </TableBody>
@@ -304,7 +330,11 @@ export function InputsEditor({
             onBlur={(e) => {
               if (!e.currentTarget.contains(e.relatedTarget)) setBarHeld(false);
             }}
-            className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-sm tabular-nums shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-sm tabular-nums shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]",
+              savedEdit.rejected && "border-destructive/50 text-destructive",
+            )}
+          >
             <span ref={savedMessage} tabIndex={-1} className="outline-none">
               {savedEdit.message}
             </span>
@@ -344,6 +374,7 @@ function CostLineRow({
   onUpdateLocal,
   onCommit,
   onRemove,
+  onReject,
 }: {
   line: CostLineItem;
   periods: string[];
@@ -352,6 +383,7 @@ function CostLineRow({
   onUpdateLocal: (patch: Partial<CostLineItem>) => void;
   onCommit: (patch: Partial<CostLineItem>) => void;
   onRemove: () => void;
+  onReject: (problem: string) => void;
 }) {
   const isSalary = line.category === "salary";
 
@@ -398,6 +430,7 @@ function CostLineRow({
               onCommit={(v) =>
                 onCommit({ hoursPerPeriod: { ...line.hoursPerPeriod, [period]: v } })
               }
+              onReject={onReject}
             />
           ) : (
             <NumberCell
@@ -411,6 +444,7 @@ function CostLineRow({
               onCommit={(v) =>
                 onCommit({ valuesPerPeriod: { ...line.valuesPerPeriod, [period]: v } })
               }
+              onReject={onReject}
             />
           )}
         </TableCell>
@@ -577,11 +611,13 @@ function RevenueSection({
   periods,
   onLocalChange,
   onCommit,
+  onReject,
 }: {
   project: Project;
   periods: string[];
   onLocalChange: (next: Project) => void;
   onCommit: (next: Project) => void | Promise<unknown>;
+  onReject: (problem: string) => void;
 }) {
   const model = project.pricingModel;
   if (!model) return null;
@@ -614,27 +650,17 @@ function RevenueSection({
         <CardTitle>Revenue — hourly</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex items-end gap-3">
+        <div className="flex items-start gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="hourlyRate">Rate/hour ({project.currency})</Label>
-            <Input
+            <NumberCell
               id="hourlyRate"
-              type="number"
-              min="0"
-              className="w-28"
+              label={`Rate/hour (${project.currency})`}
               value={model.ratePerHour}
-              onChange={(e) =>
-                onLocalChange({
-                  ...project,
-                  pricingModel: { ...model, ratePerHour: e.target.valueAsNumber || 0 },
-                })
-              }
-              onBlur={(e) =>
-                void onCommit({
-                  ...project,
-                  pricingModel: { ...model, ratePerHour: e.target.valueAsNumber || 0 },
-                })
-              }
+              step={50}
+              onChange={(v) => onLocalChange({ ...project, pricingModel: { ...model, ratePerHour: v } })}
+              onCommit={(v) => void onCommit({ ...project, pricingModel: { ...model, ratePerHour: v } })}
+              onReject={onReject}
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -693,6 +719,7 @@ function RevenueSection({
                         },
                       })
                     }
+                    onReject={onReject}
                   />
                 </TableCell>
               ))}

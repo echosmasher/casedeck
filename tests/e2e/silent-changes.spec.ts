@@ -73,3 +73,17 @@ test("periods that haven't started can't be closed", async ({ page }) => {
   await expect(select.locator("option", { hasText: "2026-06 (not started)" })).toBeDisabled();
   await expect(page.getByText("Periods that haven't started yet can't be closed.")).toBeVisible();
 });
+
+test("a negative value is refused in place, not saved", async ({ page }) => {
+  await openProject(page, "Intranet Relaunch", "Inputs");
+  const cell = page.getByLabel("Senior Developer — internal team hours in 2026-05", { exact: true });
+  await expect(cell).toHaveValue("80");
+  await cell.fill("-5");
+  await expect(cell).toHaveAttribute("aria-invalid", "true");
+  await expect(page.getByText("Can't be negative")).toBeVisible();
+  await cell.blur();
+  await expect(cell).toHaveValue("80");
+  await expect(page.getByRole("status").filter({ hasText: "Not saved." })).toContainText("can't be negative, so it stays at 80");
+  await page.getByRole("tab", { name: "Dashboard" }).click();
+  await expect(page.getByRole("heading", { name: /Expected to cost/ })).toBeVisible();
+});
