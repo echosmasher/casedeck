@@ -28,7 +28,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   consultancy: "Consultancy",
   it_systems: "IT Systems",
   travel: "Travel",
-  other_direct: "Other Direct Costs",
+  other_direct: "Other direct costs",
 };
 
 function escapeHtml(text: string): string {

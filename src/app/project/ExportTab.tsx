@@ -86,7 +86,7 @@ export function ExportTab({
             <Textarea
               id="executiveSummary"
               rows={4}
-              placeholder="Two or three sentences for whoever approves the budget: what the project is, and what the numbers above say."
+              placeholder="Two or three sentences for whoever approves the budget: what the project is, and what its range of outcomes means for the decision."
               value={executiveSummary}
               onChange={(e) => onDraftChange({ ...draft, executiveSummary: e.target.value })}
             />

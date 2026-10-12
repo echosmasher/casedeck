@@ -186,6 +186,8 @@ The typographic hierarchy relies on **Geist**, an ultra-refined neutral geometri
 
 ### Implementation Rules
 - **Tabular Figures (`tnum`):** All financial values, roll-up sums, variance deltas, percentages, and dates must enforce OpenType tabular figures (`font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "cv01" 1;`). This prevents horizontal jittering during live re-calculation and keeps vertical decimal alignments locked.
+- **Compact vs. full figures:** the headline zone (verdict sentence, range strip, chart axes and end labels) uses compact figures (`1.55M NOK`, `79k`) because it is read at a glance; tiles, tables, tooltips and "View as table" use full figures (`1,552,600 NOK`) because they are the record. A figure appears once per zone: the source line doesn't repeat the strip's range.
+- **Sentence case:** labels, pills, buttons, statuses and category names are sentence case ("In progress", "Other direct costs"); only `label-caps` headers are uppercase.
 - **Label Capitalization:** Analytical headers and section dividers employ `label-caps` in uppercase format to clearly bifurcate schema tags from dynamic records.
 - **Optical Kerning & Balance:** Display scales utilize micro-negative tracking (`-0.02em` to `-0.025em`) to produce tight, cohesive summary cards without reducing legibility.
 

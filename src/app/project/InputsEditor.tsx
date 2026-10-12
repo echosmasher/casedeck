@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
+import { formatCurrency } from "../_lib/format";
 import { projectPeriods } from "@/engine/periodize";
 import type { Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
 import { cn } from "@/lib/utils";
@@ -321,7 +322,7 @@ function AddCostLineForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed p-3">
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-[0.25rem] border border-dashed p-3">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${formId}-category`}>Category</Label>
         <select
@@ -432,13 +433,16 @@ function RevenueSection({
           <CardTitle>Revenue — fixed price</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          {model.amount.toLocaleString()} {project.currency},{" "}
+          <span className="font-medium text-foreground tabular-nums">
+            {formatCurrency(model.amount, project.currency, project.displayUnits)}
+          </span>
+          ,{" "}
           {model.allocation.type === "even"
-            ? "recognized evenly across the lifetime"
+            ? "spread evenly across the project's periods"
             : model.allocation.type === "at_period"
-              ? `recognized entirely at ${model.allocation.period}`
-              : "custom per-period allocation"}
-          , confidence: {model.confidence}. Edit via the setup wizard or a snapshot import.
+              ? `all in ${model.allocation.period}`
+              : "split across periods by hand"}
+          , {model.confidence}. To change the price, use Edit at the top of the page.
         </CardContent>
       </Card>
     );

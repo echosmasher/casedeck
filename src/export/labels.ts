@@ -5,11 +5,11 @@ import type { Periodization, ProjectStatus } from "@/engine/model";
 
 export const STATUS_LABEL: Record<ProjectStatus, string> = {
   planning: "Planning",
-  ready_for_approval: "Ready for Approval",
+  ready_for_approval: "Ready for approval",
   approved: "Approved",
-  in_progress: "In Progress",
+  in_progress: "In progress",
   completed: "Completed",
-  on_hold: "On Hold",
+  on_hold: "On hold",
 };
 
 /** Label for a project status, falling back to the raw value for anything unmapped (e.g. a

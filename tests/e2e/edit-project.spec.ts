@@ -39,7 +39,7 @@ test("editing a project updates status/end period/stakeholders and persists, sta
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page).toHaveURL(/\/project\?id=001/);
   await expect(page.getByText("2026-01–2026-12")).toBeVisible();
-  await expect(page.getByText("On Hold", { exact: true })).toBeVisible();
+  await expect(page.getByText("On hold", { exact: true })).toBeVisible();
 
   // Re-open edit to confirm the changes persisted through storage, not just local state.
   await page.getByRole("button", { name: "Edit" }).click();

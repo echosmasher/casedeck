@@ -30,12 +30,12 @@ const base: HeadlineSummary = {
 };
 
 describe("headlineCopy", () => {
-  it("001 internal: cost against budget, the driving category, and the cost range in the source", () => {
+  it("001 internal: cost against budget, the driving category, and where the numbers come from", () => {
     const copy = headlineCopy(base, "NOK", "whole", label);
     expect(copy.reason).toBe("Consultancy is past its worst-case ceiling.");
     expect(text(copy)).toBe("Expected to cost 1.55M NOK, 79k over budget.");
     expect(negatives(copy)).toEqual(["79k over budget"]);
-    expect(copy.source).toBe("Actuals through 2026-04, projected 2026-05–2026-08 · range 1,478,920 to 1,626,280 NOK");
+    expect(copy.source).toBe("Actuals through 2026-04, projected 2026-05–2026-08");
   });
 
   it("003 customer: margin with a range crossing zero, worded as loss and gain", () => {

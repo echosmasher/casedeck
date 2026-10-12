@@ -3,7 +3,7 @@
 // formats. Kept free of React so the copy rules are unit-tested on their own.
 import type { DisplayUnits } from "@/engine/model";
 import type { HeadlineSummary } from "@/engine/headline";
-import { formatCompactAmount, formatRange } from "../_lib/format";
+import { formatCompactAmount } from "../_lib/format";
 
 /** A run of verdict text; `negative` marks an unfavourable figure (set in the critical ink — the
  * words already say "over", "below" or "loss", so colour only reinforces them). A budget gap is
@@ -19,8 +19,7 @@ export interface HeadlineCopy {
   /** A second sentence after the reason, e.g. that even the best case is over budget. */
   reasonNote: string | null;
   verdict: VerdictSegment[];
-  /** Where the numbers come from: actuals vs. projections, plus the cost range when the verdict
-   * sentence doesn't already carry it. */
+  /** Where the numbers come from: actuals vs. projections. The range itself is on the strip. */
   source: string;
 }
 
@@ -120,9 +119,6 @@ export function headlineCopy(
     source = `Actuals for every period, through ${h.lastClosedPeriod}`;
   } else {
     source = "No actuals yet; every period is projected";
-  }
-  if (h.measure === "cost" && !collapsed) {
-    source += ` · range ${formatRange(low, high, currency, units)}`;
   }
 
   return { reason, reasonNote, verdict, source };
