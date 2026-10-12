@@ -4,7 +4,7 @@ import type { DisplayUnits } from "@/engine/model";
 // defined in src/export (its canonical home per dependency-cruiser: export code may not import
 // from src/app, but src/app may import from src/export) and shared by both the live dashboard's
 // charts and the HTML export's charts, so tick formatting never drifts between the two.
-export { formatCompactChartCurrency } from "@/export/charts";
+export { formatCompactChartCurrency, formatCompactChartNumber } from "@/export/charts";
 
 /** Formats a raw currency amount per the project's display units. No rounding decisions are made
  * by the engine (PLAN.md §6.1) — this is presentation-only, applied in the UI. */

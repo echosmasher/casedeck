@@ -134,12 +134,12 @@ export default function ProjectListPage() {
       )}
 
       {roleFilteredProjects === null || roleFilteredProjects.length > 0 ? (
-        <label className="flex w-fit items-center gap-2 text-sm text-muted-foreground">
+        <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={hideCompleted}
             onChange={(e) => setHideCompleted(e.target.checked)}
-            className="h-4 w-4 rounded border-input"
+            className="size-3.5 rounded border-input accent-foreground"
           />
           Hide completed
         </label>

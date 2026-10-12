@@ -26,7 +26,7 @@ import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } fr
 const LINE_COL_WIDTH = "w-36 sm:w-56";
 const LINE_COL_LEFT_OFFSET = "sm:left-56";
 const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[8rem] sm:max-w-[13rem]";
-const CONFIDENCE_COL_WIDTH = "w-32 sm:w-40";
+const CONFIDENCE_COL_WIDTH = "w-28 sm:w-40";
 
 export function InputsEditor({
   project,
@@ -175,7 +175,7 @@ function CostLineRow({
       </TableCell>
       <TableCell className={cn("z-20 bg-card align-top sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
         <select
-          className={selectClass}
+          className={cn(selectClass, "min-w-0 sm:min-w-[7.5rem]")}
           aria-label={`Confidence for ${line.label}`}
           value={line.confidence}
           onChange={(e) => onCommit({ confidence: e.target.value as Confidence })}

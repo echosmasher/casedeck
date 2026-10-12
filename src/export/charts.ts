@@ -50,6 +50,24 @@ export function formatCompactChartCurrency(value: number, currency: string, disp
   return `${formatted}${suffix} ${currency}`;
 }
 
+/** Axis-tick number without the currency ("1.2M", "−165k", "0"): the currency is written once in
+ * the axis title instead of on every tick, where the wrapped "NOK" collided with the x labels.
+ * "thousands" display units keep their own convention ("1,553k"). True minus sign throughout. */
+export function formatCompactChartNumber(value: number, displayUnits: DisplayUnits): string {
+  const withMinus = (text: string) => text.replace(/^-/, "\u2212");
+  if (displayUnits === "thousands") {
+    return withMinus(new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value / 1000)) + "k";
+  }
+  const abs = Math.abs(value);
+  const [scaled, suffix] = abs >= 1_000_000 ? [value / 1_000_000, "M"] : abs >= 1_000 ? [value / 1_000, "k"] : [value, ""];
+  const decimals = suffix === "M" ? 1 : 0;
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(scaled);
+  return withMinus(formatted) + suffix;
+}
+
 /** Closed-period boundary plus the budgeted comparison series (ticket 12/13) — mirrors the
  * dashboard's `ActualsOverlay`, but as plain data rather than a component prop, since this module
  * has no React/DOM dependency. Closed periods are assumed to be a contiguous block from the start
@@ -132,7 +150,7 @@ export function renderBandChartSvg(
     ...byPeriod[period],
     budgeted: closedSet.has(period) ? (budgetedByPeriod[period] ?? 0) : null,
   }));
-  return renderRows(rows, options);
+  return renderRows(rows, options, "Scenario bands, margin by period");
 }
 
 /** Renders a cumulative running total of the same band data — the export's Cumulative P&L chart. */
@@ -160,17 +178,17 @@ export function renderCumulativeChartSvg(
     });
     return acc;
   }, []);
-  return renderRows(rows, options);
+  return renderRows(rows, options, "Cumulative margin, by period");
 }
 
-function renderRows(rows: Row[], options: BandChartOptions): string {
+function renderRows(rows: Row[], options: BandChartOptions, title: string): string {
   const width = options.width ?? 640;
   const height = options.height ?? 320;
   // The legend gets its own reserved band above the plot so it can never collide with the top
   // gridline/tick label — the two used to share the same top margin.
   const legendHeight = 24;
   // Right margin leaves room for the end-of-line "Worst" / "Expected" / "Best" labels.
-  const margin = { top: 20, right: 72, bottom: 32, left: 90 };
+  const margin = { top: 20, right: 72, bottom: 32, left: 64 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
@@ -193,9 +211,12 @@ function renderRows(rows: Row[], options: BandChartOptions): string {
     .map(
       (t) =>
         `<line x1="${margin.left}" y1="${y(t).toFixed(1)}" x2="${width - margin.right}" y2="${y(t).toFixed(1)}" stroke="${COLOR.gridline}" stroke-width="1" />` +
-        `<text x="${margin.left - 8}" y="${y(t).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="11" fill="${COLOR.textSecondary}">${formatCompactChartCurrency(t, options.currency, options.displayUnits)}</text>`,
+        `<text x="${margin.left - 8}" y="${y(t).toFixed(1)}" text-anchor="end" dominant-baseline="middle" font-size="11" fill="${COLOR.textSecondary}">${formatCompactChartNumber(t, options.displayUnits)}</text>`,
     )
     .join("");
+
+  // Currency once, as a rotated axis title, rather than on every tick.
+  const axisTitle = `<text transform="translate(14 ${(margin.top + plotHeight / 2).toFixed(1)}) rotate(-90)" text-anchor="middle" font-size="11" fill="${COLOR.textSecondary}">${escapeXml(options.currency)}</text>`;
 
   const zeroLine =
     min < 0 && max > 0
@@ -263,13 +284,20 @@ function renderRows(rows: Row[], options: BandChartOptions): string {
         })()
       : "";
 
-  const boundaryDivider = boundary.firstOpenAfterClose
-    ? (() => {
-        const i = rows.findIndex((r) => r.period === boundary.firstOpenAfterClose);
-        const dx = x(i).toFixed(1);
-        return `<line x1="${dx}" y1="${margin.top}" x2="${dx}" y2="${margin.top + plotHeight}" stroke="${COLOR.textSecondary}" stroke-width="1.5" stroke-dasharray="3 3" />`;
-      })()
-    : "";
+  // The divider sits exactly at the shading's right edge (midway between the last closed and the
+  // first open period), labelled on both sides, as on the dashboard.
+  const boundaryDivider =
+    boundary.firstOpenAfterClose && boundary.lastClosed
+      ? (() => {
+          const i = rows.findIndex((r) => r.period === boundary.lastClosed);
+          const dx = Math.min(width - margin.right, x(i) + step / 2).toFixed(1);
+          return (
+            `<line x1="${dx}" y1="${margin.top}" x2="${dx}" y2="${margin.top + plotHeight}" stroke="${COLOR.textSecondary}" stroke-width="1.5" stroke-dasharray="3 3" />` +
+            `<text x="${(Number(dx) - 6).toFixed(1)}" y="${margin.top + 12}" text-anchor="end" font-size="11" fill="${COLOR.textSecondary}">Actuals</text>` +
+            `<text x="${(Number(dx) + 6).toFixed(1)}" y="${margin.top + 12}" text-anchor="start" font-size="11" fill="${COLOR.textSecondary}">Forecast</text>`
+          );
+        })()
+      : "";
 
   const budgetedPoints = rows
     .map((r, i) => ({ r, i }))
@@ -297,11 +325,23 @@ function renderRows(rows: Row[], options: BandChartOptions): string {
       ${actualsLegend}
     </g>`;
 
-  return `<svg viewBox="0 0 ${width} ${legendHeight + height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Scenario band chart">
+  const lastRow = rows[rows.length - 1];
+  const fmt = (v: number) => formatChartCurrency(v, options.currency, options.displayUnits);
+  const summary = !lastRow
+    ? `${title}: no periods.`
+    : `${title}, ${rows.length === 1 ? lastRow.period : `${rows[0].period} to ${lastRow.period}`}.` +
+      (boundary.lastClosed ? ` Actuals through ${boundary.lastClosed}, forecast after.` : "") +
+      ` In ${lastRow.period}: ` +
+      (lastRow.worst === lastRow.best
+        ? `${fmt(lastRow.expected)}.`
+        : `worst ${fmt(lastRow.worst)}, expected ${fmt(lastRow.expected)}, best ${fmt(lastRow.best)}.`);
+
+  return `<svg viewBox="0 0 ${width} ${legendHeight + height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(summary)}">
   ${legend}
   <g transform="translate(0, ${legendHeight})">
     ${shadedRegion}
     ${gridlines}
+    ${axisTitle}
     ${zeroLine}
     <polygon points="${bandPoints}" fill="${COLOR.band}" fill-opacity="0.1" />
     <path d="${worstLine}" fill="none" stroke="${COLOR.worst}" stroke-width="2" />

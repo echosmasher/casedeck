@@ -37,8 +37,8 @@ export function ChartTooltip({
         {label}
         {status && (
           <span
-            className="rounded-[0.25rem] border px-1 text-[0.65rem] font-normal"
-            style={{ borderColor: "var(--viz-gridline)", color: "var(--viz-text-muted)" }}
+            className="rounded-[0.25rem] border px-1 text-[11px] font-normal"
+            style={{ borderColor: "var(--viz-gridline)", color: "var(--viz-text-secondary)" }}
           >
             {status}
           </span>

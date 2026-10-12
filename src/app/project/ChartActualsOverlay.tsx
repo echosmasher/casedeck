@@ -5,6 +5,7 @@
 // that go with them — kept in one place so the two charts can't drift out of sync.
 import { Line, ReferenceArea, ReferenceLine } from "recharts";
 import type { ActualsBoundary } from "./actualsBoundary";
+import type { PeriodKey } from "@/engine/model";
 import type { LegendRow } from "./ScenarioTooltip";
 
 /** Shading for closed periods; the legend swatch uses the same fill plus an outline so it stays
@@ -32,6 +33,41 @@ export function endLabel(text: string, color: string, lastIndex: number, placeme
   return EndLabel;
 }
 
+function BoundaryLabels(props: { viewBox?: { x?: number; y?: number } }) {
+  const x = props.viewBox?.x;
+  const y = props.viewBox?.y;
+  if (x === undefined || y === undefined) return null;
+  return (
+    <g fontSize={11} fill="var(--viz-text-secondary)">
+      <text x={x - 6} y={y + 12} textAnchor="end">
+        Actuals
+      </text>
+      <text x={x + 6} y={y + 12} textAnchor="start">
+        Forecast
+      </text>
+    </g>
+  );
+}
+
+/** One-sentence accessible name for a scenario chart: what it plots, over which periods, where
+ * actuals end, and the last period's three values. The full series stays in "View as table". */
+export function chartSummary(
+  title: string,
+  periods: PeriodKey[],
+  last: { worst: number; expected: number; best: number } | undefined,
+  boundary: ActualsBoundary,
+  format: (value: number) => string,
+): string {
+  if (periods.length === 0 || !last) return `${title}: no periods.`;
+  const span = periods.length === 1 ? periods[0] : `${periods[0]} to ${periods.at(-1)}`;
+  const actuals = boundary.lastClosed ? ` Actuals through ${boundary.lastClosed}, forecast after.` : "";
+  const values =
+    last.worst === last.best
+      ? `${format(last.expected)}`
+      : `worst ${format(last.worst)}, expected ${format(last.expected)}, best ${format(last.best)}`;
+  return `${title}, ${span}.${actuals} In ${periods.at(-1)}: ${values}. Every value is in "View as table" below.`;
+}
+
 export function ActualsBoundaryOverlay({ boundary }: { boundary: ActualsBoundary }) {
   return (
     <>
@@ -44,12 +80,16 @@ export function ActualsBoundaryOverlay({ boundary }: { boundary: ActualsBoundary
           ifOverflow="visible"
         />
       )}
-      {boundary.firstOpenAfterClose && (
+      {/* The divider sits where the shading ends (the last closed period), labelled on both
+          sides, so the actual/forecast boundary reads without the legend. Drawn only when some
+          period is still open after the close point. */}
+      {boundary.firstOpenAfterClose && boundary.lastClosed && (
         <ReferenceLine
-          x={boundary.firstOpenAfterClose}
+          x={boundary.lastClosed}
           stroke="var(--viz-text-secondary)"
           strokeDasharray="3 3"
           ifOverflow="visible"
+          label={BoundaryLabels}
         />
       )}
     </>
