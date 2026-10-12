@@ -182,6 +182,7 @@ function ProjectPageContent() {
           <InputsEditor
             key={project.id}
             project={project}
+            actuals={actuals}
             onLocalChange={updateLocal}
             onCommit={commit}
             readOnly={readOnly}

@@ -4,7 +4,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { formatCurrency } from "../_lib/format";
 import { projectPeriods } from "@/engine/periodize";
-import type { Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
+import { computeHeadline } from "@/engine/headline";
+import { validateProjectInvariants } from "@/engine/validate";
+import type { ActualEntry, Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +17,13 @@ import { NumberCell } from "@/components/number-cell";
 import { Trash2 } from "lucide-react";
 import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } from "./shared";
 import { useUndoQueue } from "./UndoQueue";
+import { describeCostEdit, describeEffect, describeRevenueEdit, type EditChange } from "./editFeedback";
+
+/** The last saved edit: what it did, and how to put the edited fields back. */
+interface SavedEdit {
+  message: string;
+  revert: ((current: Project) => Project) | null;
+}
 
 /** A removed cost line and where it sat, so Undo puts it back in the same place. */
 interface RemovedLine {
@@ -43,11 +52,14 @@ const CONFIDENCE_COL_WIDTH = "w-28 sm:w-40";
 
 export function InputsEditor({
   project,
+  actuals,
   onLocalChange,
   onCommit,
   readOnly = false,
 }: {
   project: Project;
+  /** Only to report what an edit does to the dashboard's headline figure. */
+  actuals: ActualEntry[];
   onLocalChange: (next: Project) => void;
   onCommit: (next: Project) => void | Promise<unknown>;
   readOnly?: boolean;
@@ -61,26 +73,114 @@ export function InputsEditor({
   // fires one IndexedDB write per character typed, which is unnecessary and — observed during
   // manual browser verification — can exhaust the origin's storage quota and crash the tab under
   // rapid typing. See CLAUDE.md / the Phase 3 report for the incident.
+  // Undo runs after later edits may have landed, so it restores into the latest project, not the
+  // one captured when the line was removed.
+  const latestProject = useRef(project);
+  // The project as last saved: keystrokes update `project` before the commit, so the "before" of
+  // an edit has to be remembered separately. Kept in step with outside saves (closing a period,
+  // Edit) whenever no keystroke edit is pending.
+  const savedProject = useRef(project);
+  const editPending = useRef(false);
+  useEffect(() => {
+    latestProject.current = project;
+    if (!editPending.current) savedProject.current = project;
+  }, [project]);
+
+  const [savedEdit, setSavedEdit] = useState<SavedEdit | null>(null);
+  // Undo removes its own button, so focus moves to the message that replaces it, not <body>.
+  const savedMessage = useRef<HTMLSpanElement>(null);
+  const focusMessage = useRef(false);
+  useEffect(() => {
+    if (!focusMessage.current) return;
+    focusMessage.current = false;
+    savedMessage.current?.focus();
+  }, [savedEdit]);
+  const units = { currency: project.currency, displayUnits: project.displayUnits };
+
+  function localChange(next: Project) {
+    editPending.current = true;
+    onLocalChange(next);
+  }
+
+  /** Saves `next`, then says what changed and what it did to the headline, with an Undo that puts
+   * back only the edited fields (later edits elsewhere stay). */
+  async function commitEdit(
+    next: Project,
+    change: (before: Project, after: Project) => EditChange | null,
+    restore: (current: Project, before: Project) => Project,
+  ) {
+    const before = savedProject.current;
+    editPending.current = false;
+    savedProject.current = next;
+    if ((await onCommit(next)) === false) return;
+    const what = change(before, next);
+    if (!what) return;
+    setSavedEdit({
+      message: `Saved. ${what.text}. ${effectOf(before, next, what)}`,
+      revert: (current) => restore(current, before),
+    });
+  }
+
+  function effectOf(before: Project, after: Project, what: EditChange) {
+    if (validateProjectInvariants(before).length > 0 || validateProjectInvariants(after).length > 0) return "";
+    const closed = what.period !== null && after.closedPeriods.includes(what.period) ? what.period : null;
+    return describeEffect(
+      computeHeadline(before, actuals, bands),
+      computeHeadline(after, actuals, bands),
+      units,
+      closed,
+    );
+  }
+
+  async function undoEdit() {
+    if (!savedEdit?.revert) return;
+    const next = savedEdit.revert(latestProject.current);
+    savedProject.current = next;
+    if ((await onCommit(next)) === false) return;
+    focusMessage.current = true;
+    setSavedEdit({ message: "Undone. The value is back to what it was.", revert: null });
+  }
+
   function updateLineLocal(lineId: string, patch: Partial<CostLineItem>) {
     const costs = project.costs.map((line) =>
       line.id === lineId ? ({ ...line, ...patch } as CostLineItem) : line,
     );
-    onLocalChange({ ...project, costs });
+    localChange({ ...project, costs });
   }
 
   function commitLine(lineId: string, patch: Partial<CostLineItem>) {
     const costs = project.costs.map((line) =>
       line.id === lineId ? ({ ...line, ...patch } as CostLineItem) : line,
     );
-    void onCommit({ ...project, costs });
+    void commitEdit(
+      { ...project, costs },
+      (before, after) => {
+        const was = before.costs.find((l) => l.id === lineId);
+        const is = after.costs.find((l) => l.id === lineId);
+        return was && is ? describeCostEdit(was, is, units) : null;
+      },
+      (current, before) => {
+        const was = before.costs.find((l) => l.id === lineId);
+        if (!was) return current;
+        const restored = Object.fromEntries(Object.keys(patch).map((k) => [k, was[k as keyof CostLineItem]]));
+        return {
+          ...current,
+          costs: current.costs.map((l) => (l.id === lineId ? ({ ...l, ...restored } as CostLineItem) : l)),
+        };
+      },
+    );
   }
 
-  // Undo runs after later edits may have landed, so it restores into the latest project, not the
-  // one captured when the line was removed.
-  const latestProject = useRef(project);
-  useEffect(() => {
-    latestProject.current = project;
-  }, [project]);
+  function commitRevenue(next: Project) {
+    return commitEdit(
+      next,
+      (before, after) =>
+        before.pricingModel?.type === "hourly" && after.pricingModel?.type === "hourly"
+          ? describeRevenueEdit(before.pricingModel, after.pricingModel, units)
+          : null,
+      (current, before) => ({ ...current, pricingModel: before.pricingModel }),
+    );
+  }
 
   const undoQueue = useUndoQueue<RemovedLine>({
     describe: ({ line }) => describeLine(line),
@@ -117,8 +217,8 @@ export function InputsEditor({
         <RevenueSection
           project={project}
           periods={periods}
-          onLocalChange={onLocalChange}
-          onCommit={onCommit}
+          onLocalChange={localChange}
+          onCommit={commitRevenue}
         />
       )}
 
@@ -152,7 +252,7 @@ export function InputsEditor({
                       Confidence
                     </TableHead>
                     {periods.map((p) => (
-                      <TableHead key={p}>{p}</TableHead>
+                      <PeriodHead key={p} period={p} closed={project.closedPeriods.includes(p)} />
                     ))}
                     <TableHead />
                   </TableRow>
@@ -163,6 +263,8 @@ export function InputsEditor({
                       key={line.id}
                       line={line}
                       periods={periods}
+                      closedPeriods={project.closedPeriods}
+                      currency={project.currency}
                       onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
                       onCommit={(patch) => commitLine(line.id, patch)}
                       onRemove={() => removeLine(line)}
@@ -176,19 +278,56 @@ export function InputsEditor({
           <AddCostLineForm periods={periods} onAdd={(line) => void addLine(line)} />
         </CardContent>
       </Card>
+
+      {/* Sticks to the bottom of the viewport while the grid scrolls, so the result of an edit is
+          in view wherever the edited cell was. */}
+      <div role="status" aria-live="polite" className="sticky bottom-3 z-30 empty:hidden">
+        {savedEdit && (
+          <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-sm tabular-nums shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]">
+            <span ref={savedMessage} tabIndex={-1} className="outline-none">
+              {savedEdit.message}
+            </span>
+            <span className="flex gap-1">
+              {savedEdit.revert && (
+                <Button type="button" variant="outline" size="sm" onClick={() => void undoEdit()}>
+                  Undo
+                </Button>
+              )}
+              <Button type="button" variant="ghost" size="sm" onClick={() => setSavedEdit(null)}>
+                Dismiss
+              </Button>
+            </span>
+          </div>
+        )}
+      </div>
     </fieldset>
+  );
+}
+
+/** A period column header; a closed period says so, since editing it re-baselines the budget
+ * while the dashboard keeps that period's actuals. */
+function PeriodHead({ period, closed }: { period: string; closed: boolean }) {
+  return (
+    <TableHead className={cn(closed && "bg-muted")}>
+      {period}
+      {closed && <span className="ml-1.5 font-normal text-muted-foreground">closed</span>}
+    </TableHead>
   );
 }
 
 function CostLineRow({
   line,
   periods,
+  closedPeriods,
+  currency,
   onUpdateLocal,
   onCommit,
   onRemove,
 }: {
   line: CostLineItem;
   periods: string[];
+  closedPeriods: string[];
+  currency: string;
   onUpdateLocal: (patch: Partial<CostLineItem>) => void;
   onCommit: (patch: Partial<CostLineItem>) => void;
   onRemove: () => void;
@@ -201,7 +340,7 @@ function CostLineRow({
         <div className={cn("flex flex-col gap-1", LINE_COL_CONTENT_MAX_WIDTH)}>
           <span className="truncate font-medium">{line.label}</span>
           <span className="truncate text-xs text-muted-foreground">
-            {CATEGORY_LABEL[line.category] ?? line.category}
+            {CATEGORY_LABEL[line.category] ?? line.category} · {isSalary ? "hours" : currency} per period
           </span>
           {isSalary && (
             <span className="truncate text-xs text-muted-foreground">
@@ -225,7 +364,7 @@ function CostLineRow({
         </select>
       </TableCell>
       {periods.map((period) => (
-        <TableCell key={period} className="align-top">
+        <TableCell key={period} className={cn("align-top", closedPeriods.includes(period) && "bg-muted/40")}>
           {isSalary ? (
             <NumberCell
               id={`${line.id}-${period}`}
@@ -242,7 +381,7 @@ function CostLineRow({
           ) : (
             <NumberCell
               id={`${line.id}-${period}`}
-              label={`${line.label} amount in ${period}`}
+              label={`${line.label} ${currency} in ${period}`}
               value={line.valuesPerPeriod[period] ?? 0}
               step={line.valuesPerPeriod[period] > 0 ? Math.round(line.valuesPerPeriod[period] * 0.1) || 100 : 100}
               onChange={(v) =>
@@ -502,14 +641,14 @@ function RevenueSection({
           <TableHeader>
             <TableRow>
               {periods.map((p) => (
-                <TableHead key={p}>{p}</TableHead>
+                <PeriodHead key={p} period={p} closed={project.closedPeriods.includes(p)} />
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
               {periods.map((period) => (
-                <TableCell key={period}>
+                <TableCell key={period} className={cn(project.closedPeriods.includes(period) && "bg-muted/40")}>
                   <NumberCell
                     id={`revenue-hours-${period}`}
                     label={`Billable hours in ${period}`}
