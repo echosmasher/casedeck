@@ -58,8 +58,6 @@ export function ScenarioChart({
   displayUnits: DisplayUnits;
   /** Rendered at the top right of the header — the dashboard's per-period/cumulative toggle. */
   action?: React.ReactNode;
-  /** Set for a finished project; the dashboard draws GapChart instead, so this view ignores it. */
-  settled?: boolean;
 }) {
   const { boundary, budgetedByPeriod } = actualsOverlay;
   const data: ChartRow[] = periods.map((period) => {

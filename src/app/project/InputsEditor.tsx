@@ -525,19 +525,22 @@ function CostLineCard({
         </div>
         <span className="shrink-0 pt-0.5 text-sm font-medium tabular-nums">{total}</span>
       </div>
-      <div className="flex items-center gap-2">
-        <select
-          className={cn(selectClass, "w-auto min-w-0")}
-          aria-label={`Confidence for ${line.label}`}
-          value={line.confidence}
-          onChange={(e) => onCommit({ confidence: e.target.value as Confidence })}
-        >
-          {CONFIDENCE_OPTIONS.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Confidence
+          <select
+            className={cn(selectClass, "w-auto min-w-0 text-foreground")}
+            aria-label={`Confidence for ${line.label}`}
+            value={line.confidence}
+            onChange={(e) => onCommit({ confidence: e.target.value as Confidence })}
+          >
+            {CONFIDENCE_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
         <Button type="button" variant="outline" size="sm" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
           {open ? "Hide periods" : `Edit ${periods.length} periods`}
         </Button>

@@ -115,6 +115,7 @@ function TrendChart({
   budgetTotal,
   defaultView,
   gapByPeriod,
+  settled,
   ...props
 }: Omit<React.ComponentProps<typeof CumulativeChart>, "action"> & {
   defaultView: TrendView;
@@ -141,8 +142,8 @@ function TrendChart({
       }}
     />
   );
-  if (view === "cumulative") return <CumulativeChart {...props} budgetTotal={budgetTotal} action={toggle} />;
-  if (props.settled) {
+  if (view === "cumulative") return <CumulativeChart {...props} settled={settled} budgetTotal={budgetTotal} action={toggle} />;
+  if (settled) {
     return (
       <GapChart
         measure={props.measure}
