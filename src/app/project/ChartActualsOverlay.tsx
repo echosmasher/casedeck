@@ -6,7 +6,7 @@
 import { Line, ReferenceArea, ReferenceLine } from "recharts";
 import type { ActualsBoundary } from "./actualsBoundary";
 import type { DisplayUnits, PeriodKey } from "@/engine/model";
-import { formatCompactAmount } from "../_lib/format";
+import { formatCompactChartNumber } from "../_lib/format";
 import type { LegendRow } from "./ScenarioTooltip";
 
 /** Shading for closed periods; the legend swatch uses the same fill plus an outline so it stays
@@ -19,7 +19,7 @@ export function AxisFloorNote({ floor, displayUnits }: { floor: number; displayU
   if (floor <= 0) return null;
   return (
     <p className="mt-1 text-xs text-muted-foreground">
-      The scale starts at {formatCompactAmount(floor, displayUnits)}, not zero.
+      The scale starts at {formatCompactChartNumber(floor, displayUnits)}, not zero.
     </p>
   );
 }

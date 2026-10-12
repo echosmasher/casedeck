@@ -51,22 +51,25 @@ export function formatCompactChartCurrency(value: number, currency: string, disp
   return `${formatted}${suffix} ${currency}`;
 }
 
-/** Axis-tick number without the currency ("1.2M", "−165k", "0"): the currency is written once in
- * the axis title instead of on every tick, where the wrapped "NOK" collided with the x labels.
- * "thousands" display units keep their own convention ("1,553k"). True minus sign throughout. */
+/** Axis-tick number without the currency ("1.2M", "−165k", "2.5k", "0"): the currency is written
+ * once in the axis title instead of on every tick, where the wrapped "NOK" collided with the x
+ * labels. "thousands" display units keep their own convention ("1,553k"). True minus sign
+ * throughout. A tick shows the fewest decimals that state it exactly, up to a cap: rounding to a
+ * fixed 0 put "3k" on the 2.5k gridline, a false number on the chart and in the export. */
 export function formatCompactChartNumber(value: number, displayUnits: DisplayUnits): string {
   const withMinus = (text: string) => text.replace(/^-/, "\u2212");
-  if (displayUnits === "thousands") {
-    return withMinus(new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value / 1000)) + "k";
-  }
+  if (displayUnits === "thousands") return withMinus(exactNumber(value / 1000, 0, 1)) + "k";
   const abs = Math.abs(value);
-  const [scaled, suffix] = abs >= 1_000_000 ? [value / 1_000_000, "M"] : abs >= 1_000 ? [value / 1_000, "k"] : [value, ""];
-  const decimals = suffix === "M" ? 1 : 0;
-  const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(scaled);
-  return withMinus(formatted) + suffix;
+  if (abs >= 1_000_000) return withMinus(exactNumber(value / 1_000_000, 1, 2)) + "M";
+  if (abs >= 1_000) return withMinus(exactNumber(value / 1_000, 0, 1)) + "k";
+  return withMinus(exactNumber(value, 0, 0));
+}
+
+/** `scaled` with the fewest decimals in [min, max] that represent it exactly, else `max`. */
+function exactNumber(scaled: number, min: number, max: number): string {
+  let decimals = min;
+  while (decimals < max && Math.abs(scaled * 10 ** decimals - Math.round(scaled * 10 ** decimals)) > 1e-9) decimals++;
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(scaled);
 }
 
 /** Closed-period boundary plus the budgeted comparison series (ticket 12/13) — mirrors the

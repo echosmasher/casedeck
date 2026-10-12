@@ -254,6 +254,15 @@ describe("formatCompactChartNumber", () => {
     expect(formatCompactChartNumber(0, "whole")).toBe("0");
     expect(formatCompactChartNumber(1_553_000, "thousands")).toBe("1,553k");
   });
+
+  it("states a half-step tick exactly instead of rounding it onto its neighbour", () => {
+    expect(formatCompactChartNumber(2_500, "whole")).toBe("2.5k");
+    expect(formatCompactChartNumber(-2_500, "whole")).toBe("\u22122.5k");
+    expect(formatCompactChartNumber(5_000, "whole")).toBe("5k");
+    expect(formatCompactChartNumber(1_250_000, "whole")).toBe("1.25M");
+    expect(formatCompactChartNumber(1_000_000, "whole")).toBe("1.0M");
+    expect(formatCompactChartNumber(2_500, "thousands")).toBe("2.5k");
+  });
 });
 
 describe("accessible summary and boundary labels", () => {
