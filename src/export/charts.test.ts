@@ -142,6 +142,18 @@ describe("cost measure (internal projects)", () => {
     // All values are positive, so there is no zero line and no negative tick.
     expect(svg).not.toContain("\u2212");
   });
+
+  it("fits the per-period cost axis to the data and says the scale doesn't start at zero", () => {
+    const svg = renderBandChartSvg(costPeriods, cost, { currency: "NOK", displayUnits: "whole", measure: "cost" });
+    expect(svg).toMatch(/>The scale starts at \d+, not zero\.<\/text>/);
+    expect(svg).not.toMatch(/>0<\/text>/);
+  });
+
+  it("keeps the cumulative cost axis at zero, with no note, when the data starts near it", () => {
+    const svg = renderCumulativeChartSvg(costPeriods, cost, { currency: "NOK", displayUnits: "whole", measure: "cost", budgetTotal: 400 });
+    expect(svg).not.toContain("not zero");
+    expect(svg).toMatch(/>0<\/text>/);
+  });
 });
 
 describe("actuals overlay (ticket 13)", () => {

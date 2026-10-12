@@ -19,12 +19,13 @@ import {
   BudgetedLine,
   END_LABEL_MARGIN,
   actualsLegendRows,
-  costAxisMax,
+  AxisFloorNote,
   chartSummary,
   endLabel,
   tooltipStatus,
 } from "./ChartActualsOverlay";
 import type { ActualsOverlay } from "./actualsBoundary";
+import { costAxisScale } from "@/export/chartScale";
 import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
 import type { HeadlineMeasure } from "@/engine/headline";
 
@@ -97,6 +98,14 @@ export function CumulativeChart({
   const lastRow = data[lastIndex];
   const collapsedAtEnd = !lastRow || lastRow.best === lastRow.worst;
   const isCost = measure === "cost";
+  // Cost lines are fitted to their own range so the band fills the plot; margin keeps Recharts'
+  // default, which already spans the data and draws its zero line.
+  const costScale = isCost
+    ? costAxisScale(
+        Math.min(...data.flatMap((d) => [d.best, d.expected, d.worst, d.budgeted ?? Infinity])),
+        Math.max(...data.flatMap((d) => [d.best, d.expected, d.worst, d.budgeted ?? -Infinity]), budgetTotal),
+      )
+    : null;
 
   return (
     <Card>
@@ -167,7 +176,11 @@ export function CumulativeChart({
                 minTickGap={24}
               />
               <YAxis
-                domain={isCost ? [0, costAxisMax] : undefined}
+                domain={costScale?.domain}
+                ticks={costScale?.ticks}
+                // The band is stacked on an invisible area that starts at zero; without this,
+                // Recharts stretches the fitted domain back down to include it.
+                allowDataOverflow={costScale !== null}
                 tickCount={5}
                 tickFormatter={(v: number) => formatCompactChartNumber(v, displayUnits)}
                 tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
@@ -281,6 +294,7 @@ export function CumulativeChart({
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+        {costScale && <AxisFloorNote floor={costScale.domain[0]} displayUnits={displayUnits} />}
         <ChartDataTable
           caption={`Cumulative ${measure} by period: ${settled ? "actual and budgeted" : "worst, expected, and best case"}`}
           periods={periods}

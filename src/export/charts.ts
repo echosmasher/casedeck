@@ -5,6 +5,7 @@
 // produce the visuals. Colors are literal hex (not CSS custom properties) so the chart renders
 // identically regardless of what stylesheet, if any, ends up wrapping it.
 import type { DisplayUnits, PeriodKey, PeriodValues, ScenarioByPeriod } from "@/engine/model";
+import { costAxisScale } from "./chartScale";
 
 // Same values as the dashboard's --viz-* tokens (src/app/globals.css), so the exported charts and
 // the live ones read identically. Text uses the ink values (≥4.5:1 on white); the 600 hues are for
@@ -84,7 +85,8 @@ export interface BandChartOptions {
   displayUnits: DisplayUnits;
   actualsOverlay?: ChartActualsOverlay;
   /** What the series measures, as on the dashboard: margin (customer projects, the default) or
-   * cost (internal projects). Cost puts the worst case on top and drops the zero line. */
+   * cost (internal projects). Cost puts the worst case on top, drops the zero line, and fits
+   * its axis to the data (`costAxisScale`). */
   measure?: "margin" | "cost";
   /** Total budgeted cost, drawn as a labelled ceiling on the cumulative cost chart. */
   budgetTotal?: number;
@@ -216,8 +218,12 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string, budge
   // raw padded range) — niceTicks() rounds outward past [rawMin - pad, rawMax + pad], so fitting
   // the scale to the unrounded range let the outermost tick land outside the plot, overlapping
   // the legend above and the x-axis labels below.
-  // Cost never goes below zero, so its axis starts at 0 instead of padding into negative ticks.
-  const ticks = niceTicks(isCost && rawMin >= 0 ? 0 : rawMin - pad, rawMax + pad);
+  // Cost is fitted to its own range (as on the dashboard) so the band fills the plot; the note
+  // under the chart says when that lifts the floor off zero.
+  const ticks =
+    isCost && rawMin >= 0
+      ? costAxisScale(Math.min(...allValues), rawMax).ticks
+      : niceTicks(rawMin - pad, rawMax + pad);
   const min = ticks[0];
   const max = ticks[ticks.length - 1];
 
@@ -368,7 +374,12 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string, budge
         ? `${fmt(lastRow.expected)}.`
         : `worst ${fmt(lastRow.worst)}, expected ${fmt(lastRow.expected)}, best ${fmt(lastRow.best)}.`);
 
-  return `<svg viewBox="0 0 ${width} ${legendHeight + height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(summary)}">
+  const floorNoteHeight = isCost && min > 0 ? 18 : 0;
+  const floorNote = floorNoteHeight
+    ? `<text x="${margin.left}" y="${legendHeight + height + 13}" font-size="11" fill="${COLOR.textSecondary}">The scale starts at ${formatCompactChartNumber(min, options.displayUnits)}, not zero.</text>`
+    : "";
+
+  return `<svg viewBox="0 0 ${width} ${legendHeight + height + floorNoteHeight}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(summary)}">
   ${legend}
   <g transform="translate(0, ${legendHeight})">
     ${shadedRegion}
@@ -386,5 +397,6 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string, budge
     ${endLabels}
     ${xLabels}
   </g>
+  ${floorNote}
 </svg>`;
 }

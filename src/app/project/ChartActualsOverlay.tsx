@@ -5,22 +5,23 @@
 // that go with them — kept in one place so the two charts can't drift out of sync.
 import { Line, ReferenceArea, ReferenceLine } from "recharts";
 import type { ActualsBoundary } from "./actualsBoundary";
-import type { PeriodKey } from "@/engine/model";
+import type { DisplayUnits, PeriodKey } from "@/engine/model";
+import { formatCompactAmount } from "../_lib/format";
 import type { LegendRow } from "./ScenarioTooltip";
 
 /** Shading for closed periods; the legend swatch uses the same fill plus an outline so it stays
  * visible at this low opacity. */
 export const ACTUALS_FILL_OPACITY = 0.08;
 
-/** Top of a zero-based cost axis: the data maximum plus ~12% headroom (so the lines clear the
- * "Actuals | Forecast" labels along the top edge), rounded up so four equal steps land on round
- * tick values ("60k", "120k", … rather than "238k"). */
-export function costAxisMax(dataMax: number): number {
-  if (!(dataMax > 0)) return 1;
-  const rawStep = (dataMax * 1.12) / 4;
-  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
-  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((n) => n * magnitude >= rawStep)! * magnitude;
-  return step * 4;
+/** Says when a cost axis doesn't start at zero (`costAxisScale` raised its floor), so the gap
+ * between two lines isn't read as a share of the whole. Renders nothing for a zero-based axis. */
+export function AxisFloorNote({ floor, displayUnits }: { floor: number; displayUnits: DisplayUnits }) {
+  if (floor <= 0) return null;
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">
+      The scale starts at {formatCompactAmount(floor, displayUnits)}, not zero.
+    </p>
+  );
 }
 
 /** Right-hand chart margin that leaves room for the end-of-line labels below. */
