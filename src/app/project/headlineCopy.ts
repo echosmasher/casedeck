@@ -1,7 +1,8 @@
 // Words for the dashboard headline (.impeccable/briefs/project-dashboard-headline.md). Every number
 // comes from `computeHeadline` (src/engine/headline.ts); this module only chooses phrasing and
 // formats. Kept free of React so the copy rules are unit-tested on their own.
-import type { DisplayUnits, PeriodKey } from "@/engine/model";
+import type { ConfidenceBands, DisplayUnits, PeriodKey } from "@/engine/model";
+import type { SpreadDrivers } from "@/engine/spread";
 import type { HeadlineSummary } from "@/engine/headline";
 import { formatCompactAmount } from "../_lib/format";
 
@@ -143,4 +144,42 @@ export function headlineCopy(
   }
 
   return { reason, reasonNote, verdict, source, missing };
+}
+
+/** The widest source of the range, as one line under the strip: "Salary is the biggest source of
+ * uncertainty: 2 estimated lines (±10%), 99k of the 147k range." `category` is set for a cost
+ * category so the name can link to its row in Budget vs. actual. */
+export interface SpreadCopy {
+  label: string;
+  category: string | null;
+  detail: string;
+}
+
+export function spreadCopy(
+  drivers: SpreadDrivers,
+  bands: ConfidenceBands,
+  units: DisplayUnits,
+  categoryLabel: (category: string) => string,
+): SpreadCopy | null {
+  const top = drivers.sources[0];
+  if (!top || formatCompactAmount(drivers.total, units) === "0") return null;
+
+  const band = `(±${bands[top.mainConfidence].bandPct}%)`;
+  const isRevenue = top.source === "revenue";
+  const lines = `${top.lines === 1 ? "line" : "lines"}`;
+  let how: string;
+  if (isRevenue) {
+    how = `${top.mixedConfidence ? "mostly " : ""}${top.mainConfidence} ${band}`;
+  } else if (top.mixedConfidence) {
+    how = `${top.lines} ${lines}, mostly ${top.mainConfidence} ${band}`;
+  } else {
+    how = `${top.lines} ${top.mainConfidence} ${lines} ${band}`;
+  }
+
+  const only = drivers.sources.length === 1;
+  const detail = only
+    ? ` is the only source of uncertainty: ${how}.`
+    : ` is the biggest source of uncertainty: ${how}, ${formatCompactAmount(top.width, units)} of the ${formatCompactAmount(drivers.total, units)} range.`;
+
+  return { label: isRevenue ? "Revenue" : categoryLabel(top.source), category: isRevenue ? null : top.source, detail };
 }

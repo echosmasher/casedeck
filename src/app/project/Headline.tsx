@@ -2,9 +2,10 @@
 
 import { Badge } from "@/components/ui/badge";
 import type { HeadlineSummary } from "@/engine/headline";
-import type { PeriodKey, Project, ScenarioValue } from "@/engine/model";
+import type { ConfidenceBands, PeriodKey, Project, ScenarioValue } from "@/engine/model";
+import type { SpreadDrivers } from "@/engine/spread";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
-import { headlineCopy } from "./headlineCopy";
+import { headlineCopy, spreadCopy } from "./headlineCopy";
 import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
 import { revealVarianceRow, VARIANCE_SECTION_ID } from "./VarianceSection";
 
@@ -16,17 +17,23 @@ export function Headline({
   project,
   headline,
   totals,
+  spread,
+  bands,
   endedOpenPeriods,
   onOpenActuals,
 }: {
   project: Project;
   headline: HeadlineSummary;
   totals: { cost: ScenarioValue; revenue: ScenarioValue };
+  spread: SpreadDrivers;
+  bands: ConfidenceBands;
   endedOpenPeriods: PeriodKey[];
   onOpenActuals: () => void;
 }) {
   const { currency, displayUnits } = project;
-  const copy = headlineCopy(headline, currency, displayUnits, (c) => CATEGORY_LABEL[c] ?? c, endedOpenPeriods);
+  const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
+  const copy = headlineCopy(headline, currency, displayUnits, categoryLabel, endedOpenPeriods);
+  const driver = spreadCopy(spread, bands, displayUnits, categoryLabel);
   // Nothing closed means nothing has been measured yet, so "On track" would be a claim without
   // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
   const flag = headline.stage === "not_started" ? NOT_STARTED_META : FLAG_META[headline.status];
@@ -67,7 +74,28 @@ export function Headline({
         )}
       </h2>
       <RangeStrip headline={headline} currency={currency} displayUnits={displayUnits} />
-      <p className="mt-3 text-sm text-muted-foreground tabular-nums">{keepPeriodsWhole(copy.source)}</p>
+      {driver && (
+        // What the range is made of: the confidence behind the widest source, linked to its lines.
+        <p className="mt-3 text-sm tabular-nums">
+          {driver.category ? (
+            <a
+              href={`#${VARIANCE_SECTION_ID}`}
+              className="underline decoration-[var(--viz-text-muted)] underline-offset-[3px] hover:decoration-current"
+              onClick={(e) => {
+                if (driver.category && revealVarianceRow(driver.category)) e.preventDefault();
+              }}
+            >
+              {driver.label}
+            </a>
+          ) : (
+            driver.label
+          )}
+          {driver.detail}
+        </p>
+      )}
+      <p className={`${driver ? "mt-1" : "mt-3"} text-sm text-muted-foreground tabular-nums`}>
+        {keepPeriodsWhole(copy.source)}
+      </p>
       {copy.missing && (
         // Ended periods without actuals are the next thing to do, so the note offers the way there.
         <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm tabular-nums">

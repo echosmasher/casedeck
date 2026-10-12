@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { headlineCopy } from "./headlineCopy";
+import { headlineCopy, spreadCopy } from "./headlineCopy";
 import type { HeadlineSummary } from "@/engine/headline";
 
 const label = (c: string) => ({ consultancy: "Consultancy", travel: "Travel" })[c] ?? c;
@@ -192,5 +192,59 @@ describe("headlineCopy", () => {
       label,
     );
     expect(copy.reason).toBe("Every category is still at its budget.");
+  });
+});
+
+describe("spreadCopy", () => {
+  const bands = { committed: { bandPct: 0 }, estimated: { bandPct: 10 }, rough: { bandPct: 30 } };
+  const sentence = (c: ReturnType<typeof spreadCopy>) => (c ? `${c.label}${c.detail}` : null);
+
+  it("001: names the widest cost category, its lines and confidence, and its share", () => {
+    const copy = spreadCopy(
+      {
+        total: 147360,
+        sources: [
+          { source: "salary", width: 99360, lines: 2, mainConfidence: "estimated", mixedConfidence: false },
+          { source: "consultancy", width: 48000, lines: 1, mainConfidence: "estimated", mixedConfidence: false },
+        ],
+      },
+      bands,
+      "whole",
+      (c) => ({ salary: "Salary", consultancy: "Consultancy" })[c] ?? c,
+    );
+    expect(sentence(copy)).toBe(
+      "Salary is the biggest source of uncertainty: 2 estimated lines (±10%), 99k of the 147k range.",
+    );
+    expect(copy?.category).toBe("salary");
+  });
+
+  it("003: revenue with mixed confidence reads as 'mostly' and has no row to link to", () => {
+    const copy = spreadCopy(
+      {
+        total: 2146050,
+        sources: [
+          { source: "revenue", width: 1008000, lines: 0, mainConfidence: "rough", mixedConfidence: true },
+          { source: "salary", width: 814050, lines: 2, mainConfidence: "rough", mixedConfidence: false },
+        ],
+      },
+      bands,
+      "whole",
+      label,
+    );
+    expect(sentence(copy)).toBe(
+      "Revenue is the biggest source of uncertainty: mostly rough (±30%), 1.01M of the 2.15M range.",
+    );
+    expect(copy?.category).toBeNull();
+  });
+
+  it("a single source is called the only one; a collapsed range says nothing", () => {
+    const one = spreadCopy(
+      { total: 48000, sources: [{ source: "consultancy", width: 48000, lines: 1, mainConfidence: "rough", mixedConfidence: false }] },
+      bands,
+      "whole",
+      label,
+    );
+    expect(sentence(one)).toBe("Consultancy is the only source of uncertainty: 1 rough line (±30%).");
+    expect(spreadCopy({ total: 0, sources: [] }, bands, "whole", label)).toBeNull();
   });
 });

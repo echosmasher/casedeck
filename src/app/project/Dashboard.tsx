@@ -6,6 +6,7 @@ import { validateProjectInvariants, type ModelValidationError } from "@/engine/v
 import { computeProjectScenarios } from "@/engine/scenarios";
 import { computeBlendedTotals } from "@/engine/blended";
 import { computeHeadline } from "@/engine/headline";
+import { computeSpreadDrivers } from "@/engine/spread";
 import type { ActualEntry, Project } from "@/engine/model";
 import { ScenarioChart } from "./ScenarioChart";
 import { CumulativeChart } from "./CumulativeChart";
@@ -33,6 +34,7 @@ export function Dashboard({
   const scenarios = computeProjectScenarios(project, config.confidenceBands);
   const blended = computeBlendedTotals(project, actuals, config.confidenceBands);
   const headline = computeHeadline(project, actuals, config.confidenceBands);
+  const spread = computeSpreadDrivers(project, actuals, config.confidenceBands);
   const { currency, displayUnits } = project;
   // Open periods the calendar has already passed: their figures are still the budget, not a forecast.
   const today = appToday();
@@ -70,6 +72,8 @@ export function Dashboard({
         project={project}
         headline={headline}
         totals={blended.totals}
+        spread={spread}
+        bands={config.confidenceBands}
         endedOpenPeriods={endedOpenPeriods}
         onOpenActuals={onOpenActuals}
       />
