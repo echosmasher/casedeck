@@ -83,6 +83,11 @@ export interface BandChartOptions {
   currency: string;
   displayUnits: DisplayUnits;
   actualsOverlay?: ChartActualsOverlay;
+  /** What the series measures, as on the dashboard: margin (customer projects, the default) or
+   * cost (internal projects). Cost puts the worst case on top and drops the zero line. */
+  measure?: "margin" | "cost";
+  /** Total budgeted cost, drawn as a labelled ceiling on the cumulative cost chart. */
+  budgetTotal?: number;
 }
 
 interface Row {
@@ -150,10 +155,11 @@ export function renderBandChartSvg(
     ...byPeriod[period],
     budgeted: closedSet.has(period) ? (budgetedByPeriod[period] ?? 0) : null,
   }));
-  return renderRows(rows, options, "Scenario bands, margin by period");
+  return renderRows(rows, options, `Scenario bands, ${options.measure ?? "margin"} by period`, null);
 }
 
-/** Renders a cumulative running total of the same band data — the export's Cumulative P&L chart. */
+/** Renders a cumulative running total of the same band data — the export's Cumulative P&L chart,
+ * or for a cost measure, cumulative cost against the total budget. */
 export function renderCumulativeChartSvg(
   periods: PeriodKey[],
   byPeriod: ScenarioByPeriod,
@@ -178,10 +184,17 @@ export function renderCumulativeChartSvg(
     });
     return acc;
   }, []);
-  return renderRows(rows, options, "Cumulative margin, by period");
+  const isCost = options.measure === "cost";
+  const budget = isCost && options.budgetTotal !== undefined ? options.budgetTotal : null;
+  const title =
+    budget !== null
+      ? `Cumulative cost against a total budget of ${formatChartCurrency(budget, options.currency, options.displayUnits)}, by period`
+      : `Cumulative ${options.measure ?? "margin"}, by period`;
+  return renderRows(rows, options, title, budget);
 }
 
-function renderRows(rows: Row[], options: BandChartOptions, title: string): string {
+function renderRows(rows: Row[], options: BandChartOptions, title: string, budgetTotal: number | null): string {
+  const isCost = options.measure === "cost";
   const width = options.width ?? 640;
   const height = options.height ?? 320;
   // The legend gets its own reserved band above the plot so it can never collide with the top
@@ -192,7 +205,10 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
-  const allValues = rows.flatMap((r) => [r.worst, r.expected, r.best, ...(r.budgeted !== null ? [r.budgeted] : [])]);
+  const allValues = [
+    ...rows.flatMap((r) => [r.worst, r.expected, r.best, ...(r.budgeted !== null ? [r.budgeted] : [])]),
+    ...(budgetTotal !== null ? [budgetTotal] : []),
+  ];
   const rawMin = Math.min(...allValues, 0);
   const rawMax = Math.max(...allValues, 0);
   const pad = (rawMax - rawMin) * 0.1 || 1;
@@ -200,7 +216,8 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
   // raw padded range) — niceTicks() rounds outward past [rawMin - pad, rawMax + pad], so fitting
   // the scale to the unrounded range let the outermost tick land outside the plot, overlapping
   // the legend above and the x-axis labels below.
-  const ticks = niceTicks(rawMin - pad, rawMax + pad);
+  // Cost never goes below zero, so its axis starts at 0 instead of padding into negative ticks.
+  const ticks = niceTicks(isCost && rawMin >= 0 ? 0 : rawMin - pad, rawMax + pad);
   const min = ticks[0];
   const max = ticks[ticks.length - 1];
 
@@ -256,8 +273,10 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
         const label = (text: string, value: number, dy: number, fill: string) =>
           `<text x="${lx}" y="${(y(value) + dy).toFixed(1)}" font-size="11" font-weight="500" fill="${fill}">${text}</text>`;
         const collapsed = last.best === last.worst;
+        // On a cost chart the worst case is the upper line, so the labels swap sides.
+        const [bestDy, worstDy] = isCost ? [14, -6] : [-6, 14];
         return (
-          (collapsed ? "" : label("Best", last.best, -6, COLOR.bestInk) + label("Worst", last.worst, 14, COLOR.worstInk)) +
+          (collapsed ? "" : label("Best", last.best, bestDy, COLOR.bestInk) + label("Worst", last.worst, worstDy, COLOR.worstInk)) +
           label("Expected", last.expected, 4, COLOR.expected)
         );
       })()
@@ -309,6 +328,18 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
           .join(" ")}" fill="none" stroke="${COLOR.textSecondary}" stroke-width="2" stroke-dasharray="4 4" />`
       : "";
 
+  // Exact figure: a one-decimal "1.5M" next to an expected 1.55M would blur the very gap the line
+  // is there to show.
+  const budgetLine =
+    budgetTotal !== null
+      ? `<line x1="${margin.left}" y1="${y(budgetTotal).toFixed(1)}" x2="${width - margin.right}" y2="${y(budgetTotal).toFixed(1)}" stroke="${COLOR.expected}" stroke-width="1.5" stroke-dasharray="6 3" />` +
+        `<text x="${margin.left + 6}" y="${(y(budgetTotal) - 6).toFixed(1)}" font-size="11" font-weight="500" fill="${COLOR.expected}">Budget ${escapeXml(formatChartCurrency(budgetTotal, options.currency, options.displayUnits))}</text>`
+      : "";
+  const budgetLegend =
+    budgetTotal !== null
+      ? `<line x1="470" y1="12" x2="486" y2="12" stroke="${COLOR.expected}" stroke-width="1.5" stroke-dasharray="6 3" /><text x="490" y="16">Total budget</text>`
+      : "";
+
   // Sits in its own [0, legendHeight) band, entirely above the translated plot group below —
   // never sharing vertical space with the plot's top gridline/tick label.
   const actualsLegend =
@@ -323,6 +354,7 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
       <line x1="100" y1="12" x2="116" y2="12" stroke="${COLOR.expected}" stroke-width="2" /><text x="120" y="16">Expected</text>
       <line x1="190" y1="12" x2="206" y2="12" stroke="${COLOR.best}" stroke-width="2" /><text x="210" y="16">Best case</text>
       ${actualsLegend}
+      ${budgetLegend}
     </g>`;
 
   const lastRow = rows[rows.length - 1];
@@ -348,6 +380,7 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
     <path d="${bestLine}" fill="none" stroke="${COLOR.best}" stroke-width="2" />
     <path d="${expectedLine}" fill="none" stroke="${COLOR.expected}" stroke-width="2" />
     ${budgetedLine}
+    ${budgetLine}
     ${boundaryDivider}
     ${expectedDots}
     ${endLabels}

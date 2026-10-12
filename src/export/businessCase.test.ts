@@ -124,6 +124,16 @@ describe("renderBusinessCase — 001 with actuals (the overrun story)", () => {
     // four (2026-05..08), so both charts should draw one.
     expect(result.html.match(/stroke-dasharray="3 3"/g)?.length).toBe(2);
   });
+  it("charts cost against budget, never margin or P&L, for an internal project", () => {
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.html).toContain("Scenario bands — cost by period");
+    expect(result.html).toContain("Cumulative cost against budget");
+    expect(result.html).toContain("Expected cost <strong>1,552,600 NOK</strong> against a budget of 1,473,600 NOK");
+    expect(result.html).not.toContain("Cumulative P&amp;L");
+    expect(result.html).not.toContain("Expected margin");
+    expect(result.html).not.toContain("<th>Revenue</th>");
+    expect(result.html).toContain(">Budget 1,473,600 NOK</text>");
+  });
 });
 
 describe("renderBusinessCase — 002 (fully closed, blended headline numbers)", () => {

@@ -12,27 +12,35 @@ import {
   YAxis,
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { formatCompactChartNumber, formatCurrency } from "../_lib/format";
+import { formatCompactAmount, formatCompactChartNumber, formatCurrency } from "../_lib/format";
 import { ChartDataTable, ChartLegend, ChartTooltip } from "./ScenarioTooltip";
 import {
   ActualsBoundaryOverlay,
   BudgetedLine,
   END_LABEL_MARGIN,
   actualsLegendRows,
+  costAxisMax,
   chartSummary,
   endLabel,
   tooltipStatus,
 } from "./ChartActualsOverlay";
 import type { ActualsOverlay } from "./actualsBoundary";
 import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
+import type { HeadlineMeasure } from "@/engine/headline";
 
 export function CumulativeChart({
+  measure,
+  budgetTotal,
   periods,
   byPeriod,
   actualsOverlay,
   currency,
   displayUnits,
 }: {
+  /** Margin for a customer project; cost for an internal one, drawn against its total budget. */
+  measure: HeadlineMeasure;
+  /** Total budgeted cost (`computeHeadline`'s budget), drawn as a ceiling on the cost chart. */
+  budgetTotal: number;
   periods: PeriodKey[];
   byPeriod: ScenarioByPeriod;
   /** Closed-period boundary plus the budgeted comparison series (ticket 12). */
@@ -50,6 +58,7 @@ export function CumulativeChart({
       bandLow: number;
       bandHeight: number;
       budgeted: number | null;
+      budgetedToDate: number;
     }[]
   >((rows, period) => {
     const v = byPeriod[period];
@@ -57,11 +66,9 @@ export function CumulativeChart({
     const worst = (prev?.worst ?? 0) + v.worst;
     const expected = (prev?.expected ?? 0) + v.expected;
     const best = (prev?.best ?? 0) + v.best;
-    const isClosed = boundary.closedSet.has(period);
-    // Cumulative budgeted only diverges from cumulative expected within the closed range (where
-    // actuals may differ from budget) — beyond it, the two are identical by construction, so we
-    // stop accumulating a separate series and let the data table fall back to cumulative expected.
-    const cumulativeBudgeted = (prev?.budgeted ?? 0) + (isClosed ? (budgetedByPeriod[period] ?? 0) : v.expected);
+    // Running budget over every period. The dashed line is drawn only across the closed range,
+    // where actuals can differ from plan; the data table shows it in full.
+    const budgetedToDate = (prev?.budgetedToDate ?? 0) + (budgetedByPeriod[period] ?? 0);
     return [
       ...rows,
       {
@@ -71,25 +78,38 @@ export function CumulativeChart({
         best,
         bandLow: worst,
         bandHeight: best - worst,
-        budgeted: isClosed ? cumulativeBudgeted : null,
+        budgeted: boundary.closedSet.has(period) ? budgetedToDate : null,
+        budgetedToDate,
       },
     ];
   }, []);
-  const cumulative: Record<PeriodKey, { worst: number; expected: number; best: number; budgeted: number | null }> =
+  const cumulative: Record<PeriodKey, { worst: number; expected: number; best: number; budgetedToDate: number }> =
     Object.fromEntries(data.map((row) => [row.period, row]));
 
   const lastIndex = data.length - 1;
   const lastRow = data[lastIndex];
   const collapsedAtEnd = !lastRow || lastRow.best === lastRow.worst;
+  const isCost = measure === "cost";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cumulative P&amp;L</CardTitle>
-        <CardDescription>
-          Running total across the project lifetime — a per-period loss doesn&apos;t mean the
-          project is failing if revenue lands later.
-        </CardDescription>
+        {isCost ? (
+          <>
+            <CardTitle>Cumulative cost against budget</CardTitle>
+            <CardDescription>
+              Running total of cost across the project lifetime, against the total budget.
+            </CardDescription>
+          </>
+        ) : (
+          <>
+            <CardTitle>Cumulative P&amp;L</CardTitle>
+            <CardDescription>
+              Running total across the project lifetime — a per-period loss doesn&apos;t mean the
+              project is failing if revenue lands later.
+            </CardDescription>
+          </>
+        )}
       </CardHeader>
       <CardContent>
         <ChartLegend
@@ -98,12 +118,15 @@ export function CumulativeChart({
             { key: "expected", label: "Expected", color: "var(--viz-text-primary)" },
             { key: "best", label: "Best case", color: "var(--viz-blue)" },
             ...actualsLegendRows(boundary),
+            ...(isCost ? [{ key: "budget", label: "Total budget", color: "var(--viz-text-primary)", swatch: "dashed" as const }] : []),
           ]}
         />
         <div
           role="figure"
           aria-label={chartSummary(
-            "Cumulative margin, by period",
+            isCost
+              ? `Cumulative cost against a total budget of ${formatCurrency(budgetTotal, currency, displayUnits)}, by period`
+              : "Cumulative margin, by period",
             periods,
             lastRow,
             boundary,
@@ -122,6 +145,8 @@ export function CumulativeChart({
                 minTickGap={24}
               />
               <YAxis
+                domain={isCost ? [0, costAxisMax] : undefined}
+                tickCount={5}
                 tickFormatter={(v: number) => formatCompactChartNumber(v, displayUnits)}
                 tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
                 tickLine={false}
@@ -136,7 +161,24 @@ export function CumulativeChart({
                 }}
               />
               <ActualsBoundaryOverlay boundary={boundary} />
-              <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />
+              {isCost ? (
+                <ReferenceLine
+                  y={budgetTotal}
+                  stroke="var(--viz-text-primary)"
+                  strokeWidth={1.5}
+                  strokeDasharray="6 3"
+                  ifOverflow="extendDomain"
+                  label={{
+                    value: `Budget ${formatCompactAmount(budgetTotal, displayUnits)}`,
+                    position: "insideTopLeft",
+                    fill: "var(--viz-text-primary)",
+                    fontSize: 12,
+                    fontWeight: 500,
+                  }}
+                />
+              ) : (
+                <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />
+              )}
               <Tooltip
                 content={({ active, label, payload }) => (
                   <ChartTooltip
@@ -179,7 +221,7 @@ export function CumulativeChart({
                 stroke="var(--viz-red)"
                 strokeWidth={2}
                 dot={false}
-                label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, "below", collapsedAtEnd)}
+                label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, isCost ? "above" : "below", collapsedAtEnd)}
                 isAnimationActive={false}
               />
               <Line
@@ -187,7 +229,7 @@ export function CumulativeChart({
                 stroke="var(--viz-blue)"
                 strokeWidth={2}
                 dot={false}
-                label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, "above", collapsedAtEnd)}
+                label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, isCost ? "below" : "above", collapsedAtEnd)}
                 isAnimationActive={false}
               />
               <Line
@@ -203,7 +245,7 @@ export function CumulativeChart({
           </ResponsiveContainer>
         </div>
         <ChartDataTable
-          caption="Cumulative margin by period: worst, expected, and best case"
+          caption={`Cumulative ${measure} by period: worst, expected, and best case`}
           periods={periods}
           currency={currency}
           displayUnits={displayUnits}
@@ -212,14 +254,12 @@ export function CumulativeChart({
             { key: "worst", label: "Worst case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].worst])) },
             { key: "expected", label: "Expected", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].expected])) },
             { key: "best", label: "Best case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].best])) },
-            ...(boundary.closedSet.size > 0
+            ...(boundary.closedSet.size > 0 || isCost
               ? [
                   {
                     key: "budgeted",
                     label: "Budgeted",
-                    valueByPeriod: Object.fromEntries(
-                      periods.map((p) => [p, cumulative[p].budgeted ?? cumulative[p].expected]),
-                    ),
+                    valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].budgetedToDate])),
                   },
                 ]
               : []),

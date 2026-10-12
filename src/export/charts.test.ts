@@ -115,6 +115,35 @@ describe("renderCumulativeChartSvg", () => {
   });
 });
 
+describe("cost measure (internal projects)", () => {
+  const cost: ScenarioByPeriod = {
+    "2026-01": { expected: 100, worst: 130, best: 90 },
+    "2026-02": { expected: 100, worst: 130, best: 90 },
+  };
+  const costPeriods = Object.keys(cost);
+
+  it("names the cost measure and puts Worst above Best at the end of the lines", () => {
+    const svg = renderBandChartSvg(costPeriods, cost, { currency: "NOK", displayUnits: "whole", measure: "cost" });
+    expect(svg).toContain('aria-label="Scenario bands, cost by period');
+    const yOf = (label: string) => Number(new RegExp(`y="([\\d.]+)"[^>]*>${label}</text>`).exec(svg)?.[1]);
+    expect(yOf("Worst")).toBeLessThan(yOf("Best"));
+  });
+
+  it("draws the total budget as a labelled line on the cumulative chart and keeps it in range", () => {
+    const svg = renderCumulativeChartSvg(costPeriods, cost, {
+      currency: "NOK",
+      displayUnits: "whole",
+      measure: "cost",
+      budgetTotal: 400,
+    });
+    expect(svg).toContain(">Budget 400 NOK</text>");
+    expect(svg).toContain(">Total budget</text>");
+    expect(svg).toContain("Cumulative cost against a total budget of 400 NOK");
+    // All values are positive, so there is no zero line and no negative tick.
+    expect(svg).not.toContain("\u2212");
+  });
+});
+
 describe("actuals overlay (ticket 13)", () => {
   const threePeriods: ScenarioByPeriod = {
     "2026-01": { expected: 100, worst: -50, best: 250 },

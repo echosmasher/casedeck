@@ -22,10 +22,14 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
 
   const scenarios = computeProjectScenarios(project, config.confidenceBands);
   const blended = computeBlendedTotals(project, actuals, config.confidenceBands);
+  const headline = computeHeadline(project, actuals, config.confidenceBands);
   const { currency, displayUnits } = project;
+  // Charts follow the headline's measure: an internal project plots cost, never margin.
+  const isCost = headline.measure === "cost";
+  const chartByPeriod = isCost ? blended.costByPeriod : blended.marginByPeriod;
   const actualsOverlay = {
     boundary: computeActualsBoundary(blended.periods, project.closedPeriods),
-    budgetedByPeriod: blended.budgetedMarginByPeriod,
+    budgetedByPeriod: isCost ? blended.budgetedCostByPeriod : blended.budgetedMarginByPeriod,
   };
 
   return (
@@ -49,21 +53,24 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
 
       <Headline
         project={project}
-        headline={computeHeadline(project, actuals, config.confidenceBands)}
+        headline={headline}
         totals={blended.totals}
       />
 
       <ScenarioChart
+        measure={headline.measure}
         periods={blended.periods}
-        byPeriod={blended.marginByPeriod}
+        byPeriod={chartByPeriod}
         actualsOverlay={actualsOverlay}
         currency={currency}
         displayUnits={displayUnits}
       />
 
       <CumulativeChart
+        measure={headline.measure}
+        budgetTotal={headline.budget}
         periods={blended.periods}
-        byPeriod={blended.marginByPeriod}
+        byPeriod={chartByPeriod}
         actualsOverlay={actualsOverlay}
         currency={currency}
         displayUnits={displayUnits}

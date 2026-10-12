@@ -19,12 +19,14 @@ import {
   BudgetedLine,
   END_LABEL_MARGIN,
   actualsLegendRows,
+  costAxisMax,
   chartSummary,
   endLabel,
   tooltipStatus,
 } from "./ChartActualsOverlay";
 import type { ActualsOverlay } from "./actualsBoundary";
 import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
+import type { HeadlineMeasure } from "@/engine/headline";
 
 interface ChartRow {
   period: PeriodKey;
@@ -37,12 +39,16 @@ interface ChartRow {
 }
 
 export function ScenarioChart({
+  measure,
   periods,
   byPeriod,
   actualsOverlay,
   currency,
   displayUnits,
 }: {
+  /** What the headline leads with: margin for a customer project, cost for an internal one (no
+   * revenue by design, so a margin chart would only plot its costs as an ever-deeper "loss"). */
+  measure: HeadlineMeasure;
   periods: PeriodKey[];
   byPeriod: ScenarioByPeriod;
   /** Closed-period boundary plus the budgeted comparison series (ticket 12). */
@@ -67,13 +73,14 @@ export function ScenarioChart({
   const lastIndex = data.length - 1;
   const lastRow = data[lastIndex];
   const collapsedAtEnd = !lastRow || lastRow.best === lastRow.worst;
+  const isCost = measure === "cost";
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Scenario bands — margin by period</CardTitle>
+        <CardTitle>Scenario bands — {measure} by period</CardTitle>
         <CardDescription>
-          The confidence-weighted range for each period&apos;s margin, given every line
+          The confidence-weighted range for each period&apos;s {measure}, given every line
           item&apos;s own confidence marker.
         </CardDescription>
       </CardHeader>
@@ -89,7 +96,7 @@ export function ScenarioChart({
         <div
           role="figure"
           aria-label={chartSummary(
-            "Scenario bands, margin by period",
+            `Scenario bands, ${measure} by period`,
             periods,
             lastRow,
             boundary,
@@ -108,6 +115,8 @@ export function ScenarioChart({
                 minTickGap={24}
               />
               <YAxis
+                domain={isCost ? [0, costAxisMax] : undefined}
+                tickCount={5}
                 tickFormatter={(v: number) => formatCompactChartNumber(v, displayUnits)}
                 tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
                 tickLine={false}
@@ -122,7 +131,7 @@ export function ScenarioChart({
                 }}
               />
               <ActualsBoundaryOverlay boundary={boundary} />
-              <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />
+              {!isCost && <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />}
               <Tooltip
                 content={({ active, label, payload }) => (
                   <ChartTooltip
@@ -165,7 +174,7 @@ export function ScenarioChart({
                 stroke="var(--viz-red)"
                 strokeWidth={2}
                 dot={false}
-                label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, "below", collapsedAtEnd)}
+                label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, isCost ? "above" : "below", collapsedAtEnd)}
                 isAnimationActive={false}
               />
               <Line
@@ -173,7 +182,7 @@ export function ScenarioChart({
                 stroke="var(--viz-blue)"
                 strokeWidth={2}
                 dot={false}
-                label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, "above", collapsedAtEnd)}
+                label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, isCost ? "below" : "above", collapsedAtEnd)}
                 isAnimationActive={false}
               />
               <Line
@@ -189,7 +198,7 @@ export function ScenarioChart({
           </ResponsiveContainer>
         </div>
         <ChartDataTable
-          caption="Margin by period: worst, expected, and best case"
+          caption={`${isCost ? "Cost" : "Margin"} by period: worst, expected, and best case`}
           periods={periods}
           currency={currency}
           displayUnits={displayUnits}

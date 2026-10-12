@@ -12,6 +12,17 @@ import type { LegendRow } from "./ScenarioTooltip";
  * visible at this low opacity. */
 export const ACTUALS_FILL_OPACITY = 0.08;
 
+/** Top of a zero-based cost axis: the data maximum plus ~12% headroom (so the lines clear the
+ * "Actuals | Forecast" labels along the top edge), rounded up so four equal steps land on round
+ * tick values ("60k", "120k", … rather than "238k"). */
+export function costAxisMax(dataMax: number): number {
+  if (!(dataMax > 0)) return 1;
+  const rawStep = (dataMax * 1.12) / 4;
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((n) => n * magnitude >= rawStep)! * magnitude;
+  return step * 4;
+}
+
 /** Right-hand chart margin that leaves room for the end-of-line labels below. */
 export const END_LABEL_MARGIN = 64;
 
