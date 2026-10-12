@@ -47,6 +47,44 @@ export interface BlendedTotals {
   warnings: string[];
 }
 
+/** Recorded actuals summed per period, cost and revenue apart. A period with no entries is absent
+ * (not zero), so "nothing recorded" stays distinguishable from "recorded 0". */
+function sumActualsByPeriod(actualEntries: ActualEntry[]): { cost: PeriodValues; revenue: PeriodValues } {
+  const cost: PeriodValues = {};
+  const revenue: PeriodValues = {};
+  for (const entry of actualEntries) {
+    const bucket = entry.category === REVENUE_CATEGORY ? revenue : cost;
+    bucket[entry.period] = (bucket[entry.period] ?? 0) + entry.amount;
+  }
+  return { cost, revenue };
+}
+
+export interface PeriodActuals {
+  /** Recorded cost per period, open or closed; absent when nothing is recorded. */
+  recordedCostByPeriod: PeriodValues;
+  /** Recorded revenue per period; absent when none is recorded (planned revenue is kept). */
+  recordedRevenueByPeriod: PeriodValues;
+  budgetedCostByPeriod: PeriodValues;
+  /** Recorded minus budgeted cost, only for periods with recorded cost. */
+  recordedCostVsBudgetByPeriod: PeriodValues;
+}
+
+/** What the Actuals tab reviews before closing: each period's recorded cost against its budget,
+ * whether or not the period is closed yet (closing is the step this check informs). */
+export function computePeriodActuals(project: Project, actualEntries: ActualEntry[]): PeriodActuals {
+  const { cost, revenue } = sumActualsByPeriod(actualEntries);
+  const budgeted = periodizeCosts(project).totalByPeriod;
+  const recordedCostVsBudgetByPeriod: PeriodValues = Object.fromEntries(
+    Object.entries(cost).map(([p, v]) => [p, v - (budgeted[p] ?? 0)]),
+  );
+  return {
+    recordedCostByPeriod: cost,
+    recordedRevenueByPeriod: revenue,
+    budgetedCostByPeriod: budgeted,
+    recordedCostVsBudgetByPeriod,
+  };
+}
+
 export function computeBlendedTotals(
   project: Project,
   actualEntries: ActualEntry[],
@@ -58,12 +96,7 @@ export function computeBlendedTotals(
   const budgetedRevenue = periodizeRevenue(project);
   const closedPeriods = new Set(project.closedPeriods);
 
-  const actualCostByPeriod: PeriodValues = {};
-  const actualRevenueByPeriod: PeriodValues = {};
-  for (const entry of actualEntries) {
-    const bucket = entry.category === REVENUE_CATEGORY ? actualRevenueByPeriod : actualCostByPeriod;
-    bucket[entry.period] = (bucket[entry.period] ?? 0) + entry.amount;
-  }
+  const { cost: actualCostByPeriod, revenue: actualRevenueByPeriod } = sumActualsByPeriod(actualEntries);
 
   const warnings: string[] = [];
   const costByPeriod: ScenarioByPeriod = {};

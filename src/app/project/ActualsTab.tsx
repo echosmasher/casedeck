@@ -10,6 +10,7 @@ import { isFuturePeriod } from "../_lib/overdue";
 import { appToday } from "../_lib/today";
 import { parseActualsFile, type ActualsImportResult } from "@/import/actuals";
 import { projectPeriods } from "@/engine/periodize";
+import { computePeriodActuals } from "@/engine/blended";
 import type { Project } from "@/engine/model";
 import type { CategoryMappingOverride, StoredActualEntry } from "@/storage/types";
 import { Button } from "@/components/ui/button";
@@ -43,9 +44,11 @@ export function ActualsTab({
           Viewer role — read only. Switch to Planner to import or record actuals.
         </p>
       )}
-      <ClosedPeriodsCard project={project} actuals={actuals} onChanged={onProjectChanged} readOnly={readOnly} />
+      {/* The monthly loop, top to bottom: bring the actuals in, check each period against its
+          budget, close what is final. The itemised list underneath is the record. */}
       <ImportCard project={project} onCommitted={onActualsChanged} />
       <ManualEntryCard project={project} onAdded={onActualsChanged} />
+      <ClosedPeriodsCard project={project} actuals={actuals} onChanged={onProjectChanged} readOnly={readOnly} />
       <RecordedActualsCard project={project} actuals={actuals} onDeleted={onActualsChanged} />
     </fieldset>
   );
@@ -98,6 +101,22 @@ function ClosedPeriodsCard({
   const reopening = new Set(preview?.reopening);
   const needsConfirm = (preview?.closingWithoutCost.length ?? 0) > 0;
   const isCustomer = project.type === "customer";
+  const periodActuals = computePeriodActuals(project, actuals);
+  const periodRows: PeriodRow[] = periods.map((period, index) => ({
+    period,
+    status: closing.has(period)
+      ? "closing"
+      : reopening.has(period)
+        ? "reopening"
+        : index <= closedThroughIndex
+          ? "closed"
+          : "open",
+    cost: periodActuals.recordedCostByPeriod[period],
+    revenue: periodActuals.recordedRevenueByPeriod[period],
+    budgeted: periodActuals.budgetedCostByPeriod[period] ?? 0,
+    gap: periodActuals.recordedCostVsBudgetByPeriod[period],
+  }));
+  const { currency } = project;
 
   function handlePick(value: string) {
     setPick(value === savedValue ? null : value);
@@ -136,14 +155,73 @@ function ClosedPeriodsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Closed periods</CardTitle>
+        <CardTitle>Check and close periods</CardTitle>
         <CardDescription>
-          Closed periods use recorded actuals instead of projections. Closing is contiguous from
-          the project start — you can&apos;t close a later period while an earlier one is still
-          open.
+          Each period&apos;s recorded cost against its budget ({currency}). Close a period once its
+          actuals are complete: the dashboard then uses them instead of the projection. Closing runs
+          in order from the project start.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* Below `md` each period stacks as its own block, as in Budget vs. actual: sideways
+            scrolling hid "Against budget", the column this check is for. */}
+        <ul className="flex flex-col md:hidden">
+          {periodRows.map((row) => (
+            <li key={row.period} className="border-b py-2.5 first:pt-0 last:border-b-0">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium">{row.period}</span>
+                <PeriodStatus row={row} />
+              </div>
+              <dl className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
+                <dt className="text-muted-foreground">Recorded cost</dt>
+                <AmountValue as="dd" value={row.cost} empty="None" />
+                <dt className="text-muted-foreground">Budgeted cost</dt>
+                <dd className="text-right text-muted-foreground">{formatAmount(row.budgeted, "whole")}</dd>
+                <dt className="text-muted-foreground">Against budget</dt>
+                <dd className="text-right">
+                  <GapText gap={row.gap} />
+                </dd>
+                {isCustomer && (
+                  <>
+                    <dt className="text-muted-foreground">Recorded revenue</dt>
+                    <AmountValue as="dd" value={row.revenue} empty="Planned kept" />
+                  </>
+                )}
+              </dl>
+            </li>
+          ))}
+        </ul>
+        <Table stickyFirstColumn containerClassName="hidden md:block">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Period</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Recorded cost</TableHead>
+              <TableHead className="text-right">Budgeted cost</TableHead>
+              <TableHead className="text-right">Against budget</TableHead>
+              {isCustomer && <TableHead className="text-right">Recorded revenue</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {periodRows.map((row) => (
+              <TableRow key={row.period}>
+                <TableCell>{row.period}</TableCell>
+                <TableCell>
+                  <PeriodStatus row={row} />
+                </TableCell>
+                <AmountValue as={TableCell} value={row.cost} empty="None" />
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {formatAmount(row.budgeted, "whole")}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <GapText gap={row.gap} />
+                </TableCell>
+                {isCustomer && <AmountValue as={TableCell} value={row.revenue} empty="Planned kept" />}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
         {readOnly ? (
           <p className="text-sm">
             {closedThroughPeriod
@@ -269,56 +347,50 @@ function ClosedPeriodsCard({
           )}
         </p>
 
-        <Table stickyFirstColumn>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Period</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Cost actuals</TableHead>
-              {isCustomer && <TableHead>Revenue actuals</TableHead>}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {periods.map((p, index) => {
-              const { hasCost, hasRevenue } = summaryFor(actuals, p);
-              const isClosed = index <= closedThroughIndex;
-              return (
-                <TableRow key={p}>
-                  <TableCell>{p}</TableCell>
-                  <TableCell>
-                    {closing.has(p) ? (
-                      <span className="font-medium">Open → Closed</span>
-                    ) : reopening.has(p) ? (
-                      <span className="font-medium">Closed → Open</span>
-                    ) : isClosed ? (
-                      "Closed"
-                    ) : (
-                      "Open"
-                    )}
-                  </TableCell>
-                  <RecordedCell recorded={hasCost} />
-                  {isCustomer && <RecordedCell recorded={hasRevenue} />}
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
       </CardContent>
     </Card>
   );
 }
 
-/** "Recorded", or a muted "None" so the gaps stand out down the column. */
-function RecordedCell({ recorded }: { recorded: boolean }) {
-  return <TableCell className={recorded ? undefined : "text-muted-foreground"}>{recorded ? "Recorded" : "None"}</TableCell>;
+interface PeriodRow {
+  period: string;
+  /** Saved state, or the staged change while a close/reopen preview is open. */
+  status: "open" | "closed" | "closing" | "reopening";
+  cost: number | undefined;
+  revenue: number | undefined;
+  budgeted: number;
+  /** Recorded minus budgeted cost; undefined when nothing is recorded. */
+  gap: number | undefined;
 }
 
-function summaryFor(actuals: StoredActualEntry[], period: string) {
-  const forPeriod = actuals.filter((a) => a.period === period);
-  return {
-    hasCost: forPeriod.some((a) => a.category !== "revenue"),
-    hasRevenue: forPeriod.some((a) => a.category === "revenue"),
-  };
+function PeriodStatus({ row }: { row: PeriodRow }) {
+  if (row.status === "closing") return <span className="font-medium">Open → Closed</span>;
+  if (row.status === "reopening") return <span className="font-medium">Closed → Open</span>;
+  return <>{row.status === "closed" ? "Closed" : "Open"}</>;
+}
+
+/** "25,500 over", "On budget", or a muted dash when there is nothing recorded to compare. */
+function GapText({ gap }: { gap: number | undefined }) {
+  if (gap === undefined) return <span className="text-muted-foreground">—</span>;
+  if (gap === 0) return <>On budget</>;
+  return <>{`${formatAmount(Math.abs(gap), "whole")} ${gap > 0 ? "over" : "under"}`}</>;
+}
+
+/** A recorded amount, or a muted word so the gaps stand out down the column. */
+function AmountValue({
+  as: Element,
+  value,
+  empty,
+}: {
+  as: "dd" | typeof TableCell;
+  value: number | undefined;
+  empty: string;
+}) {
+  return (
+    <Element className={cn("text-right tabular-nums", value === undefined && "text-muted-foreground")}>
+      {value === undefined ? empty : formatAmount(value, "whole")}
+    </Element>
+  );
 }
 
 function useEffectiveMapping() {
