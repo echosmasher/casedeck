@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headline sketches</title>
+<style>
+@font-face { font-family: Geist; src: url(geist.woff2) format("woff2"); font-weight: 100 900; }
+:root {
+  --ink: #18181b; --ink-2: #71717a; --line: #e4e4e7; --sub: #fafafa; --muted: #f4f4f5;
+  --good: #059669; --good-ink: #065f46; --good-bg: #ecfdf5; --good-bd: #a7f3d0;
+  --warn: #d97706; --warn-ink: #92400e; --warn-bg: #fffbeb; --warn-bd: #fde68a;
+  --crit: #e11d48; --crit-ink: #9f1239; --crit-bg: #fff1f2; --crit-bd: #fecdd3;
+  --crit-text: #be123c;
+}
+* { box-sizing: border-box; margin: 0; }
+body { font-family: Geist, system-ui, sans-serif; color: var(--ink); background: #fff; font-feature-settings: "tnum" 1, "cv01" 1; -webkit-font-smoothing: antialiased; }
+.num { font-variant-numeric: tabular-nums; }
+.frame { width: 1080px; padding: 32px 40px 36px; border-bottom: 1px dashed #d4d4d8; }
+.frame.mobile { width: 390px; padding: 24px 16px 28px; }
+.optlabel { font-size: 12px; color: var(--ink-2); margin-bottom: 18px; letter-spacing: .02em; }
+.optlabel b { color: var(--ink); }
+
+/* page header (shared across options) */
+.hdr { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.hdr h1 { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -0.02em; }
+.hdr .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.code { font-family: ui-monospace, monospace; font-size: 13px; color: var(--ink-2); }
+.badge { font-size: 12px; font-weight: 500; line-height: 20px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--line); }
+.badge.soft { background: var(--muted); border-color: var(--muted); }
+.meta { font-size: 13px; color: var(--ink-2); margin-top: 2px; }
+.nav { display: flex; gap: 16px; align-items: center; font-size: 13px; }
+.nav a { color: var(--ink-2); text-decoration: none; }
+.nav .btn { border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; color: var(--ink); }
+.tabs { display: inline-flex; gap: 2px; background: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 3px; margin-top: 20px; font-size: 13px; }
+.tabs span { padding: 3px 9px; border-radius: 4px; color: var(--ink-2); }
+.tabs span.on { background: #fff; color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+
+/* status pill (DESIGN.md) */
+.pill { display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.pill.crit { color: var(--crit-ink); background: var(--crit-bg); border-color: var(--crit-bd); }
+.pill.crit::before { background: var(--crit); }
+.pill.good { color: var(--good-ink); background: var(--good-bg); border-color: var(--good-bd); }
+.pill.good::before { background: var(--good); }
+
+/* verdict type: proposed display-verdict 40/46 desktop, 28/34 mobile */
+.verdict { font-size: 40px; line-height: 46px; font-weight: 600; letter-spacing: -0.03em; max-width: 24ch; text-wrap: balance; }
+.mobile .verdict { font-size: 28px; line-height: 34px; letter-spacing: -0.025em; }
+.verdict .neg { color: var(--crit-text); }
+.lede { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--ink); margin-bottom: 14px; }
+.source { font-size: 13px; color: var(--ink-2); margin-top: 12px; }
+.headline { margin-top: 28px; }
+
+/* supporting tiles, stepped down to metric-lg */
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 28px; }
+.mobile .tiles { grid-template-columns: 1fr; }
+.tile { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.tile .k { font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.tile .v { font-size: 24px; line-height: 28px; font-weight: 600; letter-spacing: -0.02em; margin-top: 4px; }
+.tile .s { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+
+/* range strip */
+.strip { position: relative; height: 74px; margin-top: 26px; max-width: 760px; }
+.strip .axis { position: absolute; left: 0; right: 0; top: 30px; height: 1px; background: var(--line); }
+.strip .band { position: absolute; top: 24px; height: 13px; background: #e4e4e7; border-radius: 2px; }
+.strip .tick { position: absolute; top: 18px; height: 25px; width: 0; border-left: 1px solid; }
+.strip .tick.budget { border-left: 1.5px dashed var(--ink); }
+.strip .tick.zero { border-color: #a1a1aa; }
+.strip .dot { position: absolute; top: 24px; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%; background: var(--ink); border: 2px solid #fff; box-shadow: 0 0 0 1px var(--ink); }
+.strip .lab { position: absolute; font-size: 12px; line-height: 16px; white-space: nowrap; color: var(--ink-2); transform: translateX(-50%); }
+.strip .lab.top { top: 0; }
+.strip .lab.bot { top: 46px; }
+.strip .lab b { color: var(--ink); font-weight: 600; }
+.strip .lab.l { transform: none; }
+.strip .lab.r { transform: translateX(-100%); }
+
+/* option C: ledger */
+.split { display: grid; grid-template-columns: 1fr 340px; gap: 40px; margin-top: 28px; align-items: start; }
+.mobile .split { grid-template-columns: 1fr; gap: 20px; }
+.ledger { border-top: 1px solid var(--ink); }
+.ledger div { display: flex; justify-content: space-between; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.ledger div span:first-child { color: var(--ink-2); }
+.ledger div.total { font-weight: 600; border-bottom-color: var(--ink); }
+.ledger div.total span:first-child { color: var(--ink); }
+.ledger .neg { color: var(--crit-text); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+const P = {
+  "001": { name: "Intranet Relaunch", code: "PRO-2601", type: "Internal", status: "In progress", meta: "Monthly · 2026-01–2026-08 · NOK",
+    measure: "cost", lo: 1478920, exp: 1552600, hi: 1626280, budget: 1473600,
+    pill: ["crit", "Over budget"], reason: "Consultancy is past its worst-case ceiling.",
+    verdict: 'Expected to cost <span class="num">1.55M NOK</span>, <span class="neg num">79k over budget</span>.',
+    source: "Actuals through 2026-04, projected May–Aug · range 1.48M–1.63M NOK",
+    tiles: [["Spent to date", "816k NOK", "Jan–Apr actuals, 79k over plan"], ["Budget", "1.47M NOK", "planned total cost"], ["Over by", "+79k NOK", "+5.4% vs. budget"]],
+    ledger: [["Budget", "1,473,600"], ["Actuals to date (Jan–Apr)", "815,800"], ["Projected May–Aug", "736,800"], ["Expected total", "1,552,600", "total"], ["Over budget by", "+79,000 (+5.4%)", "neg"]] },
+  "003": { name: "ERP Data Migration", code: "PRO-2602", type: "Customer", status: "Planning", meta: "Monthly · 2026-10–2027-03 · NOK",
+    measure: "margin", lo: -809775, exp: 263250, hi: 1336275, budget: 263250,
+    pill: ["good", "On track"], reason: "Worst case is a loss.",
+    verdict: 'Expected margin <span class="num">263k NOK</span>, somewhere between an <span class="neg num">810k loss</span> and a <span class="num">1.34M gain</span>.',
+    source: "No actuals yet; every period is projected",
+    tiles: [["Revenue", "2.16M NOK", "1.66M–2.66M range"], ["Cost", "1.90M NOK", "1.33M–2.47M range"], ["Budgeted margin", "263k NOK", "on budget (nothing closed)"]],
+    ledger: [["Revenue (expected)", "2,160,000"], ["Cost (expected)", "1,896,750"], ["Expected margin", "263,250", "total"], ["Worst case", "−809,775", "neg"], ["Best case", "1,336,275"]] },
+};
+const k = (v) => { const a = Math.abs(v), s = v < 0 ? "−" : ""; return a >= 1e6 ? s + (a / 1e6).toFixed(2).replace(/0$/, "") + "M" : s + Math.round(a / 1e3) + "k"; };
+
+function header(p) {
+  return `<div class="hdr"><div><div class="row"><h1>${p.name}</h1><span class="code">${p.code}</span><span class="badge">${p.type}</span><span class="badge soft">${p.status}</span></div><p class="meta">${p.meta}</p></div>
+  <div class="nav"><a href="#">← Projects</a><a class="btn" href="#">Edit</a></div></div>
+  <div class="tabs"><span class="on">Dashboard</span><span>Inputs</span><span>Actuals</span><span>Export</span></div>`;
+}
+function lede(p) { return `<p class="lede"><span class="pill ${p.pill[0]}">${p.pill[1]}</span>${p.reason}</p>`; }
+function tiles(p) { return `<div class="tiles">${p.tiles.map(t => `<div class="tile"><p class="k">${t[0]}</p><p class="v num">${t[1]}</p><p class="s num">${t[2]}</p></div>`).join("")}</div>`; }
+function strip(p, mobile) {
+  const vals = [p.lo, p.hi, p.budget].concat(p.lo < 0 && p.hi > 0 ? [0] : []);
+  let min = Math.min(...vals), max = Math.max(...vals); const pad = (max - min) * 0.06; min -= pad; max += pad;
+  const x = (v) => ((v - min) / (max - min) * 100).toFixed(2) + "%";
+  const worst = p.measure === "cost" ? p.hi : p.lo, best = p.measure === "cost" ? p.lo : p.hi;
+  const same = p.budget === p.exp;
+  return `<div class="strip num">
+    <div class="axis"></div>
+    <div class="band" style="left:${x(Math.min(p.lo, p.hi))};width:calc(${x(Math.max(p.lo, p.hi))} - ${x(Math.min(p.lo, p.hi))})"></div>
+    ${p.lo < 0 && p.hi > 0 ? `<div class="tick zero" style="left:${x(0)}"></div><span class="lab bot" style="left:${x(0)}">0</span>` : ""}
+    <div class="tick budget" style="left:${x(p.budget)}"></div>
+    ${same ? "" : `<span class="lab top" style="left:${x(p.budget)}">Budget <b>${k(p.budget)}</b></span>`}
+    <div class="dot" style="left:${x(p.exp)}"></div>
+    <span class="lab top" style="left:${x(p.exp)}">${same ? "Expected = budget" : "Expected"} <b>${k(p.exp)}</b></span>
+    <span class="lab bot l" style="left:${x(Math.min(p.lo, p.hi))}">${p.measure === "cost" ? "Best" : "Worst"} <b>${k(Math.min(p.lo, p.hi))}</b></span>
+    <span class="lab bot r" style="left:${x(Math.max(p.lo, p.hi))}">${p.measure === "cost" ? "Worst" : "Best"} <b>${k(Math.max(p.lo, p.hi))}</b></span>
+  </div>`;
+}
+const opts = {
+  A: (p) => `<div class="headline">${lede(p)}<h2 class="verdict">${p.verdict}</h2><p class="source">${p.source}</p></div>${tiles(p)}`,
+  B: (p, m) => `<div class="headline">${lede(p)}<h2 class="verdict">${p.verdict}</h2>${strip(p, m)}<p class="source">${p.source}</p></div>${tiles(p)}`,
+  C: (p) => `<div class="split"><div>${lede(p)}<h2 class="verdict">${p.verdict}</h2><p class="source">${p.source}</p></div>
+    <div class="ledger num">${p.ledger.map(r => `<div class="${r[2] || ""}"><span>${r[0]}</span><span class="${r[2] === "neg" ? "neg" : ""}">${r[1]}</span></div>`).join("")}</div></div>`,
+};
+const names = { A: "A · Verdict sentence", B: "B · Verdict sentence + range strip", C: "C · Verdict + ledger" };
+const q = new URLSearchParams(location.search);
+const opt = q.get("opt"), id = q.get("p"), mobile = q.get("m") === "1";
+const p = P[id];
+document.getElementById("root").innerHTML = `<section class="frame ${mobile ? "mobile" : ""}"><p class="optlabel"><b>${names[opt]}</b> — ${id} ${p.name}</p>${header(p)}${opts[opt](p, mobile)}</section>`;
+</script>
+</body>
+</html>

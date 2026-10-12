@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { renderBandChartSvg, renderCumulativeChartSvg, formatChartCurrency, formatCompactChartCurrency } from "./charts";
+import {
+  renderBandChartSvg,
+  renderCumulativeChartSvg,
+  formatChartCurrency,
+  formatCompactChartCurrency,
+  formatCompactChartNumber,
+} from "./charts";
 import type { ScenarioByPeriod } from "@/engine/model";
 
 const byPeriod: ScenarioByPeriod = {
@@ -43,8 +49,10 @@ describe("renderBandChartSvg", () => {
 /** Pulls out every <text> tag's x/y/text-anchor from a rendered SVG string, for layout
  * assertions. Legend labels have no text-anchor attribute; gridline (tick) labels are
  * text-anchor="end"; x-axis period labels are text-anchor="middle". */
+/** Positioned <text> tags (ticks, x labels, legend). The rotated currency axis title is placed by
+ * `transform` rather than x/y, so it's left out. */
 function textTags(svg: string): { x: number; y: number; anchor: string }[] {
-  return [...svg.matchAll(/<text\s+([^>]*)>/g)].map((m) => {
+  return [...svg.matchAll(/<text\s+([^>]*)>/g)].filter((m) => !m[1].includes("rotate(")).map((m) => {
     const attrs = m[1];
     const num = (name: string) => Number(attrs.match(new RegExp(`${name}="(-?[\\d.]+)"`))?.[1]);
     return { x: num("x"), y: num("y"), anchor: attrs.match(/text-anchor="(\w+)"/)?.[1] ?? "" };
@@ -86,10 +94,15 @@ describe("renderBandChartSvg — layout (QA round 2, item 1)", () => {
     expect(Math.max(...legendYs)).toBeLessThan(groupOffset);
   });
 
-  it("uses compact axis-tick labels, not the full formatted currency string", () => {
+  it("uses compact axis ticks and writes the currency once, as the axis title", () => {
     const svg = renderBandChartSvg(spikePeriods, spike, { currency: "NOK", displayUnits: "whole" });
-    expect(svg).toMatch(/[\d.]+[kM]? NOK/);
-    expect(svg).not.toContain("1,000,000 NOK");
+    const ticks = textTags(svg).filter((t) => t.anchor === "end");
+    expect(ticks.length).toBeGreaterThan(0);
+    expect(svg).toMatch(/text-anchor="end"[^>]*>[\u2212\d.]+[kM]?<\/text>/);
+    expect(svg).toMatch(/rotate\(-90\)[^>]*>NOK<\/text>/);
+    // Full values belong in the accessible summary and the data table, never on a tick.
+    const tickTexts = [...svg.matchAll(/<text[^>]*text-anchor="end"[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]);
+    expect(tickTexts.some((t) => t.includes("NOK") || t.includes(","))).toBe(false);
   });
 });
 
@@ -173,5 +186,49 @@ describe("formatCompactChartCurrency", () => {
     expect(formatCompactChartCurrency(1500, "NOK", "thousands")).toBe(
       formatChartCurrency(1500, "NOK", "thousands"),
     );
+  });
+});
+
+describe("end-of-line labels (WCAG 1.4.1: worst vs. best not by colour alone)", () => {
+  it("labels worst, expected and best at the last point", () => {
+    const svg = renderBandChartSvg(periods, byPeriod, { currency: "NOK", displayUnits: "whole" });
+    expect(svg).toContain(">Worst</text>");
+    expect(svg).toContain(">Best</text>");
+    expect(svg).toContain(">Expected</text>");
+  });
+
+  it("labels only expected when the band has collapsed at the last point", () => {
+    const closed: ScenarioByPeriod = { "2026-01": { expected: 10, worst: 10, best: 10 } };
+    const svg = renderBandChartSvg(["2026-01"], closed, { currency: "NOK", displayUnits: "whole" });
+    expect(svg).toContain(">Expected</text>");
+    expect(svg).not.toContain(">Worst</text>");
+    expect(svg).not.toContain(">Best</text>");
+  });
+});
+
+describe("formatCompactChartNumber", () => {
+  it("drops the currency and uses a true minus", () => {
+    expect(formatCompactChartNumber(-165000, "whole")).toBe("\u2212165k");
+    expect(formatCompactChartNumber(1_200_000, "whole")).toBe("1.2M");
+    expect(formatCompactChartNumber(0, "whole")).toBe("0");
+    expect(formatCompactChartNumber(1_553_000, "thousands")).toBe("1,553k");
+  });
+});
+
+describe("accessible summary and boundary labels", () => {
+  it("names the chart with its span, the close point and the last values", () => {
+    const svg = renderBandChartSvg(["2026-01", "2026-02"], {
+      "2026-01": { expected: 100, worst: 100, best: 100 },
+      "2026-02": { expected: 200, worst: 150, best: 260 },
+    }, {
+      currency: "NOK",
+      displayUnits: "whole",
+      actualsOverlay: { closedPeriods: ["2026-01"], budgetedByPeriod: { "2026-01": 90 } },
+    });
+    expect(svg).toContain(
+      'aria-label="Scenario bands, margin by period, 2026-01 to 2026-02. Actuals through 2026-01, forecast after. In 2026-02: worst 150 NOK, expected 200 NOK, best 260 NOK."',
+    );
+    expect(svg).toContain(">Actuals</text>");
+    expect(svg).toContain(">Forecast</text>");
   });
 });

@@ -9,6 +9,7 @@
 // otherwise ok. This is deliberately a per-category signal — a single overrunning category can
 // (and, in the 001 demo fixture, does) turn red well before the blended project total breaches
 // its own, much larger, combined ceiling.
+import { REVENUE_CATEGORY } from "./blended";
 import { periodizeCosts, projectPeriods } from "./periodize";
 import { computeProjectScenarios } from "./scenarios";
 import type { ActualEntry, ConfidenceBands, PeriodValues, Project } from "./model";
@@ -78,6 +79,9 @@ export function computeVariance(
 
   const actualsByCategory = new Map<string, ActualEntry[]>();
   for (const entry of actualEntries) {
+    // Variance is cost-only (demo/README.md scope note): revenue has no cost budget or contingency,
+    // so a recorded revenue actual would otherwise read as an infinite overrun.
+    if (entry.category === REVENUE_CATEGORY) continue;
     const list = actualsByCategory.get(entry.category) ?? [];
     list.push(entry);
     actualsByCategory.set(entry.category, list);

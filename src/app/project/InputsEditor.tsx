@@ -8,23 +8,25 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumberCell } from "@/components/number-cell";
 import { Trash2 } from "lucide-react";
 import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } from "./shared";
 
-// The Costs table pins its first two columns while period columns scroll underneath.
+// The Costs table pins its first two columns while period columns scroll underneath — on a phone
+// only the Line column (narrower there), since two pinned columns filled the whole 390px width
+// and left no period visible.
 // LINE_COL_LEFT_OFFSET must always equal LINE_COL_WIDTH — it's the left edge the second sticky
 // column docks against. LINE_COL_CONTENT_MAX_WIDTH must always equal LINE_COL_WIDTH minus the
 // cell's horizontal padding (px-2 = 1rem): with table-layout "auto", a nowrap/truncated span
 // with no width of its own contributes its *untruncated* text width to the column's min-content
 // size, silently growing the column past LINE_COL_WIDTH and misaligning the offset above — giving
 // the label wrapper its own definite max-width stops that.
-const LINE_COL_WIDTH = "w-56";
-const LINE_COL_LEFT_OFFSET = "left-56";
-const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[13rem]";
-const CONFIDENCE_COL_WIDTH = "w-40";
+const LINE_COL_WIDTH = "w-36 sm:w-56";
+const LINE_COL_LEFT_OFFSET = "sm:left-56";
+const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[8rem] sm:max-w-[13rem]";
+const CONFIDENCE_COL_WIDTH = "w-28 sm:w-40";
 
 export function InputsEditor({
   project,
@@ -34,10 +36,12 @@ export function InputsEditor({
 }: {
   project: Project;
   onLocalChange: (next: Project) => void;
-  onCommit: (next: Project) => void | Promise<void>;
+  onCommit: (next: Project) => void | Promise<unknown>;
   readOnly?: boolean;
 }) {
   const periods = projectPeriods(project);
+  const { config } = useEffectiveConfig();
+  const bands = config.confidenceBands;
 
   // Keystroke-level edits update local state only — nothing is written to IndexedDB until the
   // field is committed (blur, a discrete select/button action). Persisting on every keystroke
@@ -85,37 +89,51 @@ export function InputsEditor({
       <Card>
         <CardHeader>
           <CardTitle>Costs</CardTitle>
+          <CardDescription>
+            Each line&apos;s confidence sets how wide its range is on the dashboard: committed (a
+            signed number) ±{bands.committed.bandPct}%, estimated (a planning figure) ±
+            {bands.estimated.bandPct}%, rough (an early guess) ±{bands.rough.bandPct}%. Planners can
+            change these percentages in Settings.
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {project.costs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No cost lines yet.</p>
           ) : (
-            <Table containerClassName="scrollbar-always-visible">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className={cn("sticky left-0 z-20 bg-muted", LINE_COL_WIDTH)}>Line</TableHead>
-                  <TableHead className={cn("sticky z-20 bg-muted", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
-                    Confidence
-                  </TableHead>
-                  {periods.map((p) => (
-                    <TableHead key={p}>{p}</TableHead>
+            <>
+              <p className="text-xs text-muted-foreground">
+                {periods.length} {periods.length === 1 ? "period" : "periods"}, {periods[0]}
+                {periods.length > 1 ? `–${periods.at(-1)}` : ""}.
+                {/* Even a 1280px viewport shows only about four period columns. */}
+                {periods.length > 3 && " The grid scrolls sideways for later periods; the line name stays in view."}
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className={cn("sticky left-0 z-20 bg-muted", LINE_COL_WIDTH)}>Line</TableHead>
+                    <TableHead className={cn("z-20 bg-muted sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
+                      Confidence
+                    </TableHead>
+                    {periods.map((p) => (
+                      <TableHead key={p}>{p}</TableHead>
+                    ))}
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {project.costs.map((line) => (
+                    <CostLineRow
+                      key={line.id}
+                      line={line}
+                      periods={periods}
+                      onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
+                      onCommit={(patch) => commitLine(line.id, patch)}
+                      onRemove={() => removeLine(line.id)}
+                    />
                   ))}
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {project.costs.map((line) => (
-                  <CostLineRow
-                    key={line.id}
-                    line={line}
-                    periods={periods}
-                    onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
-                    onCommit={(patch) => commitLine(line.id, patch)}
-                    onRemove={() => removeLine(line.id)}
-                  />
-                ))}
-              </TableBody>
-            </Table>
+                </TableBody>
+              </Table>
+            </>
           )}
 
           <AddCostLineForm periods={periods} onAdd={addLine} />
@@ -155,9 +173,9 @@ function CostLineRow({
           )}
         </div>
       </TableCell>
-      <TableCell className={cn("sticky z-20 bg-card align-top", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
+      <TableCell className={cn("z-20 bg-card align-top sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
         <select
-          className={selectClass}
+          className={cn(selectClass, "min-w-0 sm:min-w-[7.5rem]")}
           aria-label={`Confidence for ${line.label}`}
           value={line.confidence}
           onChange={(e) => onCommit({ confidence: e.target.value as Confidence })}
@@ -344,7 +362,7 @@ function RevenueSection({
   project: Project;
   periods: string[];
   onLocalChange: (next: Project) => void;
-  onCommit: (next: Project) => void | Promise<void>;
+  onCommit: (next: Project) => void | Promise<unknown>;
 }) {
   const model = project.pricingModel;
   if (!model) return null;
@@ -418,7 +436,7 @@ function RevenueSection({
             </select>
           </div>
         </div>
-        <Table containerClassName="scrollbar-always-visible">
+        <Table>
           <TableHeader>
             <TableRow>
               {periods.map((p) => (

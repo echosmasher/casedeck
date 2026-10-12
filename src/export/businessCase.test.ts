@@ -135,9 +135,12 @@ describe("renderBusinessCase — 002 (fully closed, blended headline numbers)", 
       generatedAt,
     });
     if (!result.ok) throw new Error("expected ok result");
-    // Sum of actuals002's cost rows; revenue is correctly zero (no revenue rows in the demo
-    // actuals file), so blended margin is the negative of that total cost.
-    expect(result.html).toContain("-666,000 NOK");
+    // Cost is the sum of actuals002's cost rows. The demo actuals have no revenue rows, so closed
+    // periods keep their planned revenue (900,000 committed) rather than reading as zero income:
+    // margin is 900,000 − 666,000.
+    expect(result.html).toContain("666,000 NOK");
+    expect(result.html).toContain("234,000 NOK");
+    expect(result.html).not.toContain("-666,000 NOK");
   });
 
   it("shows the Actuals-through caption once every period is closed", () => {
@@ -164,7 +167,7 @@ describe("renderBusinessCase — 002 (fully closed, blended headline numbers)", 
   });
 });
 
-describe("renderBusinessCase — closed periods with no actuals at all (CLAUDE.md rule 4: no silent drops)", () => {
+describe("renderBusinessCase — closed periods with no cost actuals (CLAUDE.md rule 4: no silent drops)", () => {
   it("surfaces the engine's closed-but-no-actuals warnings rather than silently zeroing the period", () => {
     const result = renderBusinessCase({
       project: project002 as Project,
@@ -173,7 +176,7 @@ describe("renderBusinessCase — closed periods with no actuals at all (CLAUDE.m
       generatedAt,
     });
     if (!result.ok) throw new Error("expected ok result");
-    expect(result.html).toContain("2025-Q1 is closed but has no actuals");
+    expect(result.html).toContain("2025-Q1 is closed but has no cost actuals, so its cost counts as zero");
     expect(result.html).toContain("Data warning");
   });
 });

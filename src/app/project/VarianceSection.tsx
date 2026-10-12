@@ -1,23 +1,13 @@
 "use client";
 
-import { Badge, type badgeVariants } from "@/components/ui/badge";
-import type { VariantProps } from "class-variance-authority";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatCurrency } from "../_lib/format";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
-import { computeVariance, type VarianceFlag } from "@/engine/variance";
+import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, Project } from "@/engine/model";
-import { CATEGORY_LABEL } from "./shared";
-
-const FLAG_META: Record<
-  VarianceFlag,
-  { label: string; color: string; variant: NonNullable<VariantProps<typeof badgeVariants>["variant"]> }
-> = {
-  ok: { label: "On track", color: "var(--viz-good)", variant: "status-good" },
-  warning: { label: "Watch", color: "var(--viz-warning)", variant: "status-warning" },
-  red: { label: "Over budget", color: "var(--viz-critical)", variant: "status-critical" },
-};
+import { CATEGORY_LABEL, FLAG_META } from "./shared";
 
 export function VarianceSection({
   project,
@@ -44,15 +34,57 @@ export function VarianceSection({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
+        {/* Below `md` each category stacks as its own block (six columns fit neither a phone nor a
+            desktop at 200% zoom); the table takes over from `md` up. Only one is visible at a
+            time, and `hidden` removes the other from the accessibility tree too. */}
+        <ul className="flex flex-col md:hidden">
+          {[
+            ...categories.map((category) => ({
+              key: category,
+              label: CATEGORY_LABEL[category] ?? category,
+              row: variance.byCategory[category],
+              total: false,
+            })),
+            { key: "__total__", label: "Total", row: variance.total, total: true },
+          ].map(({ key, label, row, total }) => {
+            const meta = FLAG_META[row.flag];
+            return (
+              <li key={key} className={total ? "border-t-2 pt-3" : "border-b py-3 first:pt-0"}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={total ? "font-semibold" : "font-medium"}>{label}</span>
+                  <Badge variant={meta.variant} dot>
+                    {meta.label}
+                  </Badge>
+                </div>
+                <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
+                  <dt className="text-muted-foreground">Actual to date</dt>
+                  <dd className="text-right">{formatCurrency(row.actualToDate, currency, displayUnits)}</dd>
+                  <dt className="text-muted-foreground">Projection to complete</dt>
+                  <dd className="text-right" style={{ color: total || row.flag === "ok" ? undefined : meta.ink }}>
+                    {formatCurrency(row.projectionToComplete, currency, displayUnits)}
+                  </dd>
+                  <dt className="text-muted-foreground">Expected total</dt>
+                  <dd className="text-right text-muted-foreground">
+                    {formatCurrency(row.expectedTotal, currency, displayUnits)}
+                  </dd>
+                  <dt className="text-muted-foreground">Worst-case ceiling</dt>
+                  <dd className="text-right text-muted-foreground">
+                    {formatCurrency(row.worstCeiling, currency, displayUnits)}
+                  </dd>
+                </dl>
+              </li>
+            );
+          })}
+        </ul>
+        <Table containerClassName="hidden md:block">
           <TableHeader>
             <TableRow>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Actual to date</TableHead>
-              <TableHead>Projection to complete</TableHead>
-              <TableHead>Expected total</TableHead>
-              <TableHead>Worst-case ceiling</TableHead>
+              <TableHead className="text-right">Actual to date</TableHead>
+              <TableHead className="text-right">Projection to complete</TableHead>
+              <TableHead className="text-right">Expected total</TableHead>
+              <TableHead className="text-right">Worst-case ceiling</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -67,16 +99,16 @@ export function VarianceSection({
                       {meta.label}
                     </Badge>
                   </TableCell>
-                  <TableCell className="tabular-nums">
+                  <TableCell className="text-right tabular-nums">
                     {formatCurrency(row.actualToDate, currency, displayUnits)}
                   </TableCell>
-                  <TableCell className="tabular-nums" style={{ color: row.flag === "ok" ? undefined : meta.color }}>
+                  <TableCell className="text-right tabular-nums" style={{ color: row.flag === "ok" ? undefined : meta.ink }}>
                     {formatCurrency(row.projectionToComplete, currency, displayUnits)}
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
                     {formatCurrency(row.expectedTotal, currency, displayUnits)}
                   </TableCell>
-                  <TableCell className="tabular-nums text-muted-foreground">
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
                     {formatCurrency(row.worstCeiling, currency, displayUnits)}
                   </TableCell>
                 </TableRow>
@@ -89,16 +121,16 @@ export function VarianceSection({
                   {totalMeta.label}
                 </Badge>
               </TableCell>
-              <TableCell className="tabular-nums font-semibold">
+              <TableCell className="text-right tabular-nums font-semibold">
                 {formatCurrency(variance.total.actualToDate, currency, displayUnits)}
               </TableCell>
-              <TableCell className="tabular-nums font-semibold">
+              <TableCell className="text-right tabular-nums font-semibold">
                 {formatCurrency(variance.total.projectionToComplete, currency, displayUnits)}
               </TableCell>
-              <TableCell className="tabular-nums font-semibold text-muted-foreground">
+              <TableCell className="text-right tabular-nums font-semibold text-muted-foreground">
                 {formatCurrency(variance.total.expectedTotal, currency, displayUnits)}
               </TableCell>
-              <TableCell className="tabular-nums font-semibold text-muted-foreground">
+              <TableCell className="text-right tabular-nums font-semibold text-muted-foreground">
                 {formatCurrency(variance.total.worstCeiling, currency, displayUnits)}
               </TableCell>
             </TableRow>

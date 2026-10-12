@@ -31,24 +31,26 @@ export function NumberCell({ id, label, value, step, onChange, onCommit }: Numbe
         value={Number.isFinite(value) ? value : 0}
         onChange={(e) => onChange(e.target.valueAsNumber || 0)}
         onBlur={(e) => onCommit(e.target.valueAsNumber || 0)}
-        className="h-7 w-24 text-right"
+        className="h-7 w-24 text-right [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
       />
-      <div className="flex flex-col">
-        <button
-          type="button"
-          aria-label={`Increase ${label} by ${step}`}
-          className="flex h-3.5 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:outline-none"
-          onClick={() => nudge(step)}
-        >
-          <ChevronUp className="size-3" />
-        </button>
+      {/* Side by side at 24×24 each (WCAG 2.2 target size, 2.5.8): stacked, they were 16×14. The
+          browser's own spinner is hidden — these buttons replace it, and it ate into the digits. */}
+      <div className="flex">
         <button
           type="button"
           aria-label={`Decrease ${label} by ${step}`}
-          className="flex h-3.5 w-4 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:outline-none"
+          className="flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:outline-none"
           onClick={() => nudge(-step)}
         >
-          <ChevronDown className="size-3" />
+          <ChevronDown className="size-3.5" />
+        </button>
+        <button
+          type="button"
+          aria-label={`Increase ${label} by ${step}`}
+          className="flex size-6 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:bg-muted focus-visible:outline-none"
+          onClick={() => nudge(step)}
+        >
+          <ChevronUp className="size-3.5" />
         </button>
       </div>
     </div>

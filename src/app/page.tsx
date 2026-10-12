@@ -21,15 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-
-const STATUS_LABEL: Record<string, string> = {
-  planning: "Planning",
-  ready_for_approval: "Ready for Approval",
-  approved: "Approved",
-  in_progress: "In Progress",
-  completed: "Completed",
-  on_hold: "On Hold",
-};
+import { statusLabel } from "@/export/labels";
 
 export default function ProjectListPage() {
   const { role } = useRole();
@@ -142,12 +134,12 @@ export default function ProjectListPage() {
       )}
 
       {roleFilteredProjects === null || roleFilteredProjects.length > 0 ? (
-        <label className="flex w-fit items-center gap-2 text-sm text-muted-foreground">
+        <label className="flex w-fit items-center gap-2 text-xs text-muted-foreground">
           <input
             type="checkbox"
             checked={hideCompleted}
             onChange={(e) => setHideCompleted(e.target.checked)}
-            className="h-4 w-4 rounded border-input"
+            className="size-3.5 rounded border-input accent-foreground"
           />
           Hide completed
         </label>
@@ -179,8 +171,8 @@ export default function ProjectListPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
-              <TableHead>Name</TableHead>
+              <TableHead className="hidden sm:table-cell">Code</TableHead>
+              <TableHead className="sticky left-0 z-10 bg-muted sm:static">Name</TableHead>
               <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>End</TableHead>
@@ -196,17 +188,22 @@ export default function ProjectListPage() {
               );
               return (
                 <TableRow key={project.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{project.code}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden font-mono text-xs text-muted-foreground sm:table-cell">
+                    {project.code}
+                  </TableCell>
+                  {/* On phones the code folds under the name and the name stays in view while
+                      Type / Status / End scroll beside it. */}
+                  <TableCell className="sticky left-0 z-10 min-w-40 max-w-56 whitespace-normal bg-card sm:static sm:max-w-none">
                     <Link href={`/project?id=${project.id}`} className="font-medium hover:underline">
                       {project.name}
                     </Link>
+                    <span className="block font-mono text-xs text-muted-foreground sm:hidden">{project.code}</span>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{STATUS_LABEL[project.status] ?? project.status}</Badge>
+                    <Badge variant="secondary">{statusLabel(project.status)}</Badge>
                   </TableCell>
                   <TableCell>
                     {overdue ? (

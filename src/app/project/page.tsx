@@ -3,9 +3,12 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { getStorage } from "../_lib/storage";
 import { useRole } from "../_lib/RoleProvider";
 import { isViewerVisible } from "../_lib/demoViewer";
+import { isProjectOverdue, OVERDUE_TOOLTIP } from "../_lib/overdue";
+import { PERIODIZATION_LABEL, statusLabel } from "@/export/labels";
 import type { Project } from "@/engine/model";
 import type { StoredActualEntry } from "@/storage/types";
 import { Badge } from "@/components/ui/badge";
@@ -66,13 +69,16 @@ function ProjectPageContent() {
     setProject(next);
   }
 
-  async function commit(next: Project) {
+  /** Resolves `true` once the change is persisted; on failure the page-level alert shows why. */
+  async function commit(next: Project): Promise<boolean> {
     setProject(next);
     try {
       await getStorage().saveProject(next);
       setSaveError(null);
+      return true;
     } catch (err) {
       setSaveError(err instanceof Error ? err.message : "Failed to save changes");
+      return false;
     }
   }
 
@@ -105,23 +111,33 @@ function ProjectPageContent() {
   }
 
   const readOnly = role === "viewer";
+  const overdue = isProjectOverdue(project.status, project.periodization, project.endPeriod, new Date());
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-semibold tracking-tight">{project.name}</h1>
+      <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h1 className="text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{project.name}</h1>
             <span className="font-mono text-sm text-muted-foreground">{project.code}</span>
             <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
-            <Badge variant="secondary">{project.status}</Badge>
+            <Badge variant="secondary">{statusLabel(project.status)}</Badge>
+            {overdue && (
+              <span className="text-sm font-medium text-destructive" title={OVERDUE_TOOLTIP}>
+                Overdue · ended {project.endPeriod}
+              </span>
+            )}
           </div>
           <p className="text-sm text-muted-foreground">
-            {project.id} · {project.periodization} · {project.startPeriod}–{project.endPeriod} ·{" "}
+            {PERIODIZATION_LABEL[project.periodization]} · {project.startPeriod}–{project.endPeriod} ·{" "}
             {project.currency}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <nav aria-label="Project" className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" render={<Link href="/" />} nativeButton={false}>
+            <ArrowLeft aria-hidden className="size-4" />
+            Back to projects
+          </Button>
           {!readOnly && (
             <Button
               variant="outline"
@@ -132,10 +148,7 @@ function ProjectPageContent() {
               Edit
             </Button>
           )}
-          <Link href="/" className="text-sm underline">
-            Back to projects
-          </Link>
-        </div>
+        </nav>
       </div>
 
       {saveError && (
@@ -172,7 +185,7 @@ function ProjectPageContent() {
             project={project}
             actuals={actuals}
             onActualsChanged={() => void reloadActuals(project.id)}
-            onProjectChanged={(next) => void commit(next)}
+            onProjectChanged={commit}
             readOnly={readOnly}
           />
         </TabsContent>

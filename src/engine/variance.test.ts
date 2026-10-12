@@ -136,4 +136,16 @@ describe("computeVariance — edge cases", () => {
     expect(itSystems.contingencyConsumedPct).toBe(0);
     expect(itSystems.flag).toBe("ok");
   });
+
+  it("revenue actuals are not a cost category: no revenue row, no effect on the total", () => {
+    const withRevenue = computeVariance(zeroContingencyProject, [
+      { period: "2026-01", category: "it_systems", amount: 10000, description: "license invoice", source: "csv" },
+      { period: "2026-01", category: "revenue", amount: 50000, description: "customer invoice", source: "csv" },
+    ], bands);
+    const withoutRevenue = computeVariance(zeroContingencyProject, [
+      { period: "2026-01", category: "it_systems", amount: 10000, description: "license invoice", source: "csv" },
+    ], bands);
+    expect(withRevenue.byCategory.revenue).toBeUndefined();
+    expect(withRevenue.total).toEqual(withoutRevenue.total);
+  });
 });

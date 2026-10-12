@@ -7,6 +7,7 @@ import { computeBlendedTotals } from "@/engine/blended";
 import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, ConfidenceBands, Project } from "@/engine/model";
 import { formatChartCurrency, renderBandChartSvg, renderCumulativeChartSvg } from "./charts";
+import { statusLabel } from "./labels";
 
 export interface BusinessCaseInput {
   project: Project;
@@ -27,15 +28,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   it_systems: "IT Systems",
   travel: "Travel",
   other_direct: "Other Direct Costs",
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  planning: "Planning",
-  ready_for_approval: "Ready for Approval",
-  approved: "Approved",
-  in_progress: "In Progress",
-  completed: "Completed",
-  on_hold: "On Hold",
 };
 
 function escapeHtml(text: string): string {
@@ -76,7 +68,7 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   <div>
     <h1>${escapeHtml(project.name)} <span class="code">${escapeHtml(project.code)}</span></h1>
     <p class="meta">
-      ${STATUS_LABEL[project.status] ?? project.status} · ${escapeHtml(project.id)} ·
+      ${statusLabel(project.status)} · ${escapeHtml(project.id)} ·
       ${escapeHtml(project.periodization)} · ${escapeHtml(project.startPeriod)}–${escapeHtml(project.endPeriod)} ·
       ${escapeHtml(project.currency)} (${project.displayUnits === "thousands" ? "thousands" : "whole units"})
     </p>

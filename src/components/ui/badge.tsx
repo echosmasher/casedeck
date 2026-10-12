@@ -22,11 +22,11 @@ const badgeVariants = cva(
         // DESIGN.md Status Pill Tags — deterministic status communication only
         // (variance delta, run-rate alerts, confidence thresholds).
         "status-good":
-          "border-[var(--viz-good-border)] bg-[var(--viz-good-bg)] text-[var(--viz-good)]",
+          "border-[var(--viz-good-border)] bg-[var(--viz-good-bg)] text-[var(--viz-good-ink)]",
         "status-warning":
-          "border-[var(--viz-warning-border)] bg-[var(--viz-warning-bg)] text-[var(--viz-warning)]",
+          "border-[var(--viz-warning-border)] bg-[var(--viz-warning-bg)] text-[var(--viz-warning-ink)]",
         "status-critical":
-          "border-[var(--viz-critical-border)] bg-[var(--viz-critical-bg)] text-[var(--viz-critical)]",
+          "border-[var(--viz-critical-border)] bg-[var(--viz-critical-bg)] text-[var(--viz-critical-ink)]",
       },
     },
     defaultVariants: {
