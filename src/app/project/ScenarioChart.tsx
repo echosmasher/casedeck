@@ -140,7 +140,8 @@ export function ScenarioChart({
                 tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
                 tickLine={false}
                 axisLine={{ stroke: "var(--viz-baseline)" }}
-                interval="preserveStartEnd"
+                // A short project labels every period; a long one keeps the ends and thins the rest.
+                interval={periods.length <= 4 ? 0 : "preserveStartEnd"}
                 minTickGap={24}
               />
               <YAxis

@@ -5,7 +5,7 @@ import { TriangleAlert, CircleCheck, Trash2 } from "lucide-react";
 import { getStorage } from "../_lib/storage";
 import { activeConfig } from "../_lib/activeConfig";
 import { mergeMapping } from "../_lib/categoryMapping";
-import { formatCurrency } from "../_lib/format";
+import { formatAmount, formatCurrency } from "../_lib/format";
 import { isFuturePeriod } from "../_lib/overdue";
 import { appToday } from "../_lib/today";
 import { parseActualsFile, type ActualsImportResult } from "@/import/actuals";
@@ -274,8 +274,8 @@ function ClosedPeriodsCard({
             <TableRow>
               <TableHead>Period</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Actual cost</TableHead>
-              <TableHead>Actual revenue</TableHead>
+              <TableHead>Cost actuals</TableHead>
+              {isCustomer && <TableHead>Revenue actuals</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -296,8 +296,8 @@ function ClosedPeriodsCard({
                       "Open"
                     )}
                   </TableCell>
-                  <TableCell>{hasCost ? "Yes" : "No"}</TableCell>
-                  <TableCell>{hasRevenue ? "Yes" : "No"}</TableCell>
+                  <RecordedCell recorded={hasCost} />
+                  {isCustomer && <RecordedCell recorded={hasRevenue} />}
                 </TableRow>
               );
             })}
@@ -306,6 +306,11 @@ function ClosedPeriodsCard({
       </CardContent>
     </Card>
   );
+}
+
+/** "Recorded", or a muted "None" so the gaps stand out down the column. */
+function RecordedCell({ recorded }: { recorded: boolean }) {
+  return <TableCell className={recorded ? undefined : "text-muted-foreground"}>{recorded ? "Recorded" : "None"}</TableCell>;
 }
 
 function summaryFor(actuals: StoredActualEntry[], period: string) {
@@ -757,7 +762,7 @@ function RecordedActualsCard({
               <TableRow>
                 <TableHead>Period</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right max-sm:whitespace-normal">Amount ({project.currency})</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>
@@ -771,7 +776,7 @@ function RecordedActualsCard({
                   <TableCell>{entry.period}</TableCell>
                   <TableCell>{CATEGORY_LABEL[entry.category] ?? entry.category}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(entry.amount, project.currency, "whole")}
+                    {formatAmount(entry.amount, "whole")}
                   </TableCell>
                   <TableCell className="min-w-48 whitespace-normal text-muted-foreground">{entry.description}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">

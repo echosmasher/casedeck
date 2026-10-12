@@ -189,9 +189,12 @@ export function Headline({
 }
 
 /** Period keys ("2026-05") contain a hyphen browsers will break at; swap in a non-breaking
- * hyphen for display so a narrow line wraps between periods, never inside one. */
+ * hyphen, and hold a span ("2026-05–2026-08") together with word joiners around its dash, so a
+ * narrow line wraps before a period or span, never inside one. */
 function keepPeriodsWhole(text: string) {
-  return text.replace(/(\d{4})-(\d{2}|Q[1-4])/g, "$1\u2011$2");
+  return text
+    .replace(/(\d{4})-(\d{2}|Q[1-4])/g, "$1\u2011$2")
+    .replace(/(\d{2}|Q[1-4])–(\d{4})/g, "$1\u2060–\u2060$2");
 }
 
 function rangeNote(value: ScenarioValue, currency: string, units: Project["displayUnits"]) {

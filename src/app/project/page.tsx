@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { getStorage } from "../_lib/storage";
 import { useRole } from "../_lib/RoleProvider";
 import { isViewerVisible } from "../_lib/demoViewer";
-import { isProjectOverdue, OVERDUE_TOOLTIP } from "../_lib/overdue";
+import { isProjectOverdue, OVERDUE_HINT } from "../_lib/overdue";
 import { appToday } from "../_lib/today";
 import { PERIODIZATION_LABEL, statusLabel } from "@/export/labels";
 import type { Project } from "@/engine/model";
@@ -126,15 +126,17 @@ function ProjectPageContent() {
             <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
             <Badge variant="secondary">{statusLabel(project.status)}</Badge>
             {overdue && (
-              <span className="text-sm font-medium text-destructive" title={OVERDUE_TOOLTIP}>
-                Overdue · ended {project.endPeriod}
-              </span>
+              <span className="text-sm font-medium text-destructive">Overdue · ended {project.endPeriod}</span>
             )}
           </div>
           <p className="text-sm text-muted-foreground">
             {PERIODIZATION_LABEL[project.periodization]} · {project.startPeriod}–{project.endPeriod} ·{" "}
             {project.currency}
           </p>
+          {overdue && !readOnly && (
+            // Said on the page, not in a hover-only title, so touch and keyboard users get it too.
+            <p className="mt-1 text-sm">{OVERDUE_HINT}</p>
+          )}
         </div>
         <nav aria-label="Project" className="flex items-center gap-1">
           <Button variant="ghost" size="sm" render={<Link href="/" />} nativeButton={false}>
