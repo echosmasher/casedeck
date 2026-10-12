@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
-import { computeBlendedTotals } from "@/engine/blended";
+import { computeBlendedTotals, REVENUE_CATEGORY } from "@/engine/blended";
 import { computeHeadline } from "@/engine/headline";
 import { computeSpreadDrivers } from "@/engine/spread";
 import type { ActualEntry, Project } from "@/engine/model";
@@ -41,6 +41,12 @@ export function Dashboard({
   const endedOpenPeriods = blended.periods.filter(
     (p) => !project.closedPeriods.includes(p) && hasPeriodEnded(project.periodization, p, today),
   );
+  // Nothing left uncertain: the charts plot actual against budget rather than three stacked lines.
+  const settled = headline.stage === "finished" && spread.total === 0;
+  // The running total tells a finished project's story, and revenue that lands in one period makes
+  // the per-period view a trough and a spike rather than a trend.
+  const lumpyRevenue = project.pricingModel?.type === "fixed" && project.pricingModel.allocation.type === "at_period";
+  const trendDefault: TrendView = headline.stage === "finished" || lumpyRevenue ? "cumulative" : "period";
   // Charts follow the headline's measure: an internal project plots cost, never margin.
   const isCost = headline.measure === "cost";
   const chartByPeriod = isCost ? blended.costByPeriod : blended.marginByPeriod;
@@ -75,12 +81,15 @@ export function Dashboard({
         spread={spread}
         bands={config.confidenceBands}
         endedOpenPeriods={endedOpenPeriods}
+        hasRevenueActuals={actuals.some((a) => a.category === REVENUE_CATEGORY)}
         onOpenActuals={onOpenActuals}
       />
 
       <VarianceSection project={project} actuals={actuals} scenarios={scenarios} />
 
       <TrendChart
+        defaultView={trendDefault}
+        settled={settled}
         measure={headline.measure}
         budgetTotal={headline.budget}
         periods={blended.periods}
@@ -97,8 +106,12 @@ type TrendView = "period" | "cumulative";
 
 /** One chart card for the trend, switching between per-period and cumulative views — the two used
  * to sit stacked as near-identical cards (QA-ROUND-3-PLAN.md Phase 4). */
-function TrendChart({ budgetTotal, ...props }: Omit<React.ComponentProps<typeof CumulativeChart>, "action">) {
-  const [view, setView] = useState<TrendView>("period");
+function TrendChart({
+  budgetTotal,
+  defaultView,
+  ...props
+}: Omit<React.ComponentProps<typeof CumulativeChart>, "action"> & { defaultView: TrendView }) {
+  const [view, setView] = useState<TrendView>(defaultView);
   // The toggle lives in the chart's header, so switching remounts it; put focus back on the
   // pressed option instead of letting it fall to <body>.
   const buttons = useRef(new Map<TrendView, HTMLButtonElement>());

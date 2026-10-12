@@ -74,6 +74,8 @@ export function VarianceSection({
   }
 
   const hasVariance = variance !== null;
+  // Every period closed: the projection is just the actual, so the table reports the outcome.
+  const complete = hasVariance && scenarios.periods.every((p) => project.closedPeriods.includes(p));
 
   return (
     <Card id={VARIANCE_SECTION_ID} className="scroll-mt-4">
@@ -82,7 +84,9 @@ export function VarianceSection({
           <h2>{hasVariance ? "Budget vs. actual" : "Cost by category"}</h2>
         </CardTitle>
         <CardDescription>
-          {hasVariance
+          {complete
+            ? "Each category's actual cost against its budget and worst-case ceiling. Expand a category for its lines."
+            : hasVariance
             ? "Projection to complete is the actuals so far plus the budget for the remaining periods, checked against each category's worst-case ceiling. Expand a category for its lines."
             : "Budgeted total per category, with its best and worst case. Expand a category for its lines."}
         </CardDescription>
@@ -113,7 +117,7 @@ export function VarianceSection({
                       {row.variance && <FlagBadge row={row.variance} />}
                     </div>
                     <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
-                      <Figures variance={row.variance} budget={row.budget} money={money} />
+                      <Figures variance={row.variance} budget={row.budget} money={money} complete={complete} />
                     </dl>
                     {open && (
                       <ul id={listId} className="mt-2 flex flex-col gap-1.5 border-l pl-3">
@@ -139,7 +143,7 @@ export function VarianceSection({
                   )}
                 </div>
                 <dl className="mt-2 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
-                  <Figures variance={variance?.total ?? null} budget={scenarios.totals.cost} money={money} />
+                  <Figures variance={variance?.total ?? null} budget={scenarios.totals.cost} money={money} complete={complete} />
                 </dl>
               </li>
             </ul>
@@ -151,8 +155,8 @@ export function VarianceSection({
                   {hasVariance ? (
                     <>
                       <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actual to date</TableHead>
-                      <TableHead className="text-right">Projection to complete</TableHead>
+                      <TableHead className="text-right">{complete ? "Actual" : "Actual to date"}</TableHead>
+                      {!complete && <TableHead className="text-right">Projection to complete</TableHead>}
                     </>
                   ) : (
                     <TableHead className="text-right">Best case</TableHead>
@@ -182,13 +186,20 @@ export function VarianceSection({
                           <TableCell>
                             <FlagBadge row={row.variance} />
                           </TableCell>
-                          <TableCell className="text-right tabular-nums">{money(row.variance.actualToDate)}</TableCell>
                           <TableCell
                             className="text-right tabular-nums"
-                            style={{ color: row.variance.flag === "ok" ? undefined : FLAG_META[row.variance.flag].ink }}
+                            style={{ color: complete && row.variance.flag !== "ok" ? FLAG_META[row.variance.flag].ink : undefined }}
                           >
-                            {money(row.variance.projectionToComplete)}
+                            {money(row.variance.actualToDate)}
                           </TableCell>
+                          {!complete && (
+                            <TableCell
+                              className="text-right tabular-nums"
+                              style={{ color: row.variance.flag === "ok" ? undefined : FLAG_META[row.variance.flag].ink }}
+                            >
+                              {money(row.variance.projectionToComplete)}
+                            </TableCell>
+                          )}
                         </>
                       ) : (
                         <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -212,7 +223,7 @@ export function VarianceSection({
                             <>
                               <TableCell />
                               <TableCell />
-                              <TableCell />
+                              {!complete && <TableCell />}
                             </>
                           ) : (
                             <TableCell className="text-right tabular-nums text-muted-foreground">
@@ -241,9 +252,11 @@ export function VarianceSection({
                       <TableCell className="text-right tabular-nums font-semibold">
                         {money(variance.total.actualToDate)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums font-semibold">
-                        {money(variance.total.projectionToComplete)}
-                      </TableCell>
+                      {!complete && (
+                        <TableCell className="text-right tabular-nums font-semibold">
+                          {money(variance.total.projectionToComplete)}
+                        </TableCell>
+                      )}
                     </>
                   ) : (
                     <TableCell className="text-right tabular-nums font-semibold text-muted-foreground">
@@ -319,22 +332,31 @@ function Figures({
   variance,
   budget,
   money,
+  complete,
 }: {
   variance: CategoryVariance | null;
   budget: ScenarioValue;
   money: (v: number) => string;
+  /** Every period closed: show the actual alone, with no projection beside it. */
+  complete: boolean;
 }) {
   const flagged = variance && variance.category !== "__total__" && variance.flag !== "ok";
   return (
     <>
       {variance ? (
         <>
-          <dt className="text-muted-foreground">Actual to date</dt>
-          <dd className="text-right">{money(variance.actualToDate)}</dd>
-          <dt className="text-muted-foreground">Projection to complete</dt>
-          <dd className="text-right" style={{ color: flagged ? FLAG_META[variance.flag].ink : undefined }}>
-            {money(variance.projectionToComplete)}
+          <dt className="text-muted-foreground">{complete ? "Actual" : "Actual to date"}</dt>
+          <dd className="text-right" style={{ color: complete && flagged ? FLAG_META[variance.flag].ink : undefined }}>
+            {money(variance.actualToDate)}
           </dd>
+          {!complete && (
+            <>
+              <dt className="text-muted-foreground">Projection to complete</dt>
+              <dd className="text-right" style={{ color: flagged ? FLAG_META[variance.flag].ink : undefined }}>
+                {money(variance.projectionToComplete)}
+              </dd>
+            </>
+          )}
         </>
       ) : (
         <>

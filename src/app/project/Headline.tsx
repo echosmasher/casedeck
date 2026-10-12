@@ -20,6 +20,7 @@ export function Headline({
   spread,
   bands,
   endedOpenPeriods,
+  hasRevenueActuals,
   onOpenActuals,
 }: {
   project: Project;
@@ -28,12 +29,15 @@ export function Headline({
   spread: SpreadDrivers;
   bands: ConfidenceBands;
   endedOpenPeriods: PeriodKey[];
+  /** Whether any revenue actuals were recorded; without them revenue counts as planned. */
+  hasRevenueActuals: boolean;
   onOpenActuals: () => void;
 }) {
   const { currency, displayUnits } = project;
   const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
   const copy = headlineCopy(headline, currency, displayUnits, categoryLabel, endedOpenPeriods);
   const driver = spreadCopy(spread, bands, displayUnits, categoryLabel);
+  const finished = headline.stage === "finished";
   // Nothing closed means nothing has been measured yet, so "On track" would be a claim without
   // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
   const flag = headline.stage === "not_started" ? NOT_STARTED_META : FLAG_META[headline.status];
@@ -118,7 +122,24 @@ export function Headline({
       )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        {project.type === "customer" ? (
+        {project.type === "customer" && finished ? (
+          // A finished project reports its outcome: what came in, what it cost, what it made.
+          <>
+            <Tile label="Revenue" value={formatCurrency(totals.revenue.expected, currency, displayUnits)}>
+              {hasRevenueActuals ? "Recorded revenue" : "As planned; no revenue actuals recorded"}
+            </Tile>
+            <Tile label="Cost" value={formatCurrency(totals.cost.expected, currency, displayUnits)}>
+              Recorded cost, every period closed
+            </Tile>
+            <Tile
+              label={headline.value.expected < 0 ? "Final loss" : "Final margin"}
+              value={formatCurrency(Math.abs(headline.value.expected), currency, displayUnits)}
+              negative={headline.value.expected < 0 || headline.gapFlagged}
+            >
+              {finalMarginNote(headline, currency, displayUnits)}
+            </Tile>
+          </>
+        ) : project.type === "customer" ? (
           <>
             <Tile label="Revenue" value={formatCurrency(totals.revenue.expected, currency, displayUnits)}>
               {rangeNote(totals.revenue, currency, displayUnits)}
@@ -133,10 +154,10 @@ export function Headline({
         ) : (
           <>
             <Tile
-              label="Spent to date"
+              label={finished ? "Final cost" : "Spent to date"}
               value={formatCurrency(headline.costActualToDate, currency, displayUnits)}
             >
-              {spentToDateNote(headline, currency, displayUnits)}
+              {finished ? "Recorded cost, every period closed" : spentToDateNote(headline, currency, displayUnits)}
             </Tile>
             <Tile label="Budget" value={formatCurrency(headline.budget, currency, displayUnits)}>
               Planned total cost
@@ -174,6 +195,13 @@ function spentToDateNote(h: HeadlineSummary, currency: string, units: Project["d
   const amount = formatCurrency(Math.abs(diff), currency, units);
   if (formatCompactAmount(Math.abs(diff), units) === "0") return "On plan for the periods recorded";
   return `${amount} ${diff > 0 ? "over" : "under"} plan for the periods recorded`;
+}
+
+function finalMarginNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
+  const budget = formatCurrency(h.budget, currency, units);
+  if (formatCompactAmount(Math.abs(h.deltaVsBudget), units) === "0") return `Matches the ${budget} budget`;
+  const amount = formatCurrency(Math.abs(h.deltaVsBudget), currency, units);
+  return `${amount} ${h.deltaVsBudget < 0 ? "below" : "above"} the ${budget} budget`;
 }
 
 function budgetedMarginNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {

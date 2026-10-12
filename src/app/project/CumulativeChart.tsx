@@ -37,6 +37,7 @@ export function CumulativeChart({
   currency,
   displayUnits,
   action,
+  settled = false,
 }: {
   /** Margin for a customer project; cost for an internal one, drawn against its total budget. */
   measure: HeadlineMeasure;
@@ -50,6 +51,9 @@ export function CumulativeChart({
   displayUnits: DisplayUnits;
   /** Rendered at the top right of the header — the dashboard's per-period/cumulative toggle. */
   action?: React.ReactNode;
+  /** Every period closed with no range left: plot the actual against the budget, with no
+   * scenario lines that would all sit on top of it. */
+  settled?: boolean;
 }) {
   const { boundary, budgetedByPeriod } = actualsOverlay;
   const data = periods.reduce<
@@ -123,10 +127,17 @@ export function CumulativeChart({
       <CardContent>
         <ChartLegend
           rows={[
-            { key: "worst", label: "Worst case", color: "var(--viz-red)" },
-            { key: "expected", label: "Expected", color: "var(--viz-text-primary)" },
-            { key: "best", label: "Best case", color: "var(--viz-blue)" },
-            ...actualsLegendRows(boundary),
+            ...(settled
+              ? [
+                  { key: "expected", label: "Actual", color: "var(--viz-text-primary)" },
+                  { key: "budgeted", label: "Budgeted", color: "var(--viz-text-secondary)", swatch: "dashed" as const },
+                ]
+              : [
+                  { key: "worst", label: "Worst case", color: "var(--viz-red)" },
+                  { key: "expected", label: "Expected", color: "var(--viz-text-primary)" },
+                  { key: "best", label: "Best case", color: "var(--viz-blue)" },
+                  ...actualsLegendRows(boundary),
+                ]),
             ...(isCost ? [{ key: "budget", label: "Total budget", color: "var(--viz-text-primary)", swatch: "dashed" as const }] : []),
           ]}
         />
@@ -169,7 +180,8 @@ export function CumulativeChart({
                   style: { fill: "var(--viz-text-secondary)", fontSize: 12, textAnchor: "middle" },
                 }}
               />
-              <ActualsBoundaryOverlay boundary={boundary} />
+              {/* Shading every period as "actual" would mark nothing. */}
+              {!settled && <ActualsBoundaryOverlay boundary={boundary} />}
               {isCost ? (
                 <ReferenceLine
                   y={budgetTotal}
@@ -195,9 +207,14 @@ export function CumulativeChart({
                     label={label}
                     currency={currency}
                     displayUnits={displayUnits}
-                    status={tooltipStatus(boundary, label)}
+                    status={settled ? undefined : tooltipStatus(boundary, label)}
                     rows={
-                      payload
+                      payload && settled
+                        ? [
+                            { key: "expected", label: "Actual", color: "var(--viz-text-primary)", value: Number(payload.find((p) => p.dataKey === "expected")?.value ?? 0) },
+                            { key: "budgeted", label: "Budgeted", color: "var(--viz-text-secondary)", value: Number(payload.find((p) => p.dataKey === "budgeted")?.value ?? 0) },
+                          ]
+                        : payload
                         ? [
                             { key: "best", label: "Best case", color: "var(--viz-blue)", value: Number(payload.find((p) => p.dataKey === "best")?.value ?? 0) },
                             { key: "expected", label: "Expected", color: "var(--viz-text-primary)", value: Number(payload.find((p) => p.dataKey === "expected")?.value ?? 0) },
@@ -208,45 +225,53 @@ export function CumulativeChart({
                   />
                 )}
               />
-              <Area
-                dataKey="bandLow"
-                stackId="band"
-                stroke="none"
-                fill="transparent"
-                isAnimationActive={false}
-                legendType="none"
-              />
-              <Area
-                dataKey="bandHeight"
-                stackId="band"
-                stroke="none"
-                fill="var(--viz-blue)"
-                fillOpacity={0.1}
-                isAnimationActive={false}
-                legendType="none"
-              />
-              <Line
-                dataKey="worst"
-                stroke="var(--viz-red)"
-                strokeWidth={2}
-                dot={false}
-                label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, isCost ? "above" : "below", collapsedAtEnd)}
-                isAnimationActive={false}
-              />
-              <Line
-                dataKey="best"
-                stroke="var(--viz-blue)"
-                strokeWidth={2}
-                dot={false}
-                label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, isCost ? "below" : "above", collapsedAtEnd)}
-                isAnimationActive={false}
-              />
+              {!settled && (
+                <Area
+                  dataKey="bandLow"
+                  stackId="band"
+                  stroke="none"
+                  fill="transparent"
+                  isAnimationActive={false}
+                  legendType="none"
+                />
+              )}
+              {!settled && (
+                <Area
+                  dataKey="bandHeight"
+                  stackId="band"
+                  stroke="none"
+                  fill="var(--viz-blue)"
+                  fillOpacity={0.1}
+                  isAnimationActive={false}
+                  legendType="none"
+                />
+              )}
+              {!settled && (
+                <Line
+                  dataKey="worst"
+                  stroke="var(--viz-red)"
+                  strokeWidth={2}
+                  dot={false}
+                  label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, isCost ? "above" : "below", collapsedAtEnd)}
+                  isAnimationActive={false}
+                />
+              )}
+              {!settled && (
+                <Line
+                  dataKey="best"
+                  stroke="var(--viz-blue)"
+                  strokeWidth={2}
+                  dot={false}
+                  label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, isCost ? "below" : "above", collapsedAtEnd)}
+                  isAnimationActive={false}
+                />
+              )}
               <Line
                 dataKey="expected"
                 stroke="var(--viz-text-primary)"
                 strokeWidth={2}
                 dot={{ r: 4, fill: "var(--viz-text-primary)", stroke: "var(--viz-surface)", strokeWidth: 2 }}
-                label={endLabel("Expected", "var(--viz-text-primary)", lastIndex, "middle")}
+                label={endLabel(settled ? "Actual" : "Expected", "var(--viz-text-primary)", lastIndex, "middle")}
                 isAnimationActive={false}
               />
               <BudgetedLine />
@@ -254,15 +279,19 @@ export function CumulativeChart({
           </ResponsiveContainer>
         </div>
         <ChartDataTable
-          caption={`Cumulative ${measure} by period: worst, expected, and best case`}
+          caption={`Cumulative ${measure} by period: ${settled ? "actual and budgeted" : "worst, expected, and best case"}`}
           periods={periods}
           currency={currency}
           displayUnits={displayUnits}
           actualPeriods={boundary.closedSet}
           rows={[
-            { key: "worst", label: "Worst case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].worst])) },
-            { key: "expected", label: "Expected", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].expected])) },
-            { key: "best", label: "Best case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].best])) },
+            ...(settled
+              ? [{ key: "expected", label: "Actual", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].expected])) }]
+              : [
+                  { key: "worst", label: "Worst case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].worst])) },
+                  { key: "expected", label: "Expected", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].expected])) },
+                  { key: "best", label: "Best case", valueByPeriod: Object.fromEntries(periods.map((p) => [p, cumulative[p].best])) },
+                ]),
             ...(boundary.closedSet.size > 0 || isCost
               ? [
                   {

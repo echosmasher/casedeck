@@ -71,7 +71,11 @@ export function chartSummary(
 ): string {
   if (periods.length === 0 || !last) return `${title}: no periods.`;
   const span = periods.length === 1 ? periods[0] : `${periods[0]} to ${periods.at(-1)}`;
-  const actuals = boundary.lastClosed ? ` Actuals through ${boundary.lastClosed}, forecast after.` : "";
+  const actuals = !boundary.lastClosed
+    ? ""
+    : boundary.firstOpenAfterClose
+      ? ` Actuals through ${boundary.lastClosed}, forecast after.`
+      : " Every period is actual.";
   const values =
     last.worst === last.best
       ? `${format(last.expected)}`
