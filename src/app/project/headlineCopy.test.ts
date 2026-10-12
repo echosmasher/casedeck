@@ -135,7 +135,8 @@ describe("headlineCopy", () => {
 
   it("001 with the best case still over budget says so in the reason", () => {
     const copy = headlineCopy({ ...base, bestCaseOverBudget: true }, "NOK", "whole", label);
-    expect(copy.reason).toBe("Consultancy is past its worst-case ceiling. Even the best case is over budget.");
+    expect(copy.reason).toBe("Consultancy is past its worst-case ceiling.");
+    expect(copy.reasonNote).toBe("Even the best case is over budget.");
   });
 
   it("a finished internal project, and a finished loss", () => {

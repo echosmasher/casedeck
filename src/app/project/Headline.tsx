@@ -6,6 +6,7 @@ import type { Project, ScenarioValue } from "@/engine/model";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
 import { headlineCopy } from "./headlineCopy";
 import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
+import { revealVarianceRow, VARIANCE_SECTION_ID } from "./VarianceSection";
 
 /** The dashboard's lead: status and its reason, a one-sentence verdict, the scenario band as a
  * strip, and where the numbers come from — then the supporting tiles
@@ -32,7 +33,23 @@ export function Headline({
         <Badge variant={flag.variant} dot={flag.variant !== "outline"}>
           {flag.label}
         </Badge>
-        <span>{copy.reason}</span>
+        <span>
+          {headline.driver ? (
+            // The evidence for the status: jump to the driving category's row in Budget vs. actual.
+            <a
+              href={`#${VARIANCE_SECTION_ID}`}
+              className="underline decoration-[var(--viz-text-muted)] underline-offset-[3px] hover:decoration-current"
+              onClick={(e) => {
+                if (headline.driver && revealVarianceRow(headline.driver)) e.preventDefault();
+              }}
+            >
+              {copy.reason}
+            </a>
+          ) : (
+            copy.reason
+          )}
+          {copy.reasonNote && ` ${copy.reasonNote}`}
+        </span>
       </p>
       <h2 id="dashboard-verdict" className="mt-3 max-w-[26ch] text-display-verdict tabular-nums">
         {copy.verdict.map((segment, i) =>

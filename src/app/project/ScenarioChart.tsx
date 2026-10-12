@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCompactChartNumber, formatCurrency } from "../_lib/format";
 import { ChartDataTable, ChartLegend, ChartTooltip } from "./ScenarioTooltip";
 import {
@@ -45,6 +45,7 @@ export function ScenarioChart({
   actualsOverlay,
   currency,
   displayUnits,
+  action,
 }: {
   /** What the headline leads with: margin for a customer project, cost for an internal one (no
    * revenue by design, so a margin chart would only plot its costs as an ever-deeper "loss"). */
@@ -55,6 +56,8 @@ export function ScenarioChart({
   actualsOverlay: ActualsOverlay;
   currency: string;
   displayUnits: DisplayUnits;
+  /** Rendered at the top right of the header — the dashboard's per-period/cumulative toggle. */
+  action?: React.ReactNode;
 }) {
   const { boundary, budgetedByPeriod } = actualsOverlay;
   const data: ChartRow[] = periods.map((period) => {
@@ -77,7 +80,13 @@ export function ScenarioChart({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="max-sm:grid-cols-1!">
+        {/* Below `sm` the toggle drops under the description so it doesn't squeeze the title. */}
+        {action && (
+          <CardAction className="col-start-1 row-span-1 row-start-3 mt-2 justify-self-start sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:justify-self-end">
+            {action}
+          </CardAction>
+        )}
         <CardTitle>Scenario bands — {measure} by period</CardTitle>
         <CardDescription>
           The confidence-weighted range for each period&apos;s {measure}, given every line

@@ -14,8 +14,10 @@ export interface VerdictSegment {
 }
 
 export interface HeadlineCopy {
-  /** One plain reason beside the status pill. */
+  /** One plain reason beside the status pill; links to the driving category's row when there is one. */
   reason: string;
+  /** A second sentence after the reason, e.g. that even the best case is over budget. */
+  reasonNote: string | null;
   verdict: VerdictSegment[];
   /** Where the numbers come from: actuals vs. projections, plus the cost range when the verdict
    * sentence doesn't already carry it. */
@@ -84,9 +86,11 @@ export function headlineCopy(
   } else {
     reason = "Every category is within its range.";
   }
-  if (h.bestCaseOverBudget) {
-    reason += h.measure === "cost" ? " Even the best case is over budget." : " Even the best case is below budget.";
-  }
+  const reasonNote = !h.bestCaseOverBudget
+    ? null
+    : h.measure === "cost"
+      ? "Even the best case is over budget."
+      : "Even the best case is below budget.";
 
   let verdict: VerdictSegment[];
   const expected = `${formatCompactAmount(Math.abs(h.value.expected), units)}${NBSP}${currency}`;
@@ -121,5 +125,5 @@ export function headlineCopy(
     source += ` · range ${formatRange(low, high, currency, units)}`;
   }
 
-  return { reason, verdict, source };
+  return { reason, reasonNote, verdict, source };
 }

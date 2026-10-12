@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
@@ -8,7 +9,6 @@ import { computeHeadline } from "@/engine/headline";
 import type { ActualEntry, Project } from "@/engine/model";
 import { ScenarioChart } from "./ScenarioChart";
 import { CumulativeChart } from "./CumulativeChart";
-import { CategoryBreakdown } from "./CategoryBreakdown";
 import { VarianceSection } from "./VarianceSection";
 import { Headline } from "./Headline";
 import { computeActualsBoundary } from "./actualsBoundary";
@@ -57,16 +57,9 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
         totals={blended.totals}
       />
 
-      <ScenarioChart
-        measure={headline.measure}
-        periods={blended.periods}
-        byPeriod={chartByPeriod}
-        actualsOverlay={actualsOverlay}
-        currency={currency}
-        displayUnits={displayUnits}
-      />
+      <VarianceSection project={project} actuals={actuals} scenarios={scenarios} />
 
-      <CumulativeChart
+      <TrendChart
         measure={headline.measure}
         budgetTotal={headline.budget}
         periods={blended.periods}
@@ -75,10 +68,73 @@ export function Dashboard({ project, actuals }: { project: Project; actuals: Act
         currency={currency}
         displayUnits={displayUnits}
       />
+    </div>
+  );
+}
 
-      <VarianceSection project={project} actuals={actuals} />
+type TrendView = "period" | "cumulative";
 
-      <CategoryBreakdown project={project} scenarios={scenarios} />
+/** One chart card for the trend, switching between per-period and cumulative views — the two used
+ * to sit stacked as near-identical cards (QA-ROUND-3-PLAN.md Phase 4). */
+function TrendChart({ budgetTotal, ...props }: Omit<React.ComponentProps<typeof CumulativeChart>, "action">) {
+  const [view, setView] = useState<TrendView>("period");
+  // The toggle lives in the chart's header, so switching remounts it; put focus back on the
+  // pressed option instead of letting it fall to <body>.
+  const buttons = useRef(new Map<TrendView, HTMLButtonElement>());
+  const refocus = useRef(false);
+  useEffect(() => {
+    if (!refocus.current) return;
+    refocus.current = false;
+    buttons.current.get(view)?.focus();
+  }, [view]);
+
+  const toggle = (
+    <TrendToggle
+      view={view}
+      buttons={buttons}
+      onChange={(next) => {
+        refocus.current = true;
+        setView(next);
+      }}
+    />
+  );
+  return view === "cumulative" ? (
+    <CumulativeChart {...props} budgetTotal={budgetTotal} action={toggle} />
+  ) : (
+    <ScenarioChart {...props} action={toggle} />
+  );
+}
+
+function TrendToggle({
+  view,
+  buttons,
+  onChange,
+}: {
+  view: TrendView;
+  buttons: React.RefObject<Map<TrendView, HTMLButtonElement>>;
+  onChange: (next: TrendView) => void;
+}) {
+  const options: { value: TrendView; label: string }[] = [
+    { value: "period", label: "Per period" },
+    { value: "cumulative", label: "Cumulative" },
+  ];
+  return (
+    <div role="group" aria-label="Chart view" className="inline-flex h-8 items-center rounded-[0.375rem] border border-border bg-muted p-1">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          ref={(el) => {
+            if (el) buttons.current.set(option.value, el);
+            else buttons.current.delete(option.value);
+          }}
+          type="button"
+          aria-pressed={view === option.value}
+          onClick={() => onChange(option.value)}
+          className="inline-flex h-full items-center rounded-[0.25rem] border border-transparent px-2 text-sm font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-pressed:border-border aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm"
+        >
+          {option.label}
+        </button>
+      ))}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCompactAmount, formatCompactChartNumber, formatCurrency } from "../_lib/format";
 import { ChartDataTable, ChartLegend, ChartTooltip } from "./ScenarioTooltip";
 import {
@@ -36,6 +36,7 @@ export function CumulativeChart({
   actualsOverlay,
   currency,
   displayUnits,
+  action,
 }: {
   /** Margin for a customer project; cost for an internal one, drawn against its total budget. */
   measure: HeadlineMeasure;
@@ -47,6 +48,8 @@ export function CumulativeChart({
   actualsOverlay: ActualsOverlay;
   currency: string;
   displayUnits: DisplayUnits;
+  /** Rendered at the top right of the header — the dashboard's per-period/cumulative toggle. */
+  action?: React.ReactNode;
 }) {
   const { boundary, budgetedByPeriod } = actualsOverlay;
   const data = periods.reduce<
@@ -93,7 +96,13 @@ export function CumulativeChart({
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="max-sm:grid-cols-1!">
+        {/* Below `sm` the toggle drops under the description so it doesn't squeeze the title. */}
+        {action && (
+          <CardAction className="col-start-1 row-span-1 row-start-3 mt-2 justify-self-start sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:justify-self-end">
+            {action}
+          </CardAction>
+        )}
         {isCost ? (
           <>
             <CardTitle>Cumulative cost against budget</CardTitle>
