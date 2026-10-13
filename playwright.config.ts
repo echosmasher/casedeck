@@ -8,7 +8,8 @@ export default defineConfig({
   reporter: process.env.CI ? "line" : "list",
   use: {
     baseURL: "http://localhost:3000",
-    trace: "on-first-retry",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
   },
   // `next start` doesn't work with `output: "export"` (CLAUDE.md/PLAN.md static-export decision) —
   // serve the built `out/` directory instead, the same way any static host would.
