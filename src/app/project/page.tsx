@@ -152,7 +152,7 @@ function ProjectPageContent() {
               render={<Link href={`/setup?id=${project.id}`} />}
               nativeButton={false}
             >
-              Edit
+              Project settings
             </Button>
           )}
         </nav>
