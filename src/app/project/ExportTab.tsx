@@ -97,10 +97,10 @@ export function ExportTab({
       <Card>
         <CardHeader>
           <CardTitle>Business case export</CardTitle>
-          <CardDescription>
+          <CardDescription className="max-w-[65ch]">
             A single self-contained HTML file — opens offline, from an email attachment, or from
-            file:// with no network. Print it for a PDF. It carries the scenario summary and
-            confidence bands, both charts, per-period detail, cost by category
+            file:// with no network. Print it for a PDF. It opens on the verdict, then carries the
+            scenario summary and confidence bands, both charts, per-period detail, cost by category
             {actuals.length > 0 ? ", budget vs. actual" : ""} and your assumptions.
           </CardDescription>
         </CardHeader>
