@@ -8,6 +8,7 @@ import { mergeMapping } from "../_lib/categoryMapping";
 import { formatAmount, formatCurrency } from "../_lib/format";
 import { isFuturePeriod } from "../_lib/overdue";
 import { appToday } from "../_lib/today";
+import { MEDIUM_SCREEN, useMediaQuery } from "../_lib/useSmallScreen";
 import { parseActualsFile, type ActualsImportResult } from "@/import/actuals";
 import { projectPeriods } from "@/engine/periodize";
 import { computePeriodActuals } from "@/engine/blended";
@@ -790,6 +791,10 @@ function closedPeriodConsequence(project: Project, period: string) {
     : null;
 }
 
+function sourceLabel(entry: StoredActualEntry): string {
+  return entry.source === "csv" ? `${entry.sourceFile} (row ${entry.sourceRow})` : "manual";
+}
+
 /** Recorded actuals with one-click delete. Each delete is saved immediately but stays undoable
  * (`useUndoQueue`); Undo writes the same entry (same id) back through the StorageAdapter
  * (DASHBOARD-CRITIQUE-PLAN.md Phase 1b). */
@@ -803,6 +808,7 @@ function RecordedActualsCard({
   onDeleted: () => void;
 }) {
   const sorted = [...actuals].sort((a, b) => a.period.localeCompare(b.period));
+  const narrow = useMediaQuery(MEDIUM_SCREEN);
   const undoQueue = useUndoQueue<StoredActualEntry>({
     describe: (entry) => describeEntry(entry, project.currency),
     consequence: (entry) => closedPeriodConsequence(project, entry.period),
@@ -829,6 +835,38 @@ function RecordedActualsCard({
 
         {sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground">No actuals recorded yet.</p>
+        ) : narrow ? (
+          // Below `md` each actual stacks as one block: six columns don't fit a phone or a laptop
+          // at 200% zoom, and the description is the part worth reading.
+          <ul className="flex flex-col">
+            {sorted.map((entry) => (
+              <li key={entry.id} className="flex items-start gap-2 border-b py-3 first:pt-0 last:border-b-0 last:pb-0">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-3 text-sm">
+                    <span>
+                      {entry.period} · {CATEGORY_LABEL[entry.category] ?? entry.category}
+                    </span>
+                    <span className="whitespace-nowrap font-medium tabular-nums">
+                      {formatCurrency(entry.amount, project.currency, "whole")}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-sm break-words text-muted-foreground">{entry.description}</p>
+                  <p className="mt-0.5 text-xs break-all text-muted-foreground">{sourceLabel(entry)}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="-mt-1.5"
+                  disabled={undoQueue.isBusy(entry.id)}
+                  aria-label={`Delete actual: ${describeEntry(entry, project.currency)}`}
+                  onClick={() => handleDelete(entry)}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
         ) : (
           <Table stickyFirstColumn stickyLastColumn>
             <TableHeader>
@@ -853,7 +891,7 @@ function RecordedActualsCard({
                   </TableCell>
                   <TableCell className="min-w-48 whitespace-normal text-muted-foreground">{entry.description}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
-                    {entry.source === "csv" ? `${entry.sourceFile} (row ${entry.sourceRow})` : "manual"}
+                    {sourceLabel(entry)}
                   </TableCell>
                   {/* Delete stays in view at the right edge while the row scrolls on a phone. */}
                   <TableCell>

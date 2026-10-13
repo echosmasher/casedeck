@@ -2,9 +2,9 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
-import { formatCurrency } from "../_lib/format";
+import { formatAmount, formatCurrency } from "../_lib/format";
 import { fieldLabel } from "../_lib/fieldLabel";
-import { SMALL_SCREEN, useSmallScreen } from "../_lib/useSmallScreen";
+import { SMALL_SCREEN, useMediaQuery, useSmallScreen } from "../_lib/useSmallScreen";
 import { lineScenarioTotal } from "@/engine/scenarios";
 import { projectPeriods } from "@/engine/periodize";
 import { computeHeadline } from "@/engine/headline";
@@ -17,7 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { NumberCell } from "@/components/number-cell";
-import { Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } from "./shared";
 import { UNDO_WINDOW_MS, useUndoQueue } from "./UndoQueue";
 import { describeCostEdit, describeEffect, describeRevenueEdit, type EditChange } from "./editFeedback";
@@ -49,11 +49,13 @@ function describeLine(line: CostLineItem) {
 // cell's horizontal padding (px-2 = 1rem): with table-layout "auto", a nowrap/truncated span
 // with no width of its own contributes its *untruncated* text width to the column's min-content
 // size, silently growing the column past LINE_COL_WIDTH and misaligning the offset above — giving
-// the label wrapper its own definite max-width stops that.
-const LINE_COL_WIDTH = "w-36 sm:w-56";
-const LINE_COL_LEFT_OFFSET = "sm:left-56";
-const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[8rem] sm:max-w-[13rem]";
-const CONFIDENCE_COL_WIDTH = "w-28 sm:w-40";
+// the label wrapper its own definite max-width stops that. The min-width stops the opposite: a
+// table squeezed to its container shrinks a column below its width once labels wrap, and the
+// sticky second column, still docked at the full offset, then covers the next column's start.
+const LINE_COL_WIDTH = "w-36 min-w-36 sm:w-52 sm:min-w-52";
+const LINE_COL_LEFT_OFFSET = "sm:left-52";
+const LINE_COL_CONTENT_MAX_WIDTH = "max-w-[8rem] sm:max-w-[12rem]";
+const CONFIDENCE_COL_WIDTH = "w-28 sm:w-32";
 
 export function InputsEditor({
   project,
@@ -231,6 +233,23 @@ export function InputsEditor({
 
   const modelErrors = validateProjectInvariants(project);
   const small = useSmallScreen();
+  // Closed periods fold into one column so the open ones (the ones a PM is still planning) are in
+  // view without scrolling. Only when there is something open to show instead, and more than one
+  // closed period to fold; a finished project keeps every column. Not for viewers: the disabled
+  // fieldset would disable the button that shows the folded periods again.
+  const closedInGrid = periods.filter((p) => project.closedPeriods.includes(p));
+  const [showClosed, setShowClosed] = useState(false);
+  const canFold = !readOnly && closedInGrid.length > 1 && closedInGrid.length < periods.length;
+  const folded = canFold && !showClosed ? closedInGrid : null;
+  const gridPeriods = folded ? periods.filter((p) => !folded.includes(p)) : periods;
+  // Showing and folding swap one button for another; keep keyboard focus on whichever is rendered.
+  const foldToggleId = useId();
+  function setClosedShown(next: boolean) {
+    setShowClosed(next);
+    requestAnimationFrame(() => document.getElementById(foldToggleId)?.focus());
+  }
+  // Below `lg` the content column is narrower than four period columns plus the pinned two.
+  const narrowGrid = useMediaQuery("(max-width: 1023.98px)");
   // Each line's expected total, from the engine, in the project's own display units.
   const lineTotal = (line: CostLineItem) => lineScenarioTotal(line, project.loadedCostMultiplier, bands).expected;
   const money = (v: number) => formatCurrency(v, project.currency, project.displayUnits);
@@ -287,7 +306,9 @@ export function InputsEditor({
                 {/* Even a 1280px viewport shows only about four period columns. */}
                 {small
                   ? " Open a line to edit its periods."
-                  : periods.length > 3 && " The grid scrolls sideways for later periods; the line name stays in view."}{" "}
+                  : (gridPeriods.length > 4 || narrowGrid) &&
+                    " The grid scrolls sideways for later periods; the line name stays in view."}
+                {!small && folded && " Closed periods are folded into one column; open it to edit them."}{" "}
                 Arrow keys step a value.
               </p>
               {small ? (
@@ -315,8 +336,15 @@ export function InputsEditor({
                     <TableHead className={cn("z-20 bg-muted sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
                       Confidence
                     </TableHead>
-                    {periods.map((p) => (
-                      <PeriodHead key={p} period={p} closed={project.closedPeriods.includes(p)} />
+                    {folded && <FoldedClosedHead id={foldToggleId} periods={folded} onShow={() => setClosedShown(true)} />}
+                    {gridPeriods.map((p) => (
+                      <PeriodHead
+                        key={p}
+                        period={p}
+                        closed={project.closedPeriods.includes(p)}
+                        foldId={foldToggleId}
+                        onFold={canFold && p === closedInGrid[0] ? () => setClosedShown(false) : undefined}
+                      />
                     ))}
                     <TableHead />
                   </TableRow>
@@ -326,7 +354,8 @@ export function InputsEditor({
                     <CostLineRow
                       key={line.id}
                       line={line}
-                      periods={periods}
+                      periods={gridPeriods}
+                      folded={folded}
                       closedPeriods={project.closedPeriods}
                       currency={project.currency}
                       onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
@@ -384,18 +413,75 @@ export function InputsEditor({
 
 /** A period column header; a closed period says so, since editing it re-baselines the budget
  * while the dashboard keeps that period's actuals. */
-function PeriodHead({ period, closed }: { period: string; closed: boolean }) {
+function PeriodHead({
+  period,
+  closed,
+  foldId,
+  onFold,
+}: {
+  period: string;
+  closed: boolean;
+  foldId?: string;
+  onFold?: () => void;
+}) {
   return (
     <TableHead className={cn(closed && "bg-muted")}>
-      {period}
-      {closed && <span className="ml-1.5 font-normal text-muted-foreground">closed</span>}
+      <span className="flex items-center gap-1.5">
+        {onFold && (
+          <button
+            id={foldId}
+            type="button"
+            onClick={onFold}
+            aria-expanded
+            aria-label="Fold closed periods into one column"
+            className="-ml-1 rounded-sm p-0.5 text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+          >
+            <ChevronLeft className="size-4" />
+          </button>
+        )}
+        {period}
+        {closed && <span className="font-normal text-muted-foreground">closed</span>}
+      </span>
     </TableHead>
   );
+}
+
+/** The closed periods folded into one column: their range, and a button to show them again. */
+function FoldedClosedHead({ id, periods, onShow }: { id: string; periods: string[]; onShow: () => void }) {
+  return (
+    <TableHead className="bg-muted">
+      <button
+        id={id}
+        type="button"
+        onClick={onShow}
+        aria-expanded={false}
+        aria-label={`Show closed periods ${periods[0]} to ${periods.at(-1)}`}
+        className="-mx-1 flex flex-col items-start rounded-sm px-1 py-1 text-left leading-tight hover:bg-background focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <span className="flex items-center gap-0.5">
+          Closed
+          <ChevronRight className="size-3.5 text-muted-foreground" />
+        </span>
+        <span className="font-normal text-muted-foreground">{compactRange(periods)}</span>
+      </button>
+    </TableHead>
+  );
+}
+
+/** "2026-01–04" within one year, "2025-11–2026-02" across years. Periods are YYYY-MM or YYYY-Qn. */
+function compactRange(periods: string[]): string {
+  const first = periods[0];
+  const last = periods.at(-1)!;
+  if (first === last) return first;
+  const [firstYear] = first.split("-");
+  const [lastYear, lastPart] = last.split("-");
+  return firstYear === lastYear ? `${first}–${lastPart}` : `${first}–${last}`;
 }
 
 function CostLineRow({
   line,
   periods,
+  folded,
   closedPeriods,
   currency,
   onUpdateLocal,
@@ -411,7 +497,7 @@ function CostLineRow({
       <TableCell className={cn("sticky left-0 z-20 bg-card align-top", LINE_COL_WIDTH)}>
         <div className={cn("flex flex-col gap-1", LINE_COL_CONTENT_MAX_WIDTH)}>
           {/* Wraps rather than truncating: two lines can share a role, and only the label tells them apart. */}
-          <span className="font-medium [overflow-wrap:anywhere]">{line.label}</span>
+          <span className="font-medium whitespace-normal [overflow-wrap:anywhere]">{line.label}</span>
           <span className="truncate text-xs text-muted-foreground">
             {CATEGORY_LABEL[line.category] ?? line.category} · {isSalary ? "hours" : currency} per period
           </span>
@@ -426,7 +512,7 @@ function CostLineRow({
       </TableCell>
       <TableCell className={cn("z-20 bg-card align-top sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
         <select
-          className={cn(selectClass, "min-w-0 sm:min-w-[7.5rem]")}
+          className={cn(selectClass, "min-w-0 sm:min-w-[7rem]")}
           aria-label={`Confidence for ${line.label}`}
           value={line.confidence}
           onChange={(e) => onCommit({ confidence: e.target.value as Confidence })}
@@ -438,6 +524,18 @@ function CostLineRow({
           ))}
         </select>
       </TableCell>
+      {folded && (
+        // The folded periods' sum, read-only; show the columns to edit one.
+        <TableCell className="bg-muted/40 align-top">
+          <span className="flex h-8 items-center justify-end tabular-nums text-muted-foreground">
+            {formatAmount(
+              folded.reduce((sum, p) => sum + ((isSalary ? line.hoursPerPeriod[p] : line.valuesPerPeriod[p]) ?? 0), 0),
+              "whole",
+            )}
+            {isSalary ? " h" : ""}
+          </span>
+        </TableCell>
+      )}
       {periods.map((period) => (
         <TableCell key={period} className={cn("align-top", closedPeriods.includes(period) && "bg-muted/40")}>
           {isSalary ? (
@@ -517,7 +615,7 @@ function CostLineCard({
     <li className="flex flex-col gap-2 border-b py-3 first:pt-0">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="font-medium [overflow-wrap:anywhere]">{line.label}</span>
+          <span className="font-medium whitespace-normal [overflow-wrap:anywhere]">{line.label}</span>
           <span className="text-xs text-muted-foreground">
             {CATEGORY_LABEL[line.category] ?? line.category} · {unit} per period
             {isSalary && ` · ${line.role} · ${line.ratePerHour}/h`}
@@ -581,6 +679,9 @@ function CostLineCard({
 interface CostLineProps {
   line: CostLineItem;
   periods: string[];
+  /** Closed periods shown as one read-only column (the grid only), or null when every period has
+   * its own column. */
+  folded?: string[] | null;
   closedPeriods: string[];
   currency: string;
   onUpdateLocal: (patch: Partial<CostLineItem>) => void;

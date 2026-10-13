@@ -93,3 +93,24 @@ test("deleting an actual can be undone, and the restore persists", async ({ page
 
   expect(consoleErrors, `unexpected console errors: ${consoleErrors.join("\n")}`).toEqual([]);
 });
+
+test("at phone width each recorded actual stacks with its description and source readable", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openActuals(page);
+
+  const card = page.locator('[data-slot="card"]', { hasText: "Recorded actuals" });
+  await expect(card.getByRole("table")).toHaveCount(0);
+  const description = card.getByText("CMS vendor invoice #INV-1042");
+  await expect(description).toBeVisible();
+  await expect(card.getByText("001-actuals-2026-04.csv (row 2)")).toBeVisible();
+
+  // Nothing is clipped: the full description fits inside the card, and the page doesn't scroll sideways.
+  const [text, cardBox] = [await description.boundingBox(), await card.boundingBox()];
+  expect(text!.x + text!.width).toBeLessThanOrEqual(cardBox!.x + cardBox!.width);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBe(0);
+
+  const deleteButtons = card.getByRole("button", { name: /^Delete actual: / });
+  const before = await deleteButtons.count();
+  await deleteButtons.first().click();
+  await expect(deleteButtons).toHaveCount(before - 1);
+});
