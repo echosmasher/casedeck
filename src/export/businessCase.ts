@@ -8,9 +8,10 @@ import { computeHeadline } from "@/engine/headline";
 import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, ConfidenceBands, Project } from "@/engine/model";
 import { formatChartCurrency, renderBandChartSvg, renderCumulativeChartSvg } from "./charts";
-import { statusLabel, VARIANCE_FLAG_LABEL } from "./labels";
+import { PERIODIZATION_LABEL, statusLabel, VARIANCE_FLAG_LABEL } from "./labels";
 import { totalStatusNote } from "./varianceCopy";
 import { effectiveStatus } from "@/engine/status";
+import { headlineCopy } from "./headlineCopy";
 
 export interface BusinessCaseInput {
   project: Project;
@@ -65,6 +66,12 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   };
   const variance = actuals.length > 0 ? computeVariance(project, actuals, bands) : null;
   const fmt = (v: number) => formatChartCurrency(v, project.currency, project.displayUnits);
+  const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
+  // Same wording as the dashboard's verdict. No calendar here, so no "ended open periods" note.
+  const verdict = headlineCopy(headline, project.currency, project.displayUnits, categoryLabel);
+  const verdictStatus =
+    headline.stage === "not_started" ? "No actuals yet" : VARIANCE_FLAG_LABEL[headline.status];
+  const verdictClass = headline.stage === "not_started" ? "" : { ok: "good", warning: "warning", red: "critical" }[headline.status];
 
   const html = `<!doctype html>
 <html lang="en">
@@ -81,8 +88,8 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   <div>
     <h1>${escapeHtml(project.name)} <span class="code">${escapeHtml(project.code)}</span></h1>
     <p class="meta">
-      ${statusLabel(effectiveStatus(project))} · ${escapeHtml(project.id)} ·
-      ${escapeHtml(project.periodization)} · ${escapeHtml(project.startPeriod)}–${escapeHtml(project.endPeriod)} ·
+      ${statusLabel(effectiveStatus(project))} ·
+      ${escapeHtml(PERIODIZATION_LABEL[project.periodization] ?? project.periodization)} · ${escapeHtml(project.startPeriod)}–${escapeHtml(project.endPeriod)} ·
       ${escapeHtml(project.currency)} (${project.displayUnits === "thousands" ? "thousands" : "whole units"})
     </p>
   </div>
@@ -100,12 +107,22 @@ ${
     : ""
 }
 
-<section class="card">
-  <h2>Executive summary</h2>
-  <p>${input.executiveSummary ? escapeHtml(input.executiveSummary).replace(/\n/g, "<br />") : "<em>No executive summary provided.</em>"}</p>
+<section class="card verdict">
+  <p class="status"><span class="pill ${verdictClass}">${escapeHtml(verdictStatus)}</span> ${escapeHtml(verdict.reason)}${verdict.reasonNote ? ` ${escapeHtml(verdict.reasonNote)}` : ""}</p>
+  <p class="verdict-line">${verdict.verdict.map((seg) => (seg.negative ? `<span class="critical">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text))).join("")}</p>
+  <p class="note">${escapeHtml(verdict.source)}.</p>
 </section>
 
-<section class="card">
+${
+  input.executiveSummary
+    ? `<section class="card">
+  <h2>Executive summary</h2>
+  <p>${escapeHtml(input.executiveSummary).replace(/\n/g, "<br />")}</p>
+</section>
+
+`
+    : ""
+}<section class="card">
   <h2>Scenario summary</h2>
   <p class="lead">${
     isCost
@@ -159,16 +176,19 @@ ${
   <h2>Per-period detail</h2>
   <table class="periods">
     <thead>
-      <tr><th>Period</th>${blended.periods.map((p) => `<th>${escapeHtml(p)}${project.closedPeriods.includes(p) ? " (Actual)" : ""}</th>`).join("")}</tr>
+      <tr><th>Period</th><th>Cost (expected)</th>${isCost ? "<th>Budgeted cost</th>" : "<th>Revenue</th><th>Margin</th>"}</tr>
     </thead>
     <tbody>
-      <tr><th>Cost</th>${blended.periods.map((p) => `<td>${fmt(blended.costByPeriod[p].expected)}</td>`).join("")}</tr>
-      ${
-        isCost
-          ? `<tr class="emphasis"><th>Budgeted cost</th>${blended.periods.map((p) => `<td>${fmt(blended.budgetedCostByPeriod[p] ?? 0)}</td>`).join("")}</tr>`
-          : `<tr><th>Revenue</th>${blended.periods.map((p) => `<td>${fmt(blended.revenueByPeriod[p].expected)}</td>`).join("")}</tr>
-      <tr class="emphasis"><th>Margin</th>${blended.periods.map((p) => `<td>${fmt(blended.marginByPeriod[p].expected)}</td>`).join("")}</tr>`
-      }
+      ${blended.periods
+        .map(
+          (p) =>
+            `<tr><th>${escapeHtml(p)}${project.closedPeriods.includes(p) ? " (Actual)" : ""}</th><td>${fmt(blended.costByPeriod[p].expected)}</td>${
+              isCost
+                ? `<td>${fmt(blended.budgetedCostByPeriod[p] ?? 0)}</td>`
+                : `<td>${fmt(blended.revenueByPeriod[p].expected)}</td><td>${fmt(blended.marginByPeriod[p].expected)}</td>`
+            }</tr>`,
+        )
+        .join("\n      ")}
     </tbody>
   </table>
   <p class="note">Expected values shown above; see the scenario band chart for the worst/best range
@@ -190,9 +210,9 @@ ${
   </table>
   ${
     blended.lastClosedPeriod
-      ? `<p class="note">Budgeted figures — the engine has no actual breakdown by category.${
-          variance ? ` See "Budget vs. actual" below for actual-to-date by category.` : ""
-        } See the Scenario summary above for the blended cost total.</p>`
+      ? `<p class="note">These are the budgeted figures, set before any actuals.${
+          variance ? ` Actual cost to date by category is in "Budget vs. actual" below.` : ""
+        } The Scenario summary above has the blended cost total.</p>`
       : ""
   }
 </section>
@@ -209,7 +229,7 @@ ${variance ? renderVarianceSection(variance, fmt, input.riskCommentary, blended.
 </section>
 
 <footer class="footer">
-  <p>Generated by CaseDeck on ${input.generatedAt.toISOString()}. Figures computed deterministically
+  <p>Generated by CaseDeck on ${input.generatedAt.toISOString().slice(0, 10)}. Figures computed deterministically
   from the project's raw budget and confidence markers — see the Confidence bands table above for
   exactly how the worst/best range is derived.</p>
 </footer>
@@ -268,8 +288,10 @@ const STYLES = `
   .card h2 { margin-top: 0; font-size: 1.1rem; }
   .card h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
   .lead { font-size: 1.05rem; }
+  .verdict .status { margin: 0 0 0.5rem; font-size: 0.9rem; }
+  .verdict .pill { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 0.05rem 0.6rem; margin-right: 0.4rem; font-size: 0.8rem; font-weight: 600; }
+  .verdict .verdict-line { margin: 0 0 0.5rem; font-size: 1.5rem; line-height: 1.25; font-weight: 600; }
   table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
-  table.periods { display: block; overflow-x: auto; white-space: nowrap; }
   th, td { text-align: right; padding: 0.4rem 0.6rem; border-bottom: 1px solid #e1e0d9; }
   th:first-child, td:first-child { text-align: left; }
   thead th { color: #898781; font-weight: 500; }
