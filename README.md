@@ -11,13 +11,13 @@ inside it.
 
 ## Screenshots
 
-| Scenario bands (a range, not one number) | Budget vs. actual (caught before it's unrecoverable) |
+| The verdict (a range, not one number) | Budget vs. actual (caught before it's unrecoverable) |
 |---|---|
-| ![Dashboard showing the ERP Data Migration project's scenario chart, where the worst-case band crosses zero while the expected case stays profitable](docs/screenshots/dashboard-scenario-bands.png) | ![Variance view for the Intranet Relaunch project, showing the consultancy category flagged red for exceeding its worst-case ceiling while salary stays on track](docs/screenshots/variance-overrun.png) |
+| ![Dashboard for the ERP Data Migration project, headlined by an expected margin of 263k NOK that ranges from a loss of 810k to a gain of 1.34M, with a range strip marking worst, expected and best](docs/screenshots/dashboard-scenario-bands.png) | ![Dashboard for the Intranet Relaunch project, showing the consultancy category flagged Past its ceiling in the Budget vs. actual table while salary stays within range](docs/screenshots/variance-overrun.png) |
 
 | The exported business case |
 |---|
-| ![A self-contained HTML business case export, opened from a local file with no network connection, showing the executive summary and scenario figures](docs/screenshots/business-case-export.png) |
+| ![A self-contained HTML business case export, opened from a local file with no network connection, showing the verdict, the executive summary and scenario figures](docs/screenshots/business-case-export.png) |
 
 ## Live demo
 
