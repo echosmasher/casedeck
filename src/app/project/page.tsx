@@ -29,12 +29,24 @@ export default function ProjectPage() {
   );
 }
 
+const TABS = ["dashboard", "inputs", "actuals", "export"] as const;
+
 function ProjectPageContent() {
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
   const { role } = useRole();
   const [project, setProject] = useState<Project | null | undefined>(undefined);
-  const [tab, setTab] = useState("dashboard");
+  // The active tab lives in the URL (?tab=), so a reload or a shared link lands on the same tab.
+  // Next syncs native history calls with useSearchParams; replace, not push, so Back still leaves
+  // the project instead of stepping through tabs. Dashboard is the default and stays out of the URL.
+  const tabParam = searchParams.get("tab");
+  const tab = TABS.find((t) => t === tabParam) ?? "dashboard";
+  function setTab(next: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "dashboard") params.delete("tab");
+    else params.set("tab", next);
+    window.history.replaceState(null, "", `?${params.toString()}`);
+  }
   const [actuals, setActuals] = useState<StoredActualEntry[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [exportDraft, setExportDraft] = useState<ExportDraft>(EMPTY_EXPORT_DRAFT);

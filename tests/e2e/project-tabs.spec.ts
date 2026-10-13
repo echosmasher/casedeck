@@ -21,3 +21,21 @@ test("each tab's cards are reachable by heading", async ({ page }) => {
     }
   }
 });
+
+test("the active tab is in the URL, survives a reload, and an unknown tab falls back to Dashboard", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Intranet Relaunch" }).click();
+  await expect(page).toHaveURL(/\/project\?id=001$/);
+
+  await page.getByRole("tab", { name: "Actuals" }).click();
+  await expect(page).toHaveURL(/\/project\?id=001&tab=actuals$/);
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Actuals" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("heading", { level: 2, name: "Recorded actuals" })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Dashboard" }).click();
+  await expect(page).toHaveURL(/\/project\?id=001$/);
+
+  await page.goto("/project?id=001&tab=nonsense");
+  await expect(page.getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
+});
