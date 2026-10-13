@@ -5,7 +5,7 @@ import type { HeadlineSummary } from "@/engine/headline";
 import type { ConfidenceBands, PeriodKey, Project, ScenarioValue } from "@/engine/model";
 import type { SpreadDrivers } from "@/engine/spread";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
-import { headlineCopy, spreadCopy } from "./headlineCopy";
+import { headlineCopy, spreadCopy } from "@/export/headlineCopy";
 import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
 import { revealVarianceRow, VARIANCE_SECTION_ID } from "./VarianceSection";
 

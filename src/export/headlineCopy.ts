@@ -4,7 +4,7 @@
 import type { ConfidenceBands, DisplayUnits, PeriodKey } from "@/engine/model";
 import type { SpreadDrivers } from "@/engine/spread";
 import type { HeadlineSummary } from "@/engine/headline";
-import { formatCompactAmount } from "../_lib/format";
+import { formatCompactAmount } from "./amounts";
 
 /** A run of verdict text; `negative` marks an unfavourable figure (set in the critical ink — the
  * words already say "over", "below" or "loss", so colour only reinforces them). A budget gap is
