@@ -97,7 +97,7 @@ function ClosedPeriodsCard({
   const preview =
     pick === null || pick === savedValue
       ? null
-      : previewClosePeriods(periods, project.closedPeriods, pick === NOT_CLOSED ? null : pick, actuals);
+      : previewClosePeriods(project, periods, pick === NOT_CLOSED ? null : pick, actuals);
   const closing = new Set(preview?.closing.map((c) => c.period));
   const reopening = new Set(preview?.reopening);
   const needsConfirm = (preview?.closingWithoutCost.length ?? 0) > 0;
@@ -273,6 +273,12 @@ function ClosedPeriodsCard({
                       <span className="text-muted-foreground">
                         {" — "}
                         {c.hasCost ? "cost recorded" : "no cost recorded"}
+                        {c.missingCategories.length > 0 && (
+                          <span className="text-foreground">
+                            {" "}
+                            (no {c.missingCategories.join(", ")} actuals — counts as zero)
+                          </span>
+                        )}
                         {isCustomer &&
                           (c.hasRevenue ? ", revenue recorded" : ", planned revenue kept")}
                       </span>

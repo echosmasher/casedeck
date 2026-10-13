@@ -5,12 +5,15 @@
 // (the same "closed but no cost actuals" rule `computeBlendedTotals` warns about in
 // src/engine/blended.ts, checked ahead of the save instead of after it). Revenue is not part of
 // that rule: a closed period with no revenue recorded keeps its planned revenue.
-import type { PeriodKey } from "@/engine/model";
+import { missingCostCategories } from "@/engine/blended";
+import type { PeriodKey, Project } from "@/engine/model";
 
 export interface ClosingPeriod {
   period: PeriodKey;
   hasCost: boolean;
   hasRevenue: boolean;
+  /** Budgeted cost categories with no actuals in this period (it has cost for others). */
+  missingCategories: string[];
 }
 
 export interface ClosePeriodPreview {
@@ -27,14 +30,14 @@ export interface ClosePeriodPreview {
 }
 
 /**
+ * @param project supplies the saved `closedPeriods` and the budgeted categories per period
  * @param periods every period of the project, in order (`projectPeriods(project)`)
- * @param closedPeriods the project's saved `closedPeriods`
  * @param target the period to close through, or `null` for "nothing closed"
  * @param actuals recorded actuals for the project (only `period` and `category` are read)
  */
 export function previewClosePeriods(
+  project: Project,
   periods: PeriodKey[],
-  closedPeriods: PeriodKey[],
   target: PeriodKey | null,
   actuals: { period: PeriodKey; category: string }[],
 ): ClosePeriodPreview {
@@ -44,7 +47,7 @@ export function previewClosePeriods(
   }
   const nextClosedPeriods = periods.slice(0, targetIndex + 1);
 
-  const wasClosed = new Set(closedPeriods);
+  const wasClosed = new Set(project.closedPeriods);
   const willClose = new Set(nextClosedPeriods);
 
   const closing: ClosingPeriod[] = periods
@@ -55,6 +58,7 @@ export function previewClosePeriods(
         period,
         hasCost: forPeriod.some((a) => a.category !== "revenue"),
         hasRevenue: forPeriod.some((a) => a.category === "revenue"),
+        missingCategories: missingCostCategories(project, actuals, period),
       };
     });
   const reopening = periods.filter((p) => wasClosed.has(p) && !willClose.has(p));
