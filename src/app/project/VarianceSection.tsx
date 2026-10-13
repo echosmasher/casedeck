@@ -29,6 +29,11 @@ export function revealVarianceRow(category: string) {
   return true;
 }
 
+/** The dashboard's range strip counts actuals for closed periods, so its worst case moves as they
+ * come in. The ceiling here is the worst case of the budget as set, which stays fixed. */
+const CEILING_NOTE =
+  "The ceiling is the worst case when the budget was set and does not move with actuals, so it can differ from the worst case in the range above.";
+
 /** One list of cost categories, in config order, merging what used to be "Budget vs. actual" and
  * "Cost by category". With actuals, each category carries its variance status and projection;
  * without, its budgeted range. Either way a category expands to the line items behind it. */
@@ -87,9 +92,9 @@ export function VarianceSection({
         </CardTitle>
         <CardDescription>
           {complete
-            ? "Each category's actual cost against its budget and worst-case ceiling. Expand a category for its lines."
+            ? `Each category's actual cost against its budget and worst-case ceiling. ${CEILING_NOTE} Expand a category for its lines.`
             : hasVariance
-            ? "Projection to complete is the actuals so far plus the budget for the remaining periods, checked against each category's worst-case ceiling. Expand a category for its lines."
+            ? `Projection to complete is the actuals so far plus the budget for the remaining periods, checked against each category's worst-case ceiling. ${CEILING_NOTE} Expand a category for its lines.`
             : "Budgeted total per category, with its best and worst case. Expand a category for its lines."}
         </CardDescription>
       </CardHeader>
