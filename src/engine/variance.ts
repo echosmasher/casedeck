@@ -34,7 +34,8 @@ export interface ProjectVariance {
   total: CategoryVariance;
 }
 
-function flagFor(consumedPct: number): VarianceFlag {
+/** Shared thresholds: >=100% of contingency consumed is red, >=50% a warning. */
+export function flagFor(consumedPct: number): VarianceFlag {
   if (consumedPct >= 1) return "red";
   if (consumedPct >= 0.5) return "warning";
   return "ok";

@@ -10,6 +10,7 @@ import { SNAPSHOT_SCHEMA_VERSION, type Snapshot, type StoredActualEntry } from "
 import project001 from "../../../demo/projects/001-intranet-relaunch.json";
 import project002 from "../../../demo/projects/002-booking-integration-example-hotel-a.json";
 import project003 from "../../../demo/projects/003-erp-data-migration.json";
+import project004 from "../../../demo/projects/004-website-accessibility-fixes.json";
 
 function actual(
   id: string,
@@ -52,11 +53,21 @@ const actuals002: StoredActualEntry[] = [
   actual("002-a12", "002", "2025-Q4", "travel", 1900, "Reisekostnader Q4", "002-actuals-full-lifetime.csv", 12),
 ];
 
+// demo/actuals/004-actuals-2025-12-to-2026-02.csv — Story 4, ended with March still unbooked.
+const actuals004: StoredActualEntry[] = [
+  actual("004-a1", "004", "2025-12", "salary", 51800, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-02.csv", 1),
+  actual("004-a2", "004", "2025-12", "it_systems", 15000, "Testing tool licence invoice #INV-2201", "004-actuals-2025-12-to-2026-02.csv", 2),
+  actual("004-a3", "004", "2026-01", "salary", 53400, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-02.csv", 3),
+  actual("004-a4", "004", "2026-01", "it_systems", 15000, "Testing tool licence invoice #INV-2215", "004-actuals-2025-12-to-2026-02.csv", 4),
+  actual("004-a5", "004", "2026-02", "salary", 52200, "Payroll run — Website Accessibility Fixes allocation", "004-actuals-2025-12-to-2026-02.csv", 5),
+  actual("004-a6", "004", "2026-02", "it_systems", 15000, "Testing tool licence invoice #INV-2230", "004-actuals-2025-12-to-2026-02.csv", 6),
+];
+
 export const demoSnapshot: Snapshot = {
   schemaVersion: SNAPSHOT_SCHEMA_VERSION,
-  exportedAt: "2026-08-14T00:00:00.000Z",
-  projects: [project001, project002, project003] as Project[],
-  actuals: [...actuals001, ...actuals002],
+  exportedAt: "2026-05-15T00:00:00.000Z",
+  projects: [project001, project002, project003, project004] as Project[],
+  actuals: [...actuals001, ...actuals002, ...actuals004],
   categoryMappingOverrides: [],
   settingsOverrides: { rateCardOverrides: [] },
 };

@@ -5,6 +5,7 @@
 // produce the visuals. Colors are literal hex (not CSS custom properties) so the chart renders
 // identically regardless of what stylesheet, if any, ends up wrapping it.
 import type { DisplayUnits, PeriodKey, PeriodValues, ScenarioByPeriod } from "@/engine/model";
+import { costAxisScale } from "./chartScale";
 
 // Same values as the dashboard's --viz-* tokens (src/app/globals.css), so the exported charts and
 // the live ones read identically. Text uses the ink values (≥4.5:1 on white); the 600 hues are for
@@ -50,22 +51,25 @@ export function formatCompactChartCurrency(value: number, currency: string, disp
   return `${formatted}${suffix} ${currency}`;
 }
 
-/** Axis-tick number without the currency ("1.2M", "−165k", "0"): the currency is written once in
- * the axis title instead of on every tick, where the wrapped "NOK" collided with the x labels.
- * "thousands" display units keep their own convention ("1,553k"). True minus sign throughout. */
+/** Axis-tick number without the currency ("1.2M", "−165k", "2.5k", "0"): the currency is written
+ * once in the axis title instead of on every tick, where the wrapped "NOK" collided with the x
+ * labels. "thousands" display units keep their own convention ("1,553k"). True minus sign
+ * throughout. A tick shows the fewest decimals that state it exactly, up to a cap: rounding to a
+ * fixed 0 put "3k" on the 2.5k gridline, a false number on the chart and in the export. */
 export function formatCompactChartNumber(value: number, displayUnits: DisplayUnits): string {
   const withMinus = (text: string) => text.replace(/^-/, "\u2212");
-  if (displayUnits === "thousands") {
-    return withMinus(new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value / 1000)) + "k";
-  }
+  if (displayUnits === "thousands") return withMinus(exactNumber(value / 1000, 0, 1)) + "k";
   const abs = Math.abs(value);
-  const [scaled, suffix] = abs >= 1_000_000 ? [value / 1_000_000, "M"] : abs >= 1_000 ? [value / 1_000, "k"] : [value, ""];
-  const decimals = suffix === "M" ? 1 : 0;
-  const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(scaled);
-  return withMinus(formatted) + suffix;
+  if (abs >= 1_000_000) return withMinus(exactNumber(value / 1_000_000, 1, 2)) + "M";
+  if (abs >= 1_000) return withMinus(exactNumber(value / 1_000, 0, 1)) + "k";
+  return withMinus(exactNumber(value, 0, 0));
+}
+
+/** `scaled` with the fewest decimals in [min, max] that represent it exactly, else `max`. */
+function exactNumber(scaled: number, min: number, max: number): string {
+  let decimals = min;
+  while (decimals < max && Math.abs(scaled * 10 ** decimals - Math.round(scaled * 10 ** decimals)) > 1e-9) decimals++;
+  return new Intl.NumberFormat("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(scaled);
 }
 
 /** Closed-period boundary plus the budgeted comparison series (ticket 12/13) — mirrors the
@@ -83,6 +87,12 @@ export interface BandChartOptions {
   currency: string;
   displayUnits: DisplayUnits;
   actualsOverlay?: ChartActualsOverlay;
+  /** What the series measures, as on the dashboard: margin (customer projects, the default) or
+   * cost (internal projects). Cost puts the worst case on top, drops the zero line, and fits
+   * its axis to the data (`costAxisScale`). */
+  measure?: "margin" | "cost";
+  /** Total budgeted cost, drawn as a labelled ceiling on the cumulative cost chart. */
+  budgetTotal?: number;
 }
 
 interface Row {
@@ -150,10 +160,11 @@ export function renderBandChartSvg(
     ...byPeriod[period],
     budgeted: closedSet.has(period) ? (budgetedByPeriod[period] ?? 0) : null,
   }));
-  return renderRows(rows, options, "Scenario bands, margin by period");
+  return renderRows(rows, options, `Scenario bands, ${options.measure ?? "margin"} by period`, null);
 }
 
-/** Renders a cumulative running total of the same band data — the export's Cumulative P&L chart. */
+/** Renders a cumulative running total of the same band data — the export's Cumulative P&L chart,
+ * or for a cost measure, cumulative cost against the total budget. */
 export function renderCumulativeChartSvg(
   periods: PeriodKey[],
   byPeriod: ScenarioByPeriod,
@@ -178,10 +189,17 @@ export function renderCumulativeChartSvg(
     });
     return acc;
   }, []);
-  return renderRows(rows, options, "Cumulative margin, by period");
+  const isCost = options.measure === "cost";
+  const budget = isCost && options.budgetTotal !== undefined ? options.budgetTotal : null;
+  const title =
+    budget !== null
+      ? `Cumulative cost against a total budget of ${formatChartCurrency(budget, options.currency, options.displayUnits)}, by period`
+      : `Cumulative ${options.measure ?? "margin"}, by period`;
+  return renderRows(rows, options, title, budget);
 }
 
-function renderRows(rows: Row[], options: BandChartOptions, title: string): string {
+function renderRows(rows: Row[], options: BandChartOptions, title: string, budgetTotal: number | null): string {
+  const isCost = options.measure === "cost";
   const width = options.width ?? 640;
   const height = options.height ?? 320;
   // The legend gets its own reserved band above the plot so it can never collide with the top
@@ -192,7 +210,10 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
 
-  const allValues = rows.flatMap((r) => [r.worst, r.expected, r.best, ...(r.budgeted !== null ? [r.budgeted] : [])]);
+  const allValues = [
+    ...rows.flatMap((r) => [r.worst, r.expected, r.best, ...(r.budgeted !== null ? [r.budgeted] : [])]),
+    ...(budgetTotal !== null ? [budgetTotal] : []),
+  ];
   const rawMin = Math.min(...allValues, 0);
   const rawMax = Math.max(...allValues, 0);
   const pad = (rawMax - rawMin) * 0.1 || 1;
@@ -200,7 +221,12 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
   // raw padded range) — niceTicks() rounds outward past [rawMin - pad, rawMax + pad], so fitting
   // the scale to the unrounded range let the outermost tick land outside the plot, overlapping
   // the legend above and the x-axis labels below.
-  const ticks = niceTicks(rawMin - pad, rawMax + pad);
+  // Cost is fitted to its own range (as on the dashboard) so the band fills the plot; the note
+  // under the chart says when that lifts the floor off zero.
+  const ticks =
+    isCost && rawMin >= 0
+      ? costAxisScale(Math.min(...allValues), rawMax).ticks
+      : niceTicks(rawMin - pad, rawMax + pad);
   const min = ticks[0];
   const max = ticks[ticks.length - 1];
 
@@ -256,8 +282,10 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
         const label = (text: string, value: number, dy: number, fill: string) =>
           `<text x="${lx}" y="${(y(value) + dy).toFixed(1)}" font-size="11" font-weight="500" fill="${fill}">${text}</text>`;
         const collapsed = last.best === last.worst;
+        // On a cost chart the worst case is the upper line, so the labels swap sides.
+        const [bestDy, worstDy] = isCost ? [14, -6] : [-6, 14];
         return (
-          (collapsed ? "" : label("Best", last.best, -6, COLOR.bestInk) + label("Worst", last.worst, 14, COLOR.worstInk)) +
+          (collapsed ? "" : label("Best", last.best, bestDy, COLOR.bestInk) + label("Worst", last.worst, worstDy, COLOR.worstInk)) +
           label("Expected", last.expected, 4, COLOR.expected)
         );
       })()
@@ -309,6 +337,18 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
           .join(" ")}" fill="none" stroke="${COLOR.textSecondary}" stroke-width="2" stroke-dasharray="4 4" />`
       : "";
 
+  // Exact figure: a one-decimal "1.5M" next to an expected 1.55M would blur the very gap the line
+  // is there to show.
+  const budgetLine =
+    budgetTotal !== null
+      ? `<line x1="${margin.left}" y1="${y(budgetTotal).toFixed(1)}" x2="${width - margin.right}" y2="${y(budgetTotal).toFixed(1)}" stroke="${COLOR.expected}" stroke-width="1.5" stroke-dasharray="6 3" />` +
+        `<text x="${margin.left + 6}" y="${(y(budgetTotal) - 6).toFixed(1)}" font-size="11" font-weight="500" fill="${COLOR.expected}">Budget ${escapeXml(formatChartCurrency(budgetTotal, options.currency, options.displayUnits))}</text>`
+      : "";
+  const budgetLegend =
+    budgetTotal !== null
+      ? `<line x1="470" y1="12" x2="486" y2="12" stroke="${COLOR.expected}" stroke-width="1.5" stroke-dasharray="6 3" /><text x="490" y="16">Total budget</text>`
+      : "";
+
   // Sits in its own [0, legendHeight) band, entirely above the translated plot group below —
   // never sharing vertical space with the plot's top gridline/tick label.
   const actualsLegend =
@@ -323,6 +363,7 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
       <line x1="100" y1="12" x2="116" y2="12" stroke="${COLOR.expected}" stroke-width="2" /><text x="120" y="16">Expected</text>
       <line x1="190" y1="12" x2="206" y2="12" stroke="${COLOR.best}" stroke-width="2" /><text x="210" y="16">Best case</text>
       ${actualsLegend}
+      ${budgetLegend}
     </g>`;
 
   const lastRow = rows[rows.length - 1];
@@ -336,7 +377,12 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
         ? `${fmt(lastRow.expected)}.`
         : `worst ${fmt(lastRow.worst)}, expected ${fmt(lastRow.expected)}, best ${fmt(lastRow.best)}.`);
 
-  return `<svg viewBox="0 0 ${width} ${legendHeight + height}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(summary)}">
+  const floorNoteHeight = isCost && min > 0 ? 18 : 0;
+  const floorNote = floorNoteHeight
+    ? `<text x="${margin.left}" y="${legendHeight + height + 13}" font-size="11" fill="${COLOR.textSecondary}">The scale starts at ${formatCompactChartNumber(min, options.displayUnits)}, not zero.</text>`
+    : "";
+
+  return `<svg viewBox="0 0 ${width} ${legendHeight + height + floorNoteHeight}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${escapeXml(summary)}">
   ${legend}
   <g transform="translate(0, ${legendHeight})">
     ${shadedRegion}
@@ -348,10 +394,12 @@ function renderRows(rows: Row[], options: BandChartOptions, title: string): stri
     <path d="${bestLine}" fill="none" stroke="${COLOR.best}" stroke-width="2" />
     <path d="${expectedLine}" fill="none" stroke="${COLOR.expected}" stroke-width="2" />
     ${budgetedLine}
+    ${budgetLine}
     ${boundaryDivider}
     ${expectedDots}
     ${endLabels}
     ${xLabels}
   </g>
+  ${floorNote}
 </svg>`;
 }

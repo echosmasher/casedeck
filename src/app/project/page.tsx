@@ -7,7 +7,9 @@ import { ArrowLeft } from "lucide-react";
 import { getStorage } from "../_lib/storage";
 import { useRole } from "../_lib/RoleProvider";
 import { isViewerVisible } from "../_lib/demoViewer";
-import { isProjectOverdue, OVERDUE_TOOLTIP } from "../_lib/overdue";
+import { isProjectOverdue, OVERDUE_HINT } from "../_lib/overdue";
+import { effectiveStatus } from "@/engine/status";
+import { appToday } from "../_lib/today";
 import { PERIODIZATION_LABEL, statusLabel } from "@/export/labels";
 import type { Project } from "@/engine/model";
 import type { StoredActualEntry } from "@/storage/types";
@@ -17,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputsEditor } from "./InputsEditor";
 import { Dashboard } from "./Dashboard";
 import { ActualsTab } from "./ActualsTab";
-import { ExportTab } from "./ExportTab";
+import { EMPTY_EXPORT_DRAFT, ExportTab, type ExportDraft } from "./ExportTab";
 
 export default function ProjectPage() {
   return (
@@ -32,8 +34,10 @@ function ProjectPageContent() {
   const id = searchParams.get("id");
   const { role } = useRole();
   const [project, setProject] = useState<Project | null | undefined>(undefined);
+  const [tab, setTab] = useState("dashboard");
   const [actuals, setActuals] = useState<StoredActualEntry[]>([]);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [exportDraft, setExportDraft] = useState<ExportDraft>(EMPTY_EXPORT_DRAFT);
 
   useEffect(() => {
     if (!id) return;
@@ -111,7 +115,8 @@ function ProjectPageContent() {
   }
 
   const readOnly = role === "viewer";
-  const overdue = isProjectOverdue(project.status, project.periodization, project.endPeriod, new Date());
+  const status = effectiveStatus(project);
+  const overdue = isProjectOverdue(status, project.periodization, project.endPeriod, appToday());
 
   return (
     <div className="flex flex-col gap-6">
@@ -121,17 +126,19 @@ function ProjectPageContent() {
             <h1 className="text-2xl font-semibold tracking-tight [overflow-wrap:anywhere]">{project.name}</h1>
             <span className="font-mono text-sm text-muted-foreground">{project.code}</span>
             <Badge variant="outline">{project.type === "customer" ? "Customer" : "Internal"}</Badge>
-            <Badge variant="secondary">{statusLabel(project.status)}</Badge>
+            <Badge variant="secondary">{statusLabel(status)}</Badge>
             {overdue && (
-              <span className="text-sm font-medium text-destructive" title={OVERDUE_TOOLTIP}>
-                Overdue · ended {project.endPeriod}
-              </span>
+              <span className="text-sm font-medium text-destructive">Overdue · ended {project.endPeriod}</span>
             )}
           </div>
           <p className="text-sm text-muted-foreground">
             {PERIODIZATION_LABEL[project.periodization]} · {project.startPeriod}–{project.endPeriod} ·{" "}
             {project.currency}
           </p>
+          {overdue && !readOnly && (
+            // Said on the page, not in a hover-only title, so touch and keyboard users get it too.
+            <p className="mt-1 max-w-[60ch] text-sm">{OVERDUE_HINT}</p>
+          )}
         </div>
         <nav aria-label="Project" className="flex items-center gap-1">
           <Button variant="ghost" size="sm" render={<Link href="/" />} nativeButton={false}>
@@ -157,7 +164,7 @@ function ProjectPageContent() {
         </p>
       )}
 
-      <Tabs defaultValue="dashboard">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="inputs">Inputs</TabsTrigger>
@@ -168,12 +175,18 @@ function ProjectPageContent() {
           {/* Same project + actuals state as the other tabs — one-way input -> engine -> views
               flow (PLAN.md §6.3), so a quick-adjust change or a committed import is reflected here
               immediately, no separate fetch or sync step. */}
-          <Dashboard key={project.id} project={project} actuals={actuals} />
+          <Dashboard
+            key={project.id}
+            project={project}
+            actuals={actuals}
+            onOpenActuals={() => setTab("actuals")}
+          />
         </TabsContent>
         <TabsContent value="inputs">
           <InputsEditor
             key={project.id}
             project={project}
+            actuals={actuals}
             onLocalChange={updateLocal}
             onCommit={commit}
             readOnly={readOnly}
@@ -190,7 +203,13 @@ function ProjectPageContent() {
           />
         </TabsContent>
         <TabsContent value="export">
-          <ExportTab key={project.id} project={project} actuals={actuals} />
+          <ExportTab
+            key={project.id}
+            project={project}
+            actuals={actuals}
+            draft={exportDraft}
+            onDraftChange={setExportDraft}
+          />
         </TabsContent>
       </Tabs>
     </div>

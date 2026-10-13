@@ -186,6 +186,8 @@ The typographic hierarchy relies on **Geist**, an ultra-refined neutral geometri
 
 ### Implementation Rules
 - **Tabular Figures (`tnum`):** All financial values, roll-up sums, variance deltas, percentages, and dates must enforce OpenType tabular figures (`font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1, "cv01" 1;`). This prevents horizontal jittering during live re-calculation and keeps vertical decimal alignments locked.
+- **Compact vs. full figures:** the headline zone (verdict sentence, range strip, chart axes and end labels) uses compact figures (`1.55M NOK`, `79k`) because it is read at a glance; tiles, tables, tooltips and "View as table" use full figures (`1,552,600 NOK`) because they are the record. A figure appears once per zone: the source line doesn't repeat the strip's range.
+- **Sentence case:** labels, pills, buttons, statuses and category names are sentence case ("In progress", "Other direct costs"); only `label-caps` headers are uppercase.
 - **Label Capitalization:** Analytical headers and section dividers employ `label-caps` in uppercase format to clearly bifurcate schema tags from dynamic records.
 - **Optical Kerning & Balance:** Display scales utilize micro-negative tracking (`-0.02em` to `-0.025em`) to produce tight, cohesive summary cards without reducing legibility.
 
@@ -236,10 +238,10 @@ The shape hierarchy is compact and utilitarian (`roundedness: 1`). Soft curves a
 ### Status Pill Tags
 - **Structure:** `20px` total height, horizontal padding of `6px` or `8px`, pill radius (`9999px`), `label-sm` font.
 - **Indicator Dot:** Integrated `6px` solid spherical indicator positioned left of the text with a 4px gap.
-- **Status Variants:**
-  - *On-Track:* Emerald dot (`#059669`), Emerald background (`#ECFDF5`), 1px border (`#A7F3D0`), text (`#065F46`).
-  - *Watch:* Amber dot (`#D97706`), Amber background (`#FFFBEB`), 1px border (`#FDE68A`), text (`#92400E`).
-  - *Over-Budget:* Rose dot (`#E11D48`), Rose background (`#FFF1F2`), 1px border (`#FECDD3`), text (`#9F1239`).
+- **Status Variants** (labels in `src/export/labels.ts`; they place a category against its own range, never the gap to budget, which the verdict states in words):
+  - *Within range:* Emerald dot (`#059669`), Emerald background (`#ECFDF5`), 1px border (`#A7F3D0`), text (`#065F46`).
+  - *Near its ceiling:* Amber dot (`#D97706`), Amber background (`#FFFBEB`), 1px border (`#FDE68A`), text (`#92400E`).
+  - *Past its ceiling:* Rose dot (`#E11D48`), Rose background (`#FFF1F2`), 1px border (`#FECDD3`), text (`#9F1239`).
 
 ### Data Tables (Budget-vs-Actual)
 - **Header:** Sticky top, `32px` height, `#FAFAFA` fill, `1px solid #E4E4E7` bottom border. Labels use `label-caps` in `#67676F`.

@@ -4,10 +4,13 @@
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import { computeProjectScenarios } from "@/engine/scenarios";
 import { computeBlendedTotals } from "@/engine/blended";
+import { computeHeadline } from "@/engine/headline";
 import { computeVariance } from "@/engine/variance";
 import type { ActualEntry, ConfidenceBands, Project } from "@/engine/model";
 import { formatChartCurrency, renderBandChartSvg, renderCumulativeChartSvg } from "./charts";
-import { statusLabel } from "./labels";
+import { statusLabel, VARIANCE_FLAG_LABEL } from "./labels";
+import { totalStatusNote } from "./varianceCopy";
+import { effectiveStatus } from "@/engine/status";
 
 export interface BusinessCaseInput {
   project: Project;
@@ -27,7 +30,7 @@ const CATEGORY_LABEL: Record<string, string> = {
   consultancy: "Consultancy",
   it_systems: "IT Systems",
   travel: "Travel",
-  other_direct: "Other Direct Costs",
+  other_direct: "Other direct costs",
 };
 
 function escapeHtml(text: string): string {
@@ -49,7 +52,17 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   const { project, bands, actuals } = input;
   const scenarios = computeProjectScenarios(project, bands);
   const blended = computeBlendedTotals(project, actuals, bands);
-  const actualsOverlay = { closedPeriods: project.closedPeriods, budgetedByPeriod: blended.budgetedMarginByPeriod };
+  // Internal projects have no revenue by design: like the dashboard, they lead with cost and chart
+  // cost against budget, so an expected negative margin is never framed as a loss.
+  const headline = computeHeadline(project, actuals, bands);
+  const measure = headline.measure;
+  const isCost = measure === "cost";
+  const chartByPeriod = isCost ? blended.costByPeriod : blended.marginByPeriod;
+  const budgetTotal = headline.budget;
+  const actualsOverlay = {
+    closedPeriods: project.closedPeriods,
+    budgetedByPeriod: isCost ? blended.budgetedCostByPeriod : blended.budgetedMarginByPeriod,
+  };
   const variance = actuals.length > 0 ? computeVariance(project, actuals, bands) : null;
   const fmt = (v: number) => formatChartCurrency(v, project.currency, project.displayUnits);
 
@@ -68,7 +81,7 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   <div>
     <h1>${escapeHtml(project.name)} <span class="code">${escapeHtml(project.code)}</span></h1>
     <p class="meta">
-      ${statusLabel(project.status)} · ${escapeHtml(project.id)} ·
+      ${statusLabel(effectiveStatus(project))} · ${escapeHtml(project.id)} ·
       ${escapeHtml(project.periodization)} · ${escapeHtml(project.startPeriod)}–${escapeHtml(project.endPeriod)} ·
       ${escapeHtml(project.currency)} (${project.displayUnits === "thousands" ? "thousands" : "whole units"})
     </p>
@@ -94,17 +107,27 @@ ${
 
 <section class="card">
   <h2>Scenario summary</h2>
-  <p class="lead">
+  <p class="lead">${
+    isCost
+      ? `
+    Expected cost <strong>${fmt(blended.totals.cost.expected)}</strong> against a budget of ${fmt(budgetTotal)}
+    — range ${fmt(Math.min(blended.totals.cost.worst, blended.totals.cost.best))} to ${fmt(Math.max(blended.totals.cost.worst, blended.totals.cost.best))}.`
+      : `
     Expected margin <strong class="${blended.totals.margin.expected >= 0 ? "good" : "critical"}">${fmt(blended.totals.margin.expected)}</strong>
-    — range ${fmt(Math.min(blended.totals.margin.worst, blended.totals.margin.best))} to ${fmt(Math.max(blended.totals.margin.worst, blended.totals.margin.best))}.
+    — range ${fmt(Math.min(blended.totals.margin.worst, blended.totals.margin.best))} to ${fmt(Math.max(blended.totals.margin.worst, blended.totals.margin.best))}.`
+  }
   </p>
   ${blended.lastClosedPeriod ? `<p class="note">Actuals through ${escapeHtml(blended.lastClosedPeriod)}, projected after.</p>` : ""}
   <table class="totals">
     <thead><tr><th></th><th>Worst case</th><th>Expected</th><th>Best case</th></tr></thead>
     <tbody>
       <tr><th>Cost</th><td>${fmt(blended.totals.cost.worst)}</td><td>${fmt(blended.totals.cost.expected)}</td><td>${fmt(blended.totals.cost.best)}</td></tr>
-      <tr><th>Revenue</th><td>${fmt(blended.totals.revenue.worst)}</td><td>${fmt(blended.totals.revenue.expected)}</td><td>${fmt(blended.totals.revenue.best)}</td></tr>
-      <tr class="emphasis"><th>Margin</th><td>${fmt(blended.totals.margin.worst)}</td><td>${fmt(blended.totals.margin.expected)}</td><td>${fmt(blended.totals.margin.best)}</td></tr>
+      ${
+        isCost
+          ? ""
+          : `<tr><th>Revenue</th><td>${fmt(blended.totals.revenue.worst)}</td><td>${fmt(blended.totals.revenue.expected)}</td><td>${fmt(blended.totals.revenue.best)}</td></tr>
+      <tr class="emphasis"><th>Margin</th><td>${fmt(blended.totals.margin.worst)}</td><td>${fmt(blended.totals.margin.expected)}</td><td>${fmt(blended.totals.margin.best)}</td></tr>`
+      }
     </tbody>
   </table>
 
@@ -123,13 +146,13 @@ ${
 </section>
 
 <section class="card chart-section">
-  <h2>Scenario bands by period</h2>
-  ${renderBandChartSvg(blended.periods, blended.marginByPeriod, { currency: project.currency, displayUnits: project.displayUnits, actualsOverlay })}
+  <h2>Scenario bands — ${measure} by period</h2>
+  ${renderBandChartSvg(blended.periods, chartByPeriod, { currency: project.currency, displayUnits: project.displayUnits, actualsOverlay, measure })}
 </section>
 
 <section class="card chart-section">
-  <h2>Cumulative P&amp;L</h2>
-  ${renderCumulativeChartSvg(blended.periods, blended.marginByPeriod, { currency: project.currency, displayUnits: project.displayUnits, actualsOverlay })}
+  <h2>${isCost ? "Cumulative cost against budget" : "Cumulative P&amp;L"}</h2>
+  ${renderCumulativeChartSvg(blended.periods, chartByPeriod, { currency: project.currency, displayUnits: project.displayUnits, actualsOverlay, measure, budgetTotal })}
 </section>
 
 <section class="card">
@@ -140,8 +163,12 @@ ${
     </thead>
     <tbody>
       <tr><th>Cost</th>${blended.periods.map((p) => `<td>${fmt(blended.costByPeriod[p].expected)}</td>`).join("")}</tr>
-      <tr><th>Revenue</th>${blended.periods.map((p) => `<td>${fmt(blended.revenueByPeriod[p].expected)}</td>`).join("")}</tr>
-      <tr class="emphasis"><th>Margin</th>${blended.periods.map((p) => `<td>${fmt(blended.marginByPeriod[p].expected)}</td>`).join("")}</tr>
+      ${
+        isCost
+          ? `<tr class="emphasis"><th>Budgeted cost</th>${blended.periods.map((p) => `<td>${fmt(blended.budgetedCostByPeriod[p] ?? 0)}</td>`).join("")}</tr>`
+          : `<tr><th>Revenue</th>${blended.periods.map((p) => `<td>${fmt(blended.revenueByPeriod[p].expected)}</td>`).join("")}</tr>
+      <tr class="emphasis"><th>Margin</th>${blended.periods.map((p) => `<td>${fmt(blended.marginByPeriod[p].expected)}</td>`).join("")}</tr>`
+      }
     </tbody>
   </table>
   <p class="note">Expected values shown above; see the scenario band chart for the worst/best range
@@ -170,7 +197,7 @@ ${
   }
 </section>
 
-${variance ? renderVarianceSection(variance, fmt, input.riskCommentary) : ""}
+${variance ? renderVarianceSection(variance, fmt, input.riskCommentary, blended.periods.every((p) => project.closedPeriods.includes(p))) : ""}
 
 <section class="card">
   <h2>Assumptions &amp; dependencies</h2>
@@ -198,25 +225,27 @@ function renderVarianceSection(
   variance: ReturnType<typeof computeVariance>,
   fmt: (v: number) => string,
   riskCommentary: string | undefined,
+  complete: boolean,
 ): string {
-  const flagLabel: Record<string, string> = { ok: "On track", warning: "Watch", red: "Over budget" };
+  const note = totalStatusNote(variance, fmt, complete);
   const flagClass: Record<string, string> = { ok: "good", warning: "warning", red: "critical" };
 
   return `<section class="card">
   <h2>Budget vs. actual</h2>
   ${riskCommentary ? `<p>${escapeHtml(riskCommentary).replace(/\n/g, "<br />")}</p>` : ""}
   <table class="totals">
-    <thead><tr><th>Category</th><th>Status</th><th>Actual to date</th><th>Projection to complete</th><th>Expected total</th><th>Worst-case ceiling</th></tr></thead>
+    <thead><tr><th>Category</th><th>Status</th><th>Actual to date</th><th>Projection to complete</th><th>Budgeted total</th><th>Worst-case ceiling</th></tr></thead>
     <tbody>
       ${Object.entries(variance.byCategory)
         .map(
           ([category, row]) =>
-            `<tr><th>${CATEGORY_LABEL[category] ?? escapeHtml(category)}</th><td class="${flagClass[row.flag]}">${flagLabel[row.flag]}</td><td>${fmt(row.actualToDate)}</td><td>${fmt(row.projectionToComplete)}</td><td>${fmt(row.expectedTotal)}</td><td>${fmt(row.worstCeiling)}</td></tr>`,
+            `<tr><th>${CATEGORY_LABEL[category] ?? escapeHtml(category)}</th><td class="${flagClass[row.flag]}">${VARIANCE_FLAG_LABEL[row.flag]}</td><td>${fmt(row.actualToDate)}</td><td>${fmt(row.projectionToComplete)}</td><td>${fmt(row.expectedTotal)}</td><td>${fmt(row.worstCeiling)}</td></tr>`,
         )
         .join("")}
-      <tr class="emphasis"><th>Total</th><td class="${flagClass[variance.total.flag]}">${flagLabel[variance.total.flag]}</td><td>${fmt(variance.total.actualToDate)}</td><td>${fmt(variance.total.projectionToComplete)}</td><td>${fmt(variance.total.expectedTotal)}</td><td>${fmt(variance.total.worstCeiling)}</td></tr>
+      <tr class="emphasis"><th>Total</th><td>${VARIANCE_FLAG_LABEL[variance.total.flag]}</td><td>${fmt(variance.total.actualToDate)}</td><td>${fmt(variance.total.projectionToComplete)}</td><td>${fmt(variance.total.expectedTotal)}</td><td>${fmt(variance.total.worstCeiling)}</td></tr>
     </tbody>
   </table>
+  ${note ? `<p class="note">${escapeHtml(note)}</p>` : ""}
 </section>`;
 }
 

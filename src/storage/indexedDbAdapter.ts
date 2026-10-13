@@ -1,5 +1,6 @@
 // The v1 StorageAdapter implementation: IndexedDB via Dexie. Everything lives in the browser —
 // no backend, no accounts (CLAUDE.md rule 5).
+import { effectiveStatus } from "@/engine/status";
 import Dexie, { type Table } from "dexie";
 import type { Project } from "@/engine/model";
 import type { StorageAdapter } from "./storageAdapter";
@@ -96,7 +97,7 @@ export class IndexedDbStorageAdapter implements StorageAdapter {
         code: p.code,
         name: p.name,
         type: p.type,
-        status: p.status,
+        status: effectiveStatus(p),
         stakeholders: p.stakeholders,
         periodization: p.periodization,
         endPeriod: p.endPeriod,

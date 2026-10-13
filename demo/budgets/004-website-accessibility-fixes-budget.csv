@@ -1,0 +1,9 @@
+line_type,account_code,line_label,category,role,period,confidence,hours,rate,amount
+cost,4000,Designer — internal team,salary,Designer,2025-12,estimated,60,650,39000
+cost,4000,Designer — internal team,salary,Designer,2026-01,estimated,60,650,39000
+cost,4000,Designer — internal team,salary,Designer,2026-02,estimated,60,650,39000
+cost,4000,Designer — internal team,salary,Designer,2026-03,estimated,60,650,39000
+cost,4600,Accessibility testing tool licence,it_systems,,2025-12,committed,,,15000
+cost,4600,Accessibility testing tool licence,it_systems,,2026-01,committed,,,15000
+cost,4600,Accessibility testing tool licence,it_systems,,2026-02,committed,,,15000
+cost,4600,Accessibility testing tool licence,it_systems,,2026-03,committed,,,15000

@@ -114,7 +114,7 @@ export function validateProjectInvariants(project: Project): ModelValidationErro
       if (Math.abs(sum - model.amount) > EPSILON) {
         errors.push({
           field: "pricingModel.allocation.values",
-          message: `must sum to pricingModel.amount (${model.amount}), got ${sum}`,
+          message: `must add up to the fixed price (${model.amount}), got ${sum}`,
         });
       }
     }

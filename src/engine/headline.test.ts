@@ -55,9 +55,18 @@ describe("computeHeadline — 001 internal, closed through 2026-04 (the overrun 
     expect(h.driver).toBe("consultancy");
   });
 
+  it("is in progress, the flagged category makes the gap flagged, and even the best case is over", () => {
+    expect(h.stage).toBe("in_progress");
+    expect(h.gapFlagged).toBe(true);
+    // Best case 1,478,920 is still above the 1,473,600 budget.
+    expect(h.bestCaseOverBudget).toBe(true);
+  });
+
   it("reports cost to date against plan and the projected span", () => {
     expect(h.costActualToDate).toBeCloseTo(815800, 6);
     expect(h.costBudgetedToDate).toBeCloseTo(736800, 6);
+    expect(h.costBudgetLeft).toBeCloseTo(657800, 6);
+    expect(h.costBudgetedRemaining).toBeCloseTo(736800, 6);
     expect(h.lastClosedPeriod).toBe("2026-04");
     expect(h.projectedFrom).toBe("2026-05");
     expect(h.projectedTo).toBe("2026-08");
@@ -83,6 +92,13 @@ describe("computeHeadline — 002 customer, every period closed (the clean case)
     expect(h.projectedFrom).toBeNull();
     expect(h.projectedTo).toBeNull();
   });
+
+  it("is finished, and its 2,750 drift sits inside the budget band, so it is not flagged", () => {
+    expect(h.stage).toBe("finished");
+    expect(h.budgetGapFlag).toBe("ok");
+    expect(h.gapFlagged).toBe(false);
+    expect(h.bestCaseOverBudget).toBe(false);
+  });
 });
 
 describe("computeHeadline — 003 customer, nothing closed", () => {
@@ -104,6 +120,12 @@ describe("computeHeadline — 003 customer, nothing closed", () => {
     expect(h.lastClosedPeriod).toBeNull();
     expect(h.projectedFrom).toBe("2026-10");
     expect(h.projectedTo).toBe("2027-03");
+  });
+
+  it("is not started", () => {
+    expect(h.stage).toBe("not_started");
+    expect(h.gapFlagged).toBe(false);
+    expect(h.bestCaseOverBudget).toBe(false);
   });
 });
 
@@ -169,6 +191,36 @@ describe("computeHeadline — status and edge cases", () => {
     expect(h.deltaVsBudget).toBeCloseTo(-2000, 6);
     expect(h.unfavourable).toBe(false);
     expect(h.status).toBe("ok");
+  });
+
+  it("the budget gap is flagged by the share of the measure's contingency it consumes", () => {
+    // Both categories 900 over plan: the 1,800 gap uses 45% of the 4,000 combined contingency, so
+    // it stays inside the band…
+    const inBand = computeHeadline(base, [
+      { period: "2026-01", category: "it_systems", amount: 10900, description: "x", source: "csv" },
+      { period: "2026-01", category: "travel", amount: 10900, description: "y", source: "csv" },
+    ], bands);
+    expect(inBand.status).toBe("ok");
+    expect(inBand.budgetGapFlag).toBe("ok");
+    expect(inBand.gapFlagged).toBe(false);
+    // …while a fully committed budget has no band, so any overrun is outside it.
+    const committed: Project = { ...base, costs: base.costs.map((c) => ({ ...c, confidence: "committed" })) };
+    const outside = computeHeadline(committed, [
+      { period: "2026-01", category: "it_systems", amount: 10500, description: "x", source: "csv" },
+      { period: "2026-01", category: "travel", amount: 10000, description: "y", source: "csv" },
+    ], bands);
+    expect(outside.budgetGapFlag).toBe("red");
+    expect(outside.gapFlagged).toBe(true);
+  });
+
+  it("a favourable gap is never flagged", () => {
+    const h = computeHeadline(base, [
+      { period: "2026-01", category: "it_systems", amount: 9000, description: "x", source: "csv" },
+      { period: "2026-01", category: "travel", amount: 9000, description: "y", source: "csv" },
+    ], bands);
+    expect(h.budgetGapFlag).toBe("ok");
+    expect(h.gapFlagged).toBe(false);
+    expect(h.bestCaseOverBudget).toBe(false);
   });
 
   it("a zero budget has no percentage", () => {

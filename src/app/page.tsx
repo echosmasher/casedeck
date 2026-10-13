@@ -9,6 +9,7 @@ import { isViewerVisible } from "./_lib/demoViewer";
 import { useRole } from "./_lib/RoleProvider";
 import { useHideCompletedProjects } from "./_lib/hideCompletedProjects";
 import { isProjectOverdue, OVERDUE_TOOLTIP } from "./_lib/overdue";
+import { appToday } from "./_lib/today";
 import { serializeSnapshot, parseSnapshot } from "@/storage/snapshot";
 import type { ProjectSummary } from "@/storage/types";
 import { Button } from "@/components/ui/button";
@@ -85,7 +86,7 @@ export default function ProjectListPage() {
   const hidingCompletedProjects =
     hideCompleted && roleFilteredProjects !== null && roleFilteredProjects.length > 0 && visibleProjects?.length === 0;
   const isPlanner = role === "planner";
-  const today = new Date();
+  const today = appToday();
 
   return (
     <div className="flex flex-col gap-6">

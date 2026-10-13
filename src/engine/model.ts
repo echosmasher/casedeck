@@ -144,6 +144,8 @@ export interface GroupConfig {
   statuses: StatusDef[];
   rateCard: RateCardEntry[];
   categoryMapping: CategoryMappingEntry[];
+  /** Fixed "today" (YYYY-MM-DD) for a demo dataset; absent for real data, which uses the clock. */
+  asOf?: string;
 }
 
 export type ActualSource = "csv" | "manual";

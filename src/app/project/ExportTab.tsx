@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { downloadTextFile } from "../_lib/download";
+import { fieldLabel } from "../_lib/fieldLabel";
 import { renderBusinessCase } from "@/export/businessCase";
 import { validateProjectInvariants, type ModelValidationError } from "@/engine/validate";
 import type { ActualEntry, Project } from "@/engine/model";
@@ -11,10 +12,28 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
-export function ExportTab({ project, actuals }: { project: Project; actuals: ActualEntry[] }) {
+/** Commentary typed on the Export tab. Held by the page, not this tab, so switching tabs (which
+ * unmounts the panel) doesn't wipe a draft. */
+export interface ExportDraft {
+  executiveSummary: string;
+  riskCommentary: string;
+}
+
+export const EMPTY_EXPORT_DRAFT: ExportDraft = { executiveSummary: "", riskCommentary: "" };
+
+export function ExportTab({
+  project,
+  actuals,
+  draft,
+  onDraftChange,
+}: {
+  project: Project;
+  actuals: ActualEntry[];
+  draft: ExportDraft;
+  onDraftChange: (next: ExportDraft) => void;
+}) {
   const { config } = useEffectiveConfig();
-  const [executiveSummary, setExecutiveSummary] = useState("");
-  const [riskCommentary, setRiskCommentary] = useState("");
+  const { executiveSummary, riskCommentary } = draft;
   const [errors, setErrors] = useState<ModelValidationError[] | null>(null);
 
   const liveErrors = validateProjectInvariants(project);
@@ -56,7 +75,7 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 {liveErrors.map((e) => (
                   <li key={`${e.field}-${e.message}`}>
-                    <span className="font-mono text-xs">{e.field}</span>: {e.message}
+                    <span className="font-medium">{fieldLabel(e.field, project)}</span>: {e.message}
                   </li>
                 ))}
               </ul>
@@ -68,9 +87,9 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
             <Textarea
               id="executiveSummary"
               rows={4}
-              placeholder="Two or three sentences for whoever approves the budget: what the project is, and what the numbers above say."
+              placeholder="Two or three sentences for whoever approves the budget: what the project is, and what its range of outcomes means for the decision."
               value={executiveSummary}
-              onChange={(e) => setExecutiveSummary(e.target.value)}
+              onChange={(e) => onDraftChange({ ...draft, executiveSummary: e.target.value })}
             />
           </div>
 
@@ -82,7 +101,7 @@ export function ExportTab({ project, actuals }: { project: Project; actuals: Act
                 rows={3}
                 placeholder="Commentary on the budget-vs-actual picture, if any category needs explaining."
                 value={riskCommentary}
-                onChange={(e) => setRiskCommentary(e.target.value)}
+                onChange={(e) => onDraftChange({ ...draft, riskCommentary: e.target.value })}
               />
             </div>
           )}

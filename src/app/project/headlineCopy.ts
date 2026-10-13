@@ -1,24 +1,29 @@
 // Words for the dashboard headline (.impeccable/briefs/project-dashboard-headline.md). Every number
 // comes from `computeHeadline` (src/engine/headline.ts); this module only chooses phrasing and
 // formats. Kept free of React so the copy rules are unit-tested on their own.
-import type { DisplayUnits } from "@/engine/model";
+import type { ConfidenceBands, DisplayUnits, PeriodKey } from "@/engine/model";
+import type { SpreadDrivers } from "@/engine/spread";
 import type { HeadlineSummary } from "@/engine/headline";
-import { formatCompactAmount, formatRange } from "../_lib/format";
+import { formatCompactAmount } from "../_lib/format";
 
 /** A run of verdict text; `negative` marks an unfavourable figure (set in the critical ink — the
- * words already say "over", "below" or "loss", so colour only reinforces them). */
+ * words already say "over", "below" or "loss", so colour only reinforces them). A budget gap is
+ * only marked when it is flagged (`gapFlagged`), so a drift inside the band reads as neutral. */
 export interface VerdictSegment {
   text: string;
   negative?: boolean;
 }
 
 export interface HeadlineCopy {
-  /** One plain reason beside the status pill. */
+  /** One plain reason beside the status pill; links to the driving category's row when there is one. */
   reason: string;
+  /** A second sentence after the reason, e.g. that even the best case is over budget. */
+  reasonNote: string | null;
   verdict: VerdictSegment[];
-  /** Where the numbers come from: actuals vs. projections, plus the cost range when the verdict
-   * sentence doesn't already carry it. */
+  /** Where the numbers come from: actuals vs. projections. The range itself is on the strip. */
   source: string;
+  /** Open periods that have already ended: they still count at budget until actuals are recorded. */
+  missing: string | null;
 }
 
 /** Keeps a figure on the same line as its unit ("1.55M NOK", "of 810k") in the display-size
@@ -46,15 +51,19 @@ function marginRangeSegments(low: number, high: number, units: DisplayUnits): Ve
   return [{ text: `, anywhere from ${amount(low)} to ${amount(high)}.` }];
 }
 
-/** ", 79k over budget." / ", 12k under budget." / ", on budget." — for the measure in hand. */
+/** ", 79k over budget." / ", 12k under budget." / ", on budget." for a cost. A margin says "short
+ * of" / "ahead of the budgeted margin": "3k below budget" read as an under-budget win when the
+ * margin had in fact shrunk. */
 function budgetSegments(h: HeadlineSummary, units: DisplayUnits): VerdictSegment[] {
   const amount = formatCompactAmount(Math.abs(h.deltaVsBudget), units);
   if (amount === "0") return [{ text: ", on budget." }];
-  const direction =
-    h.measure === "cost" ? (h.deltaVsBudget > 0 ? "over" : "under") : h.deltaVsBudget < 0 ? "below" : "above";
+  const gap =
+    h.measure === "cost"
+      ? `${h.deltaVsBudget > 0 ? "over" : "under"} budget`
+      : `${h.deltaVsBudget < 0 ? "short of" : "ahead of"} the budgeted margin`;
   return [
     { text: ", " },
-    { text: `${amount}${NBSP}${direction} budget`, negative: h.unfavourable },
+    { text: `${amount}${NBSP}${gap}`, negative: h.gapFlagged },
     { text: "." },
   ];
 }
@@ -64,6 +73,8 @@ export function headlineCopy(
   currency: string,
   units: DisplayUnits,
   categoryLabel: (category: string) => string,
+  /** Open periods whose calendar end has passed (the caller knows today; the engine doesn't). */
+  endedOpenPeriods: PeriodKey[] = [],
 ): HeadlineCopy {
   const low = Math.min(h.value.best, h.value.worst);
   const high = Math.max(h.value.best, h.value.worst);
@@ -76,39 +87,108 @@ export function headlineCopy(
     reason = `${categoryLabel(h.driver)} has used over half its contingency.`;
   } else if (h.worstCaseBelowZero) {
     reason = "Worst case is a loss.";
-  } else if (h.lastClosedPeriod && !h.projectedFrom) {
+  } else if (h.stage === "finished") {
     reason = "Every category finished within its range.";
-  } else if (!h.lastClosedPeriod) {
-    reason = "Nothing closed yet.";
+  } else if (h.stage === "not_started") {
+    reason = "Every category is still at its budget.";
   } else {
     reason = "Every category is within its range.";
   }
+  const reasonNote = !h.bestCaseOverBudget
+    ? null
+    : h.measure === "cost"
+      ? "Even the best case is over budget."
+      : "Even the best case falls short of the budgeted margin.";
+
+  // Every open period is over: nothing is left to forecast, only to record, so "expected to" would
+  // read as a future the calendar has already passed.
+  const ended = endedOpenPeriods.length > 0 && endedOpenPeriods.at(-1) === h.projectedTo;
 
   let verdict: VerdictSegment[];
-  if (h.measure === "cost") {
-    verdict = [
-      { text: `Expected to cost ${formatCompactAmount(h.value.expected, units)}${NBSP}${currency}` },
-      ...budgetSegments(h, units),
-    ];
+  const expected = `${formatCompactAmount(Math.abs(h.value.expected), units)}${NBSP}${currency}`;
+  if (h.stage === "finished") {
+    // Nothing left to project: the range has collapsed, so report the outcome in the past tense.
+    const lead: VerdictSegment =
+      h.measure === "cost"
+        ? { text: `Finished at a cost of ${expected}` }
+        : h.value.expected < 0
+          ? { text: `Finished with a loss of ${expected}`, negative: true }
+          : { text: `Finished with a ${expected} margin` };
+    verdict = [lead, ...budgetSegments(h, units)];
+  } else if (h.measure === "cost") {
+    const lead = ended ? `Estimated final cost ${expected}` : `Expected to cost ${expected}`;
+    verdict = [{ text: lead }, ...budgetSegments(h, units)];
   } else {
     const lead =
       h.value.expected < 0
-        ? { text: `Expected loss ${formatCompactAmount(-h.value.expected, units)}${NBSP}${currency}`, negative: true }
-        : { text: `Expected margin ${formatCompactAmount(h.value.expected, units)}${NBSP}${currency}` };
+        ? { text: `${ended ? "Estimated final loss" : "Expected loss"} ${expected}`, negative: true }
+        : { text: `${ended ? "Estimated final margin" : "Expected margin"} ${expected}` };
     verdict = [lead, ...(collapsed ? budgetSegments(h, units) : marginRangeSegments(low, high, units))];
   }
 
   let source: string;
-  if (h.lastClosedPeriod && h.projectedFrom && h.projectedTo) {
+  if (ended) {
+    // The note below names the ended periods; nothing is left to call "projected".
+    source = h.lastClosedPeriod ? `Actuals through ${h.lastClosedPeriod}` : "No actuals yet";
+  } else if (h.lastClosedPeriod && h.projectedFrom && h.projectedTo) {
     source = `Actuals through ${h.lastClosedPeriod}, projected ${span(h.projectedFrom, h.projectedTo)}`;
   } else if (h.lastClosedPeriod) {
     source = `Actuals for every period, through ${h.lastClosedPeriod}`;
   } else {
     source = "No actuals yet; every period is projected";
   }
-  if (h.measure === "cost" && !collapsed) {
-    source += ` · range ${formatRange(low, high, currency, units)}`;
+
+  let missing: string | null = null;
+  if (endedOpenPeriods.length > 0) {
+    const periods = span(endedOpenPeriods[0], endedOpenPeriods[endedOpenPeriods.length - 1]);
+    missing =
+      endedOpenPeriods.length === 1
+        ? `${periods} has ended with no actuals recorded, so it still counts at budget.`
+        : `${periods} have ended with no actuals recorded, so they still count at budget.`;
   }
 
-  return { reason, verdict, source };
+  return { reason, reasonNote, verdict, source, missing };
+}
+
+/** The widest source of the range, as one line under the strip: "Salary is the biggest source of
+ * remaining uncertainty: 2 estimated lines (±10%), 99k of the 147k range." `category` is set for a
+ * cost category so the name can link to its row in Budget vs. actual. Once actuals are in, the
+ * status reason may name a different category (one already past its ceiling), so the line says
+ * "remaining" to keep the two from reading as a contradiction. */
+export interface SpreadCopy {
+  label: string;
+  category: string | null;
+  detail: string;
+}
+
+export function spreadCopy(
+  drivers: SpreadDrivers,
+  bands: ConfidenceBands,
+  units: DisplayUnits,
+  categoryLabel: (category: string) => string,
+  /** Some periods have actuals: what is left uncertain is only the open periods. */
+  hasActuals = false,
+): SpreadCopy | null {
+  const top = drivers.sources[0];
+  if (!top || formatCompactAmount(drivers.total, units) === "0") return null;
+
+  const band = `(±${bands[top.mainConfidence].bandPct}%)`;
+  const isRevenue = top.source === "revenue";
+  const lines = `${top.lines === 1 ? "line" : "lines"}`;
+  let how: string;
+  if (isRevenue) {
+    how = `${top.mixedConfidence ? "mostly " : ""}${top.mainConfidence} ${band}`;
+  } else if (top.mixedConfidence) {
+    how = `${top.lines} ${lines}, mostly ${top.mainConfidence} ${band}`;
+  } else {
+    how = `${top.lines} ${top.mainConfidence} ${lines} ${band}`;
+  }
+
+  const only = drivers.sources.length === 1;
+  const uncertainty = hasActuals ? "remaining uncertainty" : "uncertainty";
+  const detail = only
+    ? ` is the only source of ${uncertainty}: ${how}.`
+    : ` is the biggest source of ${uncertainty}: ${how}, ${formatCompactAmount(top.width, units)} of the ${formatCompactAmount(drivers.total, units)} range.`;
+
+  return { label: isRevenue ? "Revenue" : categoryLabel(top.source), category: isRevenue ? null : top.source, detail };
 }

@@ -1,0 +1,44 @@
+{
+  "id": "004",
+  "code": "PRO-2502",
+  "name": "Website Accessibility Fixes",
+  "type": "internal",
+  "status": "in_progress",
+  "currency": "NOK",
+  "displayUnits": "whole",
+  "periodization": "monthly",
+  "startPeriod": "2025-12",
+  "endPeriod": "2026-03",
+  "loadedCostMultiplier": 1.35,
+  "pricingModel": null,
+  "costs": [
+    {
+      "id": "salary-designer",
+      "category": "salary",
+      "label": "Designer — internal team",
+      "role": "Designer",
+      "hoursPerPeriod": {
+        "2025-12": 60, "2026-01": 60, "2026-02": 60, "2026-03": 60
+      },
+      "ratePerHour": 650,
+      "confidence": "estimated"
+    },
+    {
+      "id": "it-testing-tool",
+      "category": "it_systems",
+      "label": "Accessibility testing tool licence",
+      "valuesPerPeriod": {
+        "2025-12": 15000, "2026-01": 15000, "2026-02": 15000, "2026-03": 15000
+      },
+      "confidence": "committed"
+    }
+  ],
+  "stakeholders": [
+    { "role": "Sponsor", "name": "Digital Channels Lead", "email": "digital@example-group.invalid", "viewer": true },
+    { "role": "Project Manager", "name": "Assigned PM", "email": "pm@example-group.invalid", "viewer": false }
+  ],
+  "dependencies": [
+    "Testing tool licence runs for the project's four months only"
+  ],
+  "closedPeriods": ["2025-12", "2026-01", "2026-02"]
+}

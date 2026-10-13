@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeBlendedTotals } from "./blended";
+import { computeBlendedTotals, computePeriodActuals } from "./blended";
 import { computeProjectScenarios } from "./scenarios";
 import type { ActualEntry, ConfidenceBands, Project } from "./model";
 import project001 from "../../demo/projects/001-intranet-relaunch.json";
@@ -65,6 +65,16 @@ describe("computeBlendedTotals — 001 closed through 2026-04", () => {
 
   it("has no warnings — every closed period has actuals", () => {
     expect(blended.warnings).toEqual([]);
+  });
+
+  it("reports each period's gap to budget: the closed overrun, zero for open periods", () => {
+    // The closed months add up to the 79,000 overrun the headline reports.
+    const closed = ["2026-01", "2026-02", "2026-03", "2026-04"];
+    const overrun = closed.reduce((sum, p) => sum + blended.costVsBudgetByPeriod[p], 0);
+    expect(overrun).toBeCloseTo(79000, 2);
+    expect(blended.costVsBudgetByPeriod["2026-05"]).toBe(0);
+    // No revenue, so the margin gap is the cost gap with its sign flipped.
+    expect(blended.marginVsBudgetByPeriod["2026-02"]).toBeCloseTo(-blended.costVsBudgetByPeriod["2026-02"], 2);
   });
 });
 
@@ -162,5 +172,24 @@ describe("computeBlendedTotals — revenue actuals and warnings", () => {
     const blended = computeBlendedTotals(project, [], bands);
     expect(blended.budgetedMarginByPeriod["2026-01"]).toBeCloseTo(100000 - 20000, 6);
     expect(blended.budgetedMarginByPeriod["2026-03"]).toBeCloseTo(100000 - 20000, 6);
+  });
+});
+
+describe("computePeriodActuals", () => {
+  // 001 budgets 1,473,600 evenly over 8 months: 184,200 a month (demo/README.md Story 1).
+  it("001: sums recorded cost per period and compares it with that period's budget", () => {
+    const result = computePeriodActuals(project001 as Project, actuals001);
+    expect(result.recordedCostByPeriod).toEqual({ "2026-01": 184200, "2026-02": 209700, "2026-03": 212800, "2026-04": 209100 });
+    expect(result.budgetedCostByPeriod["2026-05"]).toBe(184200);
+    expect(result.recordedCostVsBudgetByPeriod).toEqual({ "2026-01": 0, "2026-02": 25500, "2026-03": 28600, "2026-04": 24900 });
+  });
+
+  it("leaves periods with nothing recorded absent, and keeps revenue apart from cost", () => {
+    const result = computePeriodActuals(project001 as Project, [
+      { period: "2026-05", category: "revenue", amount: 1000, description: "", source: "manual" },
+    ]);
+    expect(result.recordedCostByPeriod).toEqual({});
+    expect(result.recordedCostVsBudgetByPeriod).toEqual({});
+    expect(result.recordedRevenueByPeriod).toEqual({ "2026-05": 1000 });
   });
 });

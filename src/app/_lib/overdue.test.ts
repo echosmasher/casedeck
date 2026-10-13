@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isProjectOverdue, OVERDUE_TOOLTIP } from "./overdue";
+import { hasPeriodEnded, isFuturePeriod, isProjectOverdue, OVERDUE_TOOLTIP } from "./overdue";
 import type { ProjectStatus } from "@/engine/model";
 
 describe("isProjectOverdue", () => {
@@ -47,6 +47,45 @@ describe("isProjectOverdue", () => {
   );
 
   it("exposes a tooltip explaining the marker", () => {
-    expect(OVERDUE_TOOLTIP).toBe("Past end period — mark as completed or extend the end period.");
+    expect(OVERDUE_TOOLTIP).toMatch(/^Past end period with periods still open/);
+  });
+});
+
+describe("isFuturePeriod", () => {
+  const today = new Date(2026, 9, 12); // 2026-10-12
+
+  it("treats the current month as started and the next month as future", () => {
+    expect(isFuturePeriod("monthly", "2026-10", today)).toBe(false);
+    expect(isFuturePeriod("monthly", "2026-11", today)).toBe(true);
+    expect(isFuturePeriod("monthly", "2026-09", today)).toBe(false);
+  });
+
+  it("treats the quarter containing today as started", () => {
+    expect(isFuturePeriod("quarterly", "2026-Q4", today)).toBe(false);
+    expect(isFuturePeriod("quarterly", "2027-Q1", today)).toBe(true);
+  });
+
+  it("starts a total (yearly) period on January 1", () => {
+    expect(isFuturePeriod("total", "2026", today)).toBe(false);
+    expect(isFuturePeriod("total", "2027", today)).toBe(true);
+  });
+
+  it("a period starts on its first day", () => {
+    expect(isFuturePeriod("monthly", "2026-11", new Date(2026, 10, 1))).toBe(false);
+  });
+});
+
+describe("hasPeriodEnded", () => {
+  const today = new Date(2026, 4, 15);
+
+  it("a month has ended once today is past its last day; the current month has not", () => {
+    expect(hasPeriodEnded("monthly", "2026-04", today)).toBe(true);
+    expect(hasPeriodEnded("monthly", "2026-05", today)).toBe(false);
+    expect(hasPeriodEnded("monthly", "2026-04", new Date(2026, 3, 30))).toBe(false);
+  });
+
+  it("a quarter ends on its last day", () => {
+    expect(hasPeriodEnded("quarterly", "2026-Q1", today)).toBe(true);
+    expect(hasPeriodEnded("quarterly", "2026-Q2", today)).toBe(false);
   });
 });

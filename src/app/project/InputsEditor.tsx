@@ -1,9 +1,15 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
+import { formatCurrency } from "../_lib/format";
+import { fieldLabel } from "../_lib/fieldLabel";
+import { SMALL_SCREEN, useSmallScreen } from "../_lib/useSmallScreen";
+import { lineScenarioTotal } from "@/engine/scenarios";
 import { projectPeriods } from "@/engine/periodize";
-import type { Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
+import { computeHeadline } from "@/engine/headline";
+import { validateProjectInvariants } from "@/engine/validate";
+import type { ActualEntry, Confidence, CostLineItem, DirectCostCategory, Project } from "@/engine/model";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +19,27 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { NumberCell } from "@/components/number-cell";
 import { Trash2 } from "lucide-react";
 import { selectClass, DIRECT_CATEGORIES, CATEGORY_LABEL, CONFIDENCE_OPTIONS } from "./shared";
+import { UNDO_WINDOW_MS, useUndoQueue } from "./UndoQueue";
+import { describeCostEdit, describeEffect, describeRevenueEdit, type EditChange } from "./editFeedback";
+
+/** The last saved edit: what it did, and how to put the edited fields back. */
+interface SavedEdit {
+  message: string;
+  revert: ((current: Project) => Project) | null;
+  /** The edit was refused: the bar reads as an error, not a confirmation. */
+  rejected?: boolean;
+}
+
+/** A removed cost line and where it sat, so Undo puts it back in the same place. */
+interface RemovedLine {
+  id: string;
+  line: CostLineItem;
+  index: number;
+}
+
+function describeLine(line: CostLineItem) {
+  return `${line.label} (${CATEGORY_LABEL[line.category] ?? line.category})`;
+}
 
 // The Costs table pins its first two columns while period columns scroll underneath — on a phone
 // only the Line column (narrower there), since two pinned columns filled the whole 390px width
@@ -30,11 +57,14 @@ const CONFIDENCE_COL_WIDTH = "w-28 sm:w-40";
 
 export function InputsEditor({
   project,
+  actuals,
   onLocalChange,
   onCommit,
   readOnly = false,
 }: {
   project: Project;
+  /** Only to report what an edit does to the dashboard's headline figure. */
+  actuals: ActualEntry[];
   onLocalChange: (next: Project) => void;
   onCommit: (next: Project) => void | Promise<unknown>;
   readOnly?: boolean;
@@ -48,27 +78,162 @@ export function InputsEditor({
   // fires one IndexedDB write per character typed, which is unnecessary and — observed during
   // manual browser verification — can exhaust the origin's storage quota and crash the tab under
   // rapid typing. See CLAUDE.md / the Phase 3 report for the incident.
+  // Undo runs after later edits may have landed, so it restores into the latest project, not the
+  // one captured when the line was removed.
+  const latestProject = useRef(project);
+  // The project as last saved: keystrokes update `project` before the commit, so the "before" of
+  // an edit has to be remembered separately. Kept in step with outside saves (closing a period,
+  // Edit) whenever no keystroke edit is pending.
+  const savedProject = useRef(project);
+  const editPending = useRef(false);
+  useEffect(() => {
+    latestProject.current = project;
+    if (!editPending.current) savedProject.current = project;
+  }, [project]);
+
+  const [savedEdit, setSavedEdit] = useState<SavedEdit | null>(null);
+  // Undo removes its own button, so focus moves to the message that replaces it, not <body>.
+  const savedMessage = useRef<HTMLSpanElement>(null);
+  const focusMessage = useRef(false);
+  useEffect(() => {
+    if (!focusMessage.current) return;
+    focusMessage.current = false;
+    savedMessage.current?.focus();
+  }, [savedEdit]);
+  // On a phone the bar covers a fifth of the screen, so it clears itself after the same window an
+  // undoable delete gets; held open while the pointer or focus is on it (WCAG 2.2.1).
+  const [barHeld, setBarHeld] = useState(false);
+  useEffect(() => {
+    if (!savedEdit || barHeld || !window.matchMedia(SMALL_SCREEN).matches) return;
+    const timer = setTimeout(closeBar, UNDO_WINDOW_MS);
+    return () => clearTimeout(timer);
+  }, [savedEdit, barHeld]);
+  function closeBar() {
+    setSavedEdit(null);
+    setBarHeld(false);
+  }
+  const units = { currency: project.currency, displayUnits: project.displayUnits };
+
+  function localChange(next: Project) {
+    editPending.current = true;
+    onLocalChange(next);
+  }
+
+  /** Saves `next`, then says what changed and what it did to the headline, with an Undo that puts
+   * back only the edited fields (later edits elsewhere stay). */
+  async function commitEdit(
+    next: Project,
+    change: (before: Project, after: Project) => EditChange | null,
+    restore: (current: Project, before: Project) => Project,
+  ) {
+    const before = savedProject.current;
+    editPending.current = false;
+    savedProject.current = next;
+    if ((await onCommit(next)) === false) return;
+    const what = change(before, next);
+    if (!what) return;
+    setSavedEdit({
+      message: `Saved. ${what.text}. ${effectOf(before, next, what)}`,
+      revert: (current) => restore(current, before),
+    });
+  }
+
+  function effectOf(before: Project, after: Project, what: EditChange) {
+    if (validateProjectInvariants(before).length > 0 || validateProjectInvariants(after).length > 0) return "";
+    const closed = what.period !== null && after.closedPeriods.includes(what.period) ? what.period : null;
+    return describeEffect(
+      computeHeadline(before, actuals, bands),
+      computeHeadline(after, actuals, bands),
+      units,
+      closed,
+    );
+  }
+
+  /** A cell refused what was typed and went back to its last good value; say so where "Saved."
+   * would otherwise have appeared, so a bad value never looks accepted. */
+  function rejectEdit(problem: string) {
+    setSavedEdit({ message: `Not saved. ${problem}.`, revert: null, rejected: true });
+  }
+
+  async function undoEdit() {
+    if (!savedEdit?.revert) return;
+    const next = savedEdit.revert(latestProject.current);
+    savedProject.current = next;
+    if ((await onCommit(next)) === false) return;
+    focusMessage.current = true;
+    setSavedEdit({ message: "Undone. The value is back to what it was.", revert: null });
+  }
+
   function updateLineLocal(lineId: string, patch: Partial<CostLineItem>) {
     const costs = project.costs.map((line) =>
       line.id === lineId ? ({ ...line, ...patch } as CostLineItem) : line,
     );
-    onLocalChange({ ...project, costs });
+    localChange({ ...project, costs });
   }
 
   function commitLine(lineId: string, patch: Partial<CostLineItem>) {
     const costs = project.costs.map((line) =>
       line.id === lineId ? ({ ...line, ...patch } as CostLineItem) : line,
     );
-    void onCommit({ ...project, costs });
+    void commitEdit(
+      { ...project, costs },
+      (before, after) => {
+        const was = before.costs.find((l) => l.id === lineId);
+        const is = after.costs.find((l) => l.id === lineId);
+        return was && is ? describeCostEdit(was, is, units) : null;
+      },
+      (current, before) => {
+        const was = before.costs.find((l) => l.id === lineId);
+        if (!was) return current;
+        const restored = Object.fromEntries(Object.keys(patch).map((k) => [k, was[k as keyof CostLineItem]]));
+        return {
+          ...current,
+          costs: current.costs.map((l) => (l.id === lineId ? ({ ...l, ...restored } as CostLineItem) : l)),
+        };
+      },
+    );
   }
 
-  function removeLine(lineId: string) {
-    void onCommit({ ...project, costs: project.costs.filter((l) => l.id !== lineId) });
+  function commitRevenue(next: Project) {
+    return commitEdit(
+      next,
+      (before, after) =>
+        before.pricingModel?.type === "hourly" && after.pricingModel?.type === "hourly"
+          ? describeRevenueEdit(before.pricingModel, after.pricingModel, units)
+          : null,
+      (current, before) => ({ ...current, pricingModel: before.pricingModel }),
+    );
   }
 
-  function addLine(line: CostLineItem) {
-    void onCommit({ ...project, costs: [...project.costs, line] });
+  const undoQueue = useUndoQueue<RemovedLine>({
+    describe: ({ line }) => describeLine(line),
+    restore: async ({ line, index }) => {
+      const current = latestProject.current;
+      if (current.costs.some((l) => l.id === line.id)) return;
+      const costs = [...current.costs.slice(0, index), line, ...current.costs.slice(index)];
+      if ((await onCommit({ ...current, costs })) === false) throw new Error("the change wasn't saved");
+    },
+  });
+
+  function removeLine(line: CostLineItem) {
+    const index = project.costs.findIndex((l) => l.id === line.id);
+    void undoQueue.remove({ id: line.id, line, index }, async () => {
+      const saved = await onCommit({ ...project, costs: project.costs.filter((l) => l.id !== line.id) });
+      // `false` means the page-level alert already names the storage error.
+      return saved === false ? false : undefined;
+    });
   }
+
+  async function addLine(line: CostLineItem) {
+    if ((await onCommit({ ...project, costs: [...project.costs, line] })) === false) return;
+    undoQueue.announce(`Added ${describeLine(line)}. Enter its amounts per period in the grid.`);
+  }
+
+  const modelErrors = validateProjectInvariants(project);
+  const small = useSmallScreen();
+  // Each line's expected total, from the engine, in the project's own display units.
+  const lineTotal = (line: CostLineItem) => lineScenarioTotal(line, project.loadedCostMultiplier, bands).expected;
+  const money = (v: number) => formatCurrency(v, project.currency, project.displayUnits);
 
   return (
     <fieldset disabled={readOnly} className="flex flex-col gap-6 border-0 p-0 m-0 min-w-0">
@@ -77,12 +242,26 @@ export function InputsEditor({
           Viewer role — read only. Switch to Planner to edit.
         </p>
       )}
+      {modelErrors.length > 0 && (
+        // The same list the dashboard shows in place of its figures, here where the fix happens.
+        <div role="alert" className="rounded-lg border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <p className="font-medium">The dashboard can&apos;t show this project until these are fixed:</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {modelErrors.map((e) => (
+              <li key={`${e.field}-${e.message}`}>
+                <span className="font-medium">{fieldLabel(e.field, project)}</span>: {e.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {project.pricingModel && (
         <RevenueSection
           project={project}
           periods={periods}
-          onLocalChange={onLocalChange}
-          onCommit={onCommit}
+          onLocalChange={localChange}
+          onCommit={commitRevenue}
+          onReject={rejectEdit}
         />
       )}
 
@@ -97,6 +276,7 @@ export function InputsEditor({
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {undoQueue.panel}
           {project.costs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No cost lines yet.</p>
           ) : (
@@ -105,8 +285,29 @@ export function InputsEditor({
                 {periods.length} {periods.length === 1 ? "period" : "periods"}, {periods[0]}
                 {periods.length > 1 ? `–${periods.at(-1)}` : ""}.
                 {/* Even a 1280px viewport shows only about four period columns. */}
-                {periods.length > 3 && " The grid scrolls sideways for later periods; the line name stays in view."}
+                {small
+                  ? " Open a line to edit its periods."
+                  : periods.length > 3 && " The grid scrolls sideways for later periods; the line name stays in view."}{" "}
+                Arrow keys step a value.
               </p>
+              {small ? (
+                <ul className="flex flex-col">
+                  {project.costs.map((line) => (
+                    <CostLineCard
+                      key={line.id}
+                      line={line}
+                      total={money(lineTotal(line))}
+                      periods={periods}
+                      closedPeriods={project.closedPeriods}
+                      currency={project.currency}
+                      onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
+                      onCommit={(patch) => commitLine(line.id, patch)}
+                      onRemove={() => removeLine(line)}
+                      onReject={rejectEdit}
+                    />
+                  ))}
+                </ul>
+              ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -115,7 +316,7 @@ export function InputsEditor({
                       Confidence
                     </TableHead>
                     {periods.map((p) => (
-                      <TableHead key={p}>{p}</TableHead>
+                      <PeriodHead key={p} period={p} closed={project.closedPeriods.includes(p)} />
                     ))}
                     <TableHead />
                   </TableRow>
@@ -126,51 +327,101 @@ export function InputsEditor({
                       key={line.id}
                       line={line}
                       periods={periods}
+                      closedPeriods={project.closedPeriods}
+                      currency={project.currency}
                       onUpdateLocal={(patch) => updateLineLocal(line.id, patch)}
                       onCommit={(patch) => commitLine(line.id, patch)}
-                      onRemove={() => removeLine(line.id)}
+                      onRemove={() => removeLine(line)}
+                      onReject={rejectEdit}
+                      total={money(lineTotal(line))}
                     />
                   ))}
                 </TableBody>
               </Table>
+              )}
             </>
           )}
 
-          <AddCostLineForm periods={periods} onAdd={addLine} />
+          <AddCostLineForm periods={periods} onAdd={(line) => void addLine(line)} />
         </CardContent>
       </Card>
+
+      {/* Sticks to the bottom of the viewport while the grid scrolls, so the result of an edit is
+          in view wherever the edited cell was. */}
+      <div role="status" aria-live="polite" className="sticky bottom-3 z-30 empty:hidden">
+        {savedEdit && (
+          <div
+            onPointerEnter={() => setBarHeld(true)}
+            onPointerLeave={() => setBarHeld(false)}
+            onFocus={() => setBarHeld(true)}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget)) setBarHeld(false);
+            }}
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-sm tabular-nums shadow-[0_2px_4px_rgba(0,0,0,0.04),0_1px_2px_rgba(0,0,0,0.02)]",
+              savedEdit.rejected && "border-destructive/50 text-destructive",
+            )}
+          >
+            <span ref={savedMessage} tabIndex={-1} className="outline-none">
+              {savedEdit.message}
+            </span>
+            <span className="flex gap-1">
+              {savedEdit.revert && (
+                <Button type="button" variant="outline" size="sm" onClick={() => void undoEdit()}>
+                  Undo
+                </Button>
+              )}
+              <Button type="button" variant="ghost" size="sm" onClick={closeBar}>
+                Dismiss
+              </Button>
+            </span>
+          </div>
+        )}
+      </div>
     </fieldset>
+  );
+}
+
+/** A period column header; a closed period says so, since editing it re-baselines the budget
+ * while the dashboard keeps that period's actuals. */
+function PeriodHead({ period, closed }: { period: string; closed: boolean }) {
+  return (
+    <TableHead className={cn(closed && "bg-muted")}>
+      {period}
+      {closed && <span className="ml-1.5 font-normal text-muted-foreground">closed</span>}
+    </TableHead>
   );
 }
 
 function CostLineRow({
   line,
   periods,
+  closedPeriods,
+  currency,
   onUpdateLocal,
   onCommit,
   onRemove,
-}: {
-  line: CostLineItem;
-  periods: string[];
-  onUpdateLocal: (patch: Partial<CostLineItem>) => void;
-  onCommit: (patch: Partial<CostLineItem>) => void;
-  onRemove: () => void;
-}) {
+  onReject,
+  total,
+}: CostLineProps) {
   const isSalary = line.category === "salary";
 
   return (
     <TableRow>
       <TableCell className={cn("sticky left-0 z-20 bg-card align-top", LINE_COL_WIDTH)}>
         <div className={cn("flex flex-col gap-1", LINE_COL_CONTENT_MAX_WIDTH)}>
-          <span className="truncate font-medium">{line.label}</span>
+          {/* Wraps rather than truncating: two lines can share a role, and only the label tells them apart. */}
+          <span className="font-medium [overflow-wrap:anywhere]">{line.label}</span>
           <span className="truncate text-xs text-muted-foreground">
-            {CATEGORY_LABEL[line.category] ?? line.category}
+            {CATEGORY_LABEL[line.category] ?? line.category} · {isSalary ? "hours" : currency} per period
           </span>
           {isSalary && (
             <span className="truncate text-xs text-muted-foreground">
               {line.role} · {line.ratePerHour}/h
             </span>
           )}
+          {/* In the sticky column, so the total stays in view while the periods scroll. */}
+          <span className="text-xs font-medium tabular-nums">{total} total</span>
         </div>
       </TableCell>
       <TableCell className={cn("z-20 bg-card align-top sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
@@ -188,7 +439,7 @@ function CostLineRow({
         </select>
       </TableCell>
       {periods.map((period) => (
-        <TableCell key={period} className="align-top">
+        <TableCell key={period} className={cn("align-top", closedPeriods.includes(period) && "bg-muted/40")}>
           {isSalary ? (
             <NumberCell
               id={`${line.id}-${period}`}
@@ -201,19 +452,21 @@ function CostLineRow({
               onCommit={(v) =>
                 onCommit({ hoursPerPeriod: { ...line.hoursPerPeriod, [period]: v } })
               }
+              onReject={onReject}
             />
           ) : (
             <NumberCell
               id={`${line.id}-${period}`}
-              label={`${line.label} amount in ${period}`}
+              label={`${line.label} ${currency} in ${period}`}
               value={line.valuesPerPeriod[period] ?? 0}
-              step={line.valuesPerPeriod[period] > 0 ? Math.round(line.valuesPerPeriod[period] * 0.1) || 100 : 100}
+              step={stepFor(line, period)}
               onChange={(v) =>
                 onUpdateLocal({ valuesPerPeriod: { ...line.valuesPerPeriod, [period]: v } })
               }
               onCommit={(v) =>
                 onCommit({ valuesPerPeriod: { ...line.valuesPerPeriod, [period]: v } })
               }
+              onReject={onReject}
             />
           )}
         </TableCell>
@@ -233,12 +486,117 @@ function CostLineRow({
   );
 }
 
+/** How far ArrowUp/ArrowDown move a cell: 5 hours, or a tenth of the amount (at least 100). */
+function stepFor(line: CostLineItem, period: string) {
+  if (line.category === "salary") return 5;
+  const value = line.valuesPerPeriod[period] ?? 0;
+  return value > 0 ? Math.round(value * 0.1) || 100 : 100;
+}
+
+/** One cost line on a phone: its name, total and confidence, with its periods listed down the
+ * line on demand rather than in a grid that scrolls sideways under a sticky name column. */
+function CostLineCard({
+  line,
+  periods,
+  closedPeriods,
+  currency,
+  onUpdateLocal,
+  onCommit,
+  onRemove,
+  onReject,
+  total,
+}: CostLineProps) {
+  const [open, setOpen] = useState(false);
+  const listId = useId();
+  const isSalary = line.category === "salary";
+  const values = isSalary ? line.hoursPerPeriod : line.valuesPerPeriod;
+  const key = isSalary ? "hoursPerPeriod" : "valuesPerPeriod";
+  const unit = isSalary ? "hours" : currency;
+
+  return (
+    <li className="flex flex-col gap-2 border-b py-3 first:pt-0">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium [overflow-wrap:anywhere]">{line.label}</span>
+          <span className="text-xs text-muted-foreground">
+            {CATEGORY_LABEL[line.category] ?? line.category} · {unit} per period
+            {isSalary && ` · ${line.role} · ${line.ratePerHour}/h`}
+          </span>
+        </div>
+        <span className="shrink-0 pt-0.5 text-sm font-medium tabular-nums">{total}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          Confidence
+          <select
+            className={cn(selectClass, "w-auto min-w-0 text-foreground")}
+            aria-label={`Confidence for ${line.label}`}
+            value={line.confidence}
+            onChange={(e) => onCommit({ confidence: e.target.value as Confidence })}
+          >
+            {CONFIDENCE_OPTIONS.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button type="button" variant="outline" size="sm" aria-expanded={open} aria-controls={listId} onClick={() => setOpen(!open)}>
+          {open ? "Hide periods" : `Edit ${periods.length} periods`}
+        </Button>
+        <Button type="button" variant="ghost" size="icon" className="ml-auto" aria-label={`Remove ${line.label}`} onClick={onRemove}>
+          <Trash2 className="size-4" />
+        </Button>
+      </div>
+      {open && (
+        <ul id={listId} className="flex flex-col gap-1.5 border-l pl-3">
+          {periods.map((period) => {
+            const closed = closedPeriods.includes(period);
+            const id = `${line.id}-${period}`;
+            return (
+              <li key={period} className="flex items-start justify-between gap-3">
+                <label htmlFor={id} className="pt-1 text-sm tabular-nums">
+                  {period}
+                  {closed && <span className="ml-1.5 text-xs text-muted-foreground">closed</span>}
+                </label>
+                <NumberCell
+                  id={id}
+                  label={isSalary ? `${line.label} hours in ${period}` : `${line.label} ${currency} in ${period}`}
+                  value={values[period] ?? 0}
+                  step={stepFor(line, period)}
+                  onChange={(v) => onUpdateLocal({ [key]: { ...values, [period]: v } })}
+                  onCommit={(v) => onCommit({ [key]: { ...values, [period]: v } })}
+                  onReject={onReject}
+                  className={cn("h-8 w-28 text-right tabular-nums", closed && "bg-muted/40")}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </li>
+  );
+}
+
+interface CostLineProps {
+  line: CostLineItem;
+  periods: string[];
+  closedPeriods: string[];
+  currency: string;
+  onUpdateLocal: (patch: Partial<CostLineItem>) => void;
+  onCommit: (patch: Partial<CostLineItem>) => void;
+  onRemove: () => void;
+  onReject: (problem: string) => void;
+  /** The line's expected total, formatted. */
+  total: string;
+}
+
 function AddCostLineForm({
   periods,
   onAdd,
 }: {
   periods: string[];
-  onAdd: (line: CostLineItem) => void;
+  onAdd: (line: CostLineItem) => void | Promise<void>;
 }) {
   const formId = useId();
   const { config } = useEffectiveConfig();
@@ -247,10 +605,17 @@ function AddCostLineForm({
   const [role, setRole] = useState(config.rateCard[0]?.role ?? "");
   const [ratePerHour, setRatePerHour] = useState(String(config.rateCard[0]?.ratePerHour ?? 0));
   const [confidence, setConfidence] = useState<Confidence>("estimated");
+  const [labelError, setLabelError] = useState(false);
+  const labelInput = useRef<HTMLInputElement>(null);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!label.trim()) return;
+    if (!label.trim()) {
+      setLabelError(true);
+      labelInput.current?.focus();
+      return;
+    }
+    setLabelError(false);
 
     const zeroedPeriods = Object.fromEntries(periods.map((p) => [p, 0]));
     const id = `${category}-${Date.now()}`;
@@ -278,7 +643,7 @@ function AddCostLineForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-lg border border-dashed p-3">
+    <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3 rounded-[0.25rem] border border-dashed p-3">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${formId}-category`}>Category</Label>
         <select
@@ -297,7 +662,17 @@ function AddCostLineForm({
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor={`${formId}-label`}>Label</Label>
-        <Input id={`${formId}-label`} value={label} onChange={(e) => setLabel(e.target.value)} />
+        <Input
+          ref={labelInput}
+          id={`${formId}-label`}
+          value={label}
+          aria-invalid={labelError || undefined}
+          aria-describedby={labelError ? `${formId}-label-error` : undefined}
+          onChange={(e) => {
+            setLabel(e.target.value);
+            if (e.target.value.trim()) setLabelError(false);
+          }}
+        />
       </div>
       {category === "salary" && (
         <>
@@ -349,6 +724,11 @@ function AddCostLineForm({
         </select>
       </div>
       <Button type="submit">Add line</Button>
+      {labelError && (
+        <p id={`${formId}-label-error`} role="alert" className="basis-full text-sm text-destructive">
+          Give the line a label first, for example &ldquo;CMS licence&rdquo;.
+        </p>
+      )}
     </form>
   );
 }
@@ -358,12 +738,15 @@ function RevenueSection({
   periods,
   onLocalChange,
   onCommit,
+  onReject,
 }: {
   project: Project;
   periods: string[];
   onLocalChange: (next: Project) => void;
   onCommit: (next: Project) => void | Promise<unknown>;
+  onReject: (problem: string) => void;
 }) {
+  const small = useSmallScreen();
   const model = project.pricingModel;
   if (!model) return null;
 
@@ -374,17 +757,39 @@ function RevenueSection({
           <CardTitle>Revenue — fixed price</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-muted-foreground">
-          {model.amount.toLocaleString()} {project.currency},{" "}
+          <span className="font-medium text-foreground tabular-nums">
+            {formatCurrency(model.amount, project.currency, project.displayUnits)}
+          </span>
+          ,{" "}
           {model.allocation.type === "even"
-            ? "recognized evenly across the lifetime"
+            ? "spread evenly across the project's periods"
             : model.allocation.type === "at_period"
-              ? `recognized entirely at ${model.allocation.period}`
-              : "custom per-period allocation"}
-          , confidence: {model.confidence}. Edit via the setup wizard or a snapshot import.
+              ? `all in ${model.allocation.period}`
+              : "split across periods by hand"}
+          , {model.confidence}. To change the price, use Edit at the top of the page.
         </CardContent>
       </Card>
     );
   }
+
+  const hoursCell = (period: string, className?: string) => {
+    const update = (v: number) => ({
+      ...project,
+      pricingModel: { ...model, hoursPerPeriod: { ...model.hoursPerPeriod, [period]: v } },
+    });
+    return (
+      <NumberCell
+        id={`revenue-hours-${period}`}
+        label={`Billable hours in ${period}`}
+        value={model.hoursPerPeriod[period] ?? 0}
+        step={5}
+        onChange={(v) => onLocalChange(update(v))}
+        onCommit={(v) => void onCommit(update(v))}
+        onReject={onReject}
+        className={className}
+      />
+    );
+  };
 
   return (
     <Card>
@@ -392,27 +797,17 @@ function RevenueSection({
         <CardTitle>Revenue — hourly</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex items-end gap-3">
+        <div className="flex items-start gap-3">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="hourlyRate">Rate/hour ({project.currency})</Label>
-            <Input
+            <NumberCell
               id="hourlyRate"
-              type="number"
-              min="0"
-              className="w-28"
+              label={`Rate/hour (${project.currency})`}
               value={model.ratePerHour}
-              onChange={(e) =>
-                onLocalChange({
-                  ...project,
-                  pricingModel: { ...model, ratePerHour: e.target.valueAsNumber || 0 },
-                })
-              }
-              onBlur={(e) =>
-                void onCommit({
-                  ...project,
-                  pricingModel: { ...model, ratePerHour: e.target.valueAsNumber || 0 },
-                })
-              }
+              step={50}
+              onChange={(v) => onLocalChange({ ...project, pricingModel: { ...model, ratePerHour: v } })}
+              onCommit={(v) => void onCommit({ ...project, pricingModel: { ...model, ratePerHour: v } })}
+              onReject={onReject}
             />
           </div>
           <div className="flex flex-col gap-1.5">
@@ -436,47 +831,39 @@ function RevenueSection({
             </select>
           </div>
         </div>
+        <p className="text-sm font-medium">Billable hours per period</p>
+        {small ? (
+          <ul className="flex flex-col gap-1.5">
+            {periods.map((period) => (
+              <li key={period} className="flex items-start justify-between gap-3">
+                <label htmlFor={`revenue-hours-${period}`} className="pt-1 text-sm tabular-nums">
+                  {period}
+                  {project.closedPeriods.includes(period) && <span className="ml-1.5 text-xs text-muted-foreground">closed</span>}
+                </label>
+                {hoursCell(period, "h-8 w-28 text-right tabular-nums")}
+              </li>
+            ))}
+          </ul>
+        ) : (
         <Table>
           <TableHeader>
             <TableRow>
               {periods.map((p) => (
-                <TableHead key={p}>{p}</TableHead>
+                <PeriodHead key={p} period={p} closed={project.closedPeriods.includes(p)} />
               ))}
             </TableRow>
           </TableHeader>
           <TableBody>
             <TableRow>
               {periods.map((period) => (
-                <TableCell key={period}>
-                  <NumberCell
-                    id={`revenue-hours-${period}`}
-                    label={`Billable hours in ${period}`}
-                    value={model.hoursPerPeriod[period] ?? 0}
-                    step={5}
-                    onChange={(v) =>
-                      onLocalChange({
-                        ...project,
-                        pricingModel: {
-                          ...model,
-                          hoursPerPeriod: { ...model.hoursPerPeriod, [period]: v },
-                        },
-                      })
-                    }
-                    onCommit={(v) =>
-                      void onCommit({
-                        ...project,
-                        pricingModel: {
-                          ...model,
-                          hoursPerPeriod: { ...model.hoursPerPeriod, [period]: v },
-                        },
-                      })
-                    }
-                  />
+                <TableCell key={period} className={cn(project.closedPeriods.includes(period) && "bg-muted/40")}>
+                  {hoursCell(period)}
                 </TableCell>
               ))}
             </TableRow>
           </TableBody>
         </Table>
+        )}
       </CardContent>
     </Card>
   );

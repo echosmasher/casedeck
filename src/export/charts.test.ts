@@ -115,6 +115,47 @@ describe("renderCumulativeChartSvg", () => {
   });
 });
 
+describe("cost measure (internal projects)", () => {
+  const cost: ScenarioByPeriod = {
+    "2026-01": { expected: 100, worst: 130, best: 90 },
+    "2026-02": { expected: 100, worst: 130, best: 90 },
+  };
+  const costPeriods = Object.keys(cost);
+
+  it("names the cost measure and puts Worst above Best at the end of the lines", () => {
+    const svg = renderBandChartSvg(costPeriods, cost, { currency: "NOK", displayUnits: "whole", measure: "cost" });
+    expect(svg).toContain('aria-label="Scenario bands, cost by period');
+    const yOf = (label: string) => Number(new RegExp(`y="([\\d.]+)"[^>]*>${label}</text>`).exec(svg)?.[1]);
+    expect(yOf("Worst")).toBeLessThan(yOf("Best"));
+  });
+
+  it("draws the total budget as a labelled line on the cumulative chart and keeps it in range", () => {
+    const svg = renderCumulativeChartSvg(costPeriods, cost, {
+      currency: "NOK",
+      displayUnits: "whole",
+      measure: "cost",
+      budgetTotal: 400,
+    });
+    expect(svg).toContain(">Budget 400 NOK</text>");
+    expect(svg).toContain(">Total budget</text>");
+    expect(svg).toContain("Cumulative cost against a total budget of 400 NOK");
+    // All values are positive, so there is no zero line and no negative tick.
+    expect(svg).not.toContain("\u2212");
+  });
+
+  it("fits the per-period cost axis to the data and says the scale doesn't start at zero", () => {
+    const svg = renderBandChartSvg(costPeriods, cost, { currency: "NOK", displayUnits: "whole", measure: "cost" });
+    expect(svg).toMatch(/>The scale starts at \d+, not zero\.<\/text>/);
+    expect(svg).not.toMatch(/>0<\/text>/);
+  });
+
+  it("keeps the cumulative cost axis at zero, with no note, when the data starts near it", () => {
+    const svg = renderCumulativeChartSvg(costPeriods, cost, { currency: "NOK", displayUnits: "whole", measure: "cost", budgetTotal: 400 });
+    expect(svg).not.toContain("not zero");
+    expect(svg).toMatch(/>0<\/text>/);
+  });
+});
+
 describe("actuals overlay (ticket 13)", () => {
   const threePeriods: ScenarioByPeriod = {
     "2026-01": { expected: 100, worst: -50, best: 250 },
@@ -212,6 +253,15 @@ describe("formatCompactChartNumber", () => {
     expect(formatCompactChartNumber(1_200_000, "whole")).toBe("1.2M");
     expect(formatCompactChartNumber(0, "whole")).toBe("0");
     expect(formatCompactChartNumber(1_553_000, "thousands")).toBe("1,553k");
+  });
+
+  it("states a half-step tick exactly instead of rounding it onto its neighbour", () => {
+    expect(formatCompactChartNumber(2_500, "whole")).toBe("2.5k");
+    expect(formatCompactChartNumber(-2_500, "whole")).toBe("\u22122.5k");
+    expect(formatCompactChartNumber(5_000, "whole")).toBe("5k");
+    expect(formatCompactChartNumber(1_250_000, "whole")).toBe("1.25M");
+    expect(formatCompactChartNumber(1_000_000, "whole")).toBe("1.0M");
+    expect(formatCompactChartNumber(2_500, "thousands")).toBe("2.5k");
   });
 });
 

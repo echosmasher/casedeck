@@ -5,9 +5,12 @@ import { TriangleAlert, CircleCheck, Trash2 } from "lucide-react";
 import { getStorage } from "../_lib/storage";
 import { activeConfig } from "../_lib/activeConfig";
 import { mergeMapping } from "../_lib/categoryMapping";
-import { formatCurrency } from "../_lib/format";
+import { formatAmount, formatCurrency } from "../_lib/format";
+import { isFuturePeriod } from "../_lib/overdue";
+import { appToday } from "../_lib/today";
 import { parseActualsFile, type ActualsImportResult } from "@/import/actuals";
 import { projectPeriods } from "@/engine/periodize";
+import { computePeriodActuals } from "@/engine/blended";
 import type { Project } from "@/engine/model";
 import type { CategoryMappingOverride, StoredActualEntry } from "@/storage/types";
 import { Button } from "@/components/ui/button";
@@ -18,6 +21,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { selectClass, CATEGORY_LABEL } from "./shared";
 import { previewClosePeriods } from "./closePeriodPreview";
+import { joinSentences, useUndoQueue } from "./UndoQueue";
 
 export function ActualsTab({
   project,
@@ -40,9 +44,11 @@ export function ActualsTab({
           Viewer role — read only. Switch to Planner to import or record actuals.
         </p>
       )}
-      <ClosedPeriodsCard project={project} actuals={actuals} onChanged={onProjectChanged} readOnly={readOnly} />
+      {/* The monthly loop, top to bottom: bring the actuals in, check each period against its
+          budget, close what is final. The itemised list underneath is the record. */}
       <ImportCard project={project} onCommitted={onActualsChanged} />
       <ManualEntryCard project={project} onAdded={onActualsChanged} />
+      <ClosedPeriodsCard project={project} actuals={actuals} onChanged={onProjectChanged} readOnly={readOnly} />
       <RecordedActualsCard project={project} actuals={actuals} onDeleted={onActualsChanged} />
     </fieldset>
   );
@@ -77,6 +83,10 @@ function ClosedPeriodsCard({
   const closedThroughIndex = project.closedPeriods.length - 1;
   const closedThroughPeriod = closedThroughIndex >= 0 ? periods[closedThroughIndex] : null;
   const savedValue = closedThroughPeriod ?? NOT_CLOSED;
+  // A period that hasn't started has nothing to record; closing it would count its cost as zero
+  // and make the project look under budget.
+  const today = appToday();
+  const future = new Set(periods.filter((p) => isFuturePeriod(project.periodization, p, today)));
 
   const [pick, setPick] = useState<string | null>(null);
   const [confirmedEmpty, setConfirmedEmpty] = useState(false);
@@ -91,6 +101,22 @@ function ClosedPeriodsCard({
   const reopening = new Set(preview?.reopening);
   const needsConfirm = (preview?.closingWithoutCost.length ?? 0) > 0;
   const isCustomer = project.type === "customer";
+  const periodActuals = computePeriodActuals(project, actuals);
+  const periodRows: PeriodRow[] = periods.map((period, index) => ({
+    period,
+    status: closing.has(period)
+      ? "closing"
+      : reopening.has(period)
+        ? "reopening"
+        : index <= closedThroughIndex
+          ? "closed"
+          : "open",
+    cost: periodActuals.recordedCostByPeriod[period],
+    revenue: periodActuals.recordedRevenueByPeriod[period],
+    budgeted: periodActuals.budgetedCostByPeriod[period] ?? 0,
+    gap: periodActuals.recordedCostVsBudgetByPeriod[period],
+  }));
+  const { currency } = project;
 
   function handlePick(value: string) {
     setPick(value === savedValue ? null : value);
@@ -105,6 +131,7 @@ function ClosedPeriodsCard({
 
   async function handleApply() {
     if (!preview || (needsConfirm && !confirmedEmpty)) return;
+    if (preview.nextClosedPeriods.some((p) => future.has(p))) return;
     setApplying(true);
     const boundary = preview.nextClosedPeriods.at(-1);
     const saved = await onChanged({ ...project, closedPeriods: preview.nextClosedPeriods });
@@ -128,14 +155,73 @@ function ClosedPeriodsCard({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Closed periods</CardTitle>
+        <CardTitle>Check and close periods</CardTitle>
         <CardDescription>
-          Closed periods use recorded actuals instead of projections. Closing is contiguous from
-          the project start — you can&apos;t close a later period while an earlier one is still
-          open.
+          Each period&apos;s recorded cost against its budget ({currency}). Close a period once its
+          actuals are complete: the dashboard then uses them instead of the projection. Closing runs
+          in order from the project start.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        {/* Below `md` each period stacks as its own block, as in Budget vs. actual: sideways
+            scrolling hid "Against budget", the column this check is for. */}
+        <ul className="flex flex-col md:hidden">
+          {periodRows.map((row) => (
+            <li key={row.period} className="border-b py-2.5 first:pt-0 last:border-b-0">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium">{row.period}</span>
+                <PeriodStatus row={row} />
+              </div>
+              <dl className="mt-1.5 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 text-sm tabular-nums">
+                <dt className="text-muted-foreground">Recorded cost</dt>
+                <AmountValue as="dd" value={row.cost} empty="None" />
+                <dt className="text-muted-foreground">Budgeted cost</dt>
+                <dd className="text-right text-muted-foreground">{formatAmount(row.budgeted, "whole")}</dd>
+                <dt className="text-muted-foreground">Against budget</dt>
+                <dd className="text-right">
+                  <GapText gap={row.gap} />
+                </dd>
+                {isCustomer && (
+                  <>
+                    <dt className="text-muted-foreground">Recorded revenue</dt>
+                    <AmountValue as="dd" value={row.revenue} empty="Planned kept" />
+                  </>
+                )}
+              </dl>
+            </li>
+          ))}
+        </ul>
+        <Table stickyFirstColumn containerClassName="hidden md:block">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Period</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Recorded cost</TableHead>
+              <TableHead className="text-right">Budgeted cost</TableHead>
+              <TableHead className="text-right">Against budget</TableHead>
+              {isCustomer && <TableHead className="text-right">Recorded revenue</TableHead>}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {periodRows.map((row) => (
+              <TableRow key={row.period}>
+                <TableCell>{row.period}</TableCell>
+                <TableCell>
+                  <PeriodStatus row={row} />
+                </TableCell>
+                <AmountValue as={TableCell} value={row.cost} empty="None" />
+                <TableCell className="text-right tabular-nums text-muted-foreground">
+                  {formatAmount(row.budgeted, "whole")}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  <GapText gap={row.gap} />
+                </TableCell>
+                {isCustomer && <AmountValue as={TableCell} value={row.revenue} empty="Planned kept" />}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
         {readOnly ? (
           <p className="text-sm">
             {closedThroughPeriod
@@ -155,13 +241,15 @@ function ClosedPeriodsCard({
             >
               <option value={NOT_CLOSED}>Not closed</option>
               {periods.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+                <option key={p} value={p} disabled={future.has(p)}>
+                  {future.has(p) ? `${p} (not started)` : p}
                 </option>
               ))}
             </select>
             <p id={`${formId}-close-hint`} className="text-xs text-muted-foreground">
-              Pick an earlier period to reopen back to it. Nothing is saved until you apply.
+              {closedThroughPeriod && "Pick an earlier period to reopen back to it. "}Nothing is saved until
+              you apply.
+              {future.size > 0 && " Periods that haven't started yet can't be closed."}
             </p>
           </div>
         )}
@@ -260,51 +348,50 @@ function ClosedPeriodsCard({
           )}
         </p>
 
-        <Table stickyFirstColumn>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Period</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actual cost</TableHead>
-              <TableHead>Actual revenue</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {periods.map((p, index) => {
-              const { hasCost, hasRevenue } = summaryFor(actuals, p);
-              const isClosed = index <= closedThroughIndex;
-              return (
-                <TableRow key={p}>
-                  <TableCell>{p}</TableCell>
-                  <TableCell>
-                    {closing.has(p) ? (
-                      <span className="font-medium">Open → Closed</span>
-                    ) : reopening.has(p) ? (
-                      <span className="font-medium">Closed → Open</span>
-                    ) : isClosed ? (
-                      "Closed"
-                    ) : (
-                      "Open"
-                    )}
-                  </TableCell>
-                  <TableCell>{hasCost ? "Yes" : "No"}</TableCell>
-                  <TableCell>{hasRevenue ? "Yes" : "No"}</TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
       </CardContent>
     </Card>
   );
 }
 
-function summaryFor(actuals: StoredActualEntry[], period: string) {
-  const forPeriod = actuals.filter((a) => a.period === period);
-  return {
-    hasCost: forPeriod.some((a) => a.category !== "revenue"),
-    hasRevenue: forPeriod.some((a) => a.category === "revenue"),
-  };
+interface PeriodRow {
+  period: string;
+  /** Saved state, or the staged change while a close/reopen preview is open. */
+  status: "open" | "closed" | "closing" | "reopening";
+  cost: number | undefined;
+  revenue: number | undefined;
+  budgeted: number;
+  /** Recorded minus budgeted cost; undefined when nothing is recorded. */
+  gap: number | undefined;
+}
+
+function PeriodStatus({ row }: { row: PeriodRow }) {
+  if (row.status === "closing") return <span className="font-medium">Open → Closed</span>;
+  if (row.status === "reopening") return <span className="font-medium">Closed → Open</span>;
+  return <>{row.status === "closed" ? "Closed" : "Open"}</>;
+}
+
+/** "25,500 over", "On budget", or a muted dash when there is nothing recorded to compare. */
+function GapText({ gap }: { gap: number | undefined }) {
+  if (gap === undefined) return <span className="text-muted-foreground">—</span>;
+  if (gap === 0) return <>On budget</>;
+  return <>{`${formatAmount(Math.abs(gap), "whole")} ${gap > 0 ? "over" : "under"}`}</>;
+}
+
+/** A recorded amount, or a muted word so the gaps stand out down the column. */
+function AmountValue({
+  as: Element,
+  value,
+  empty,
+}: {
+  as: "dd" | typeof TableCell;
+  value: number | undefined;
+  empty: string;
+}) {
+  return (
+    <Element className={cn("text-right tabular-nums", value === undefined && "text-muted-foreground")}>
+      {value === undefined ? empty : formatAmount(value, "whole")}
+    </Element>
+  );
 }
 
 function useEffectiveMapping() {
@@ -341,11 +428,13 @@ function ImportCard({ project, onCommitted }: { project: Project; onCommitted: (
   const [importValidOnly, setImportValidOnly] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
+  const [committedMessage, setCommittedMessage] = useState<string | null>(null);
 
   async function handleFile(file: File) {
     const text = await file.text();
     setFileName(file.name);
     setFileText(text);
+    setCommittedMessage(null);
     setResult(parseActualsFile(file.name, text, mapping));
     setImportValidOnly(false);
     setCommitError(null);
@@ -366,6 +455,7 @@ function ImportCard({ project, onCommitted }: { project: Project; onCommitted: (
     if (!result || !fileName) return;
     setCommitting(true);
     setCommitError(null);
+    setCommittedMessage(null);
     try {
       const entries: StoredActualEntry[] = result.accepted.map((row) => ({
         id: crypto.randomUUID(),
@@ -379,6 +469,17 @@ function ImportCard({ project, onCommitted }: { project: Project; onCommitted: (
         sourceRow: row.rowNumber,
       }));
       await getStorage().saveActuals(entries);
+      const closedTouched = [...new Set(entries.map((e) => e.period))]
+        .filter((period) => project.closedPeriods.includes(period))
+        .sort();
+      setCommittedMessage(
+        joinSentences(
+          `Saved ${entries.length} row${entries.length === 1 ? "" : "s"} from ${fileName}.`,
+          closedTouched.length === 0
+            ? null
+            : `${closedTouched.join(", ")} ${closedTouched.length === 1 ? "is" : "are"} closed, so the dashboard headline changed.`,
+        ),
+      );
       setFileName(null);
       setFileText(null);
       setResult(null);
@@ -425,6 +526,15 @@ function ImportCard({ project, onCommitted }: { project: Project; onCommitted: (
             }}
           />
         </div>
+
+        <p role="status" className="flex items-start gap-2 text-sm empty:hidden">
+          {committedMessage && (
+            <>
+              <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-[var(--viz-status-good)]" />
+              {committedMessage}
+            </>
+          )}
+        </p>
 
         {result && (
           <div className="flex flex-col gap-4 rounded-lg border p-4">
@@ -542,6 +652,7 @@ function ManualEntryCard({ project, onAdded }: { project: Project; onAdded: () =
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -549,6 +660,7 @@ function ManualEntryCard({ project, onAdded }: { project: Project; onAdded: () =
     if (!Number.isFinite(amountNumber) || !description.trim()) return;
 
     setSaving(true);
+    setMessage(null);
     try {
       const entry: StoredActualEntry = {
         id: crypto.randomUUID(),
@@ -562,7 +674,18 @@ function ManualEntryCard({ project, onAdded }: { project: Project; onAdded: () =
       await getStorage().saveActuals([entry]);
       setAmount("");
       setDescription("");
+      setMessage({
+        text: joinSentences(
+          `Added ${describeEntry(entry, project.currency)}.`,
+          closedPeriodConsequence(project, entry.period),
+        ),
+      });
       onAdded();
+    } catch (err) {
+      setMessage({
+        text: `Couldn't add the actual: ${err instanceof Error ? err.message : "storage error"}`,
+        error: true,
+      });
     } finally {
       setSaving(false);
     }
@@ -630,13 +753,23 @@ function ManualEntryCard({ project, onAdded }: { project: Project; onAdded: () =
             {saving ? "Saving…" : "Add actual"}
           </Button>
         </form>
+        <p role="status" className="mt-3 flex items-start gap-2 text-sm empty:hidden">
+          {message && !message.error && (
+            <>
+              <CircleCheck aria-hidden className="mt-0.5 size-4 shrink-0 text-[var(--viz-status-good)]" />
+              {message.text}
+            </>
+          )}
+        </p>
+        {message?.error && (
+          <p role="alert" className="mt-3 text-sm text-destructive">
+            {message.text}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
 }
-
-/** How long a deleted actual stays restorable. Paused while the pointer or focus is on it. */
-const UNDO_WINDOW_MS = 8000;
 
 /** Period · category · amount · description — specific enough to tell two rows apart in a
  * screen-reader button label or an undo message. */
@@ -649,8 +782,16 @@ function describeEntry(entry: StoredActualEntry, currency: string) {
   ].join(" · ");
 }
 
+/** A closed period's cost is its recorded actuals, so adding, deleting or restoring one there moves
+ * the dashboard's figures; say so rather than let the headline change silently. */
+function closedPeriodConsequence(project: Project, period: string) {
+  return project.closedPeriods.includes(period)
+    ? `${period} is closed, so the dashboard headline changed.`
+    : null;
+}
+
 /** Recorded actuals with one-click delete. Each delete is saved immediately but stays undoable
- * for UNDO_WINDOW_MS; Undo writes the same entry (same id) back through the StorageAdapter
+ * (`useUndoQueue`); Undo writes the same entry (same id) back through the StorageAdapter
  * (DASHBOARD-CRITIQUE-PLAN.md Phase 1b). */
 function RecordedActualsCard({
   project,
@@ -662,88 +803,20 @@ function RecordedActualsCard({
   onDeleted: () => void;
 }) {
   const sorted = [...actuals].sort((a, b) => a.period.localeCompare(b.period));
-  const [deleted, setDeleted] = useState<StoredActualEntry[]>([]);
-  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
-  const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
-  const undoButtons = useRef(new Map<string, HTMLButtonElement>());
-  const focusUndoFor = useRef<string | null>(null);
-
-  useEffect(() => {
-    const pending = timers.current;
-    return () => pending.forEach((t) => clearTimeout(t));
-  }, []);
-
-  // The deleted row's button is gone, so hand keyboard focus to its Undo instead of <body>.
-  useEffect(() => {
-    const id = focusUndoFor.current;
-    if (!id) return;
-    focusUndoFor.current = null;
-    undoButtons.current.get(id)?.focus();
-  }, [deleted]);
-
-  function setBusy(id: string, busy: boolean) {
-    setBusyIds((prev) => {
-      const next = new Set(prev);
-      if (busy) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function dismiss(id: string) {
-    clearTimeout(timers.current.get(id));
-    timers.current.delete(id);
-    setDeleted((prev) => prev.filter((e) => e.id !== id));
-  }
-
-  function startTimer(id: string) {
-    clearTimeout(timers.current.get(id));
-    timers.current.set(id, setTimeout(() => dismiss(id), UNDO_WINDOW_MS));
-  }
-
-  function pauseTimer(id: string) {
-    clearTimeout(timers.current.get(id));
-    timers.current.delete(id);
-  }
-
-  async function handleDelete(entry: StoredActualEntry) {
-    setBusy(entry.id, true);
-    setError(null);
-    setStatusMessage(null);
-    try {
-      await getStorage().deleteActual(entry.id);
-      focusUndoFor.current = entry.id;
-      setDeleted((prev) => [...prev.filter((e) => e.id !== entry.id), entry]);
-      startTimer(entry.id);
-      onDeleted();
-    } catch (err) {
-      setError(
-        `Couldn't delete ${describeEntry(entry, project.currency)}: ${err instanceof Error ? err.message : "storage error"}`,
-      );
-    } finally {
-      setBusy(entry.id, false);
-    }
-  }
-
-  async function handleUndo(entry: StoredActualEntry) {
-    pauseTimer(entry.id);
-    setBusy(entry.id, true);
-    setError(null);
-    try {
+  const undoQueue = useUndoQueue<StoredActualEntry>({
+    describe: (entry) => describeEntry(entry, project.currency),
+    consequence: (entry) => closedPeriodConsequence(project, entry.period),
+    restore: async (entry) => {
       await getStorage().saveActuals([entry]);
-      dismiss(entry.id);
-      setStatusMessage(`Restored ${describeEntry(entry, project.currency)}.`);
       onDeleted();
-    } catch (err) {
-      startTimer(entry.id);
-      setError(
-        `Couldn't restore ${describeEntry(entry, project.currency)}: ${err instanceof Error ? err.message : "storage error"}`,
-      );
-    } finally {
-      setBusy(entry.id, false);
-    }
+    },
+  });
+
+  function handleDelete(entry: StoredActualEntry) {
+    void undoQueue.remove(entry, async () => {
+      await getStorage().deleteActual(entry.id);
+      onDeleted();
+    });
   }
 
   return (
@@ -752,45 +825,7 @@ function RecordedActualsCard({
         <CardTitle>Recorded actuals</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
-        <ul aria-live="polite" className="flex flex-col gap-2 empty:hidden">
-          {deleted.map((entry) => (
-            <li
-              key={entry.id}
-              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-md border bg-muted px-3 py-2 text-sm"
-              onMouseEnter={() => pauseTimer(entry.id)}
-              onMouseLeave={() => startTimer(entry.id)}
-              onFocus={() => pauseTimer(entry.id)}
-              onBlur={() => startTimer(entry.id)}
-            >
-              <span className="min-w-0">
-                <span className="font-medium">Deleted</span>{" "}
-                <span className="tabular-nums">{describeEntry(entry, project.currency)}</span>
-              </span>
-              <Button
-                ref={(el) => {
-                  if (el) undoButtons.current.set(entry.id, el);
-                  else undoButtons.current.delete(entry.id);
-                }}
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={busyIds.has(entry.id)}
-                aria-label={`Undo delete of ${describeEntry(entry, project.currency)}`}
-                onClick={() => void handleUndo(entry)}
-              >
-                Undo
-              </Button>
-            </li>
-          ))}
-        </ul>
-        <p role="status" className="text-sm text-muted-foreground empty:hidden">
-          {statusMessage}
-        </p>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
+        {undoQueue.panel}
 
         {sorted.length === 0 ? (
           <p className="text-sm text-muted-foreground">No actuals recorded yet.</p>
@@ -800,7 +835,7 @@ function RecordedActualsCard({
               <TableRow>
                 <TableHead>Period</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right max-sm:whitespace-normal">Amount ({project.currency})</TableHead>
                 <TableHead>Description</TableHead>
                 <TableHead>Source</TableHead>
                 <TableHead>
@@ -814,7 +849,7 @@ function RecordedActualsCard({
                   <TableCell>{entry.period}</TableCell>
                   <TableCell>{CATEGORY_LABEL[entry.category] ?? entry.category}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {formatCurrency(entry.amount, project.currency, "whole")}
+                    {formatAmount(entry.amount, "whole")}
                   </TableCell>
                   <TableCell className="min-w-48 whitespace-normal text-muted-foreground">{entry.description}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
@@ -826,9 +861,9 @@ function RecordedActualsCard({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      disabled={busyIds.has(entry.id)}
+                      disabled={undoQueue.isBusy(entry.id)}
                       aria-label={`Delete actual: ${describeEntry(entry, project.currency)}`}
-                      onClick={() => void handleDelete(entry)}
+                      onClick={() => handleDelete(entry)}
                     >
                       <Trash2 className="size-4" />
                     </Button>

@@ -5,12 +5,24 @@
 // that go with them — kept in one place so the two charts can't drift out of sync.
 import { Line, ReferenceArea, ReferenceLine } from "recharts";
 import type { ActualsBoundary } from "./actualsBoundary";
-import type { PeriodKey } from "@/engine/model";
+import type { DisplayUnits, PeriodKey } from "@/engine/model";
+import { formatCompactChartNumber } from "../_lib/format";
 import type { LegendRow } from "./ScenarioTooltip";
 
 /** Shading for closed periods; the legend swatch uses the same fill plus an outline so it stays
  * visible at this low opacity. */
 export const ACTUALS_FILL_OPACITY = 0.08;
+
+/** Says when a cost axis doesn't start at zero (`costAxisScale` raised its floor), so the gap
+ * between two lines isn't read as a share of the whole. Renders nothing for a zero-based axis. */
+export function AxisFloorNote({ floor, displayUnits }: { floor: number; displayUnits: DisplayUnits }) {
+  if (floor <= 0) return null;
+  return (
+    <p className="mt-1 text-xs text-muted-foreground">
+      The scale starts at {formatCompactChartNumber(floor, displayUnits)}, not zero.
+    </p>
+  );
+}
 
 /** Right-hand chart margin that leaves room for the end-of-line labels below. */
 export const END_LABEL_MARGIN = 64;
@@ -60,7 +72,11 @@ export function chartSummary(
 ): string {
   if (periods.length === 0 || !last) return `${title}: no periods.`;
   const span = periods.length === 1 ? periods[0] : `${periods[0]} to ${periods.at(-1)}`;
-  const actuals = boundary.lastClosed ? ` Actuals through ${boundary.lastClosed}, forecast after.` : "";
+  const actuals = !boundary.lastClosed
+    ? ""
+    : boundary.firstOpenAfterClose
+      ? ` Actuals through ${boundary.lastClosed}, forecast after.`
+      : " Every period is actual.";
   const values =
     last.worst === last.best
       ? `${format(last.expected)}`

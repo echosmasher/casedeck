@@ -56,8 +56,10 @@ total would. The arithmetic is a deterministic, pure engine; AI appears only at 
   number shown in the UI is computed there and only formatted in the UI (CLAUDE.md rules 1, 3).
 - Org-specific values (category mapping, rate cards, multipliers, currency, band percentages) live
   in `config/` and `demo/`, never hardcoded (rule 2).
-- Variance flags per category and for the project total: ≥50% of contingency consumed = **Watch**,
-  ≥100% = **Over budget**, otherwise **On track** (`src/engine/variance.ts`).
+- Variance flags per category and for the project total: ≥50% of contingency consumed = **Near its
+  ceiling**, ≥100% = **Past its ceiling**, otherwise **Within range** (`src/engine/variance.ts`;
+  labels in `src/export/labels.ts`). "Over / under budget" is reserved for the gap to budget, a
+  separate figure; a margin's gap reads "short of / ahead of the budgeted margin".
 - The business-case export is a separate pure SVG/HTML generator that opens from `file://` with
   networking off (rule 6).
 - Errors name the file, row, column and expected format; rejected rows are always listed (rule 4).

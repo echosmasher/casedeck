@@ -5,6 +5,6 @@
     { "id": "consultancy", "label": "Consultancy" },
     { "id": "it_systems", "label": "IT Systems" },
     { "id": "travel", "label": "Travel" },
-    { "id": "other_direct", "label": "Other Direct Costs" }
+    { "id": "other_direct", "label": "Other direct costs" }
   ]
 }

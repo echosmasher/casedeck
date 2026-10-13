@@ -24,9 +24,8 @@ test("boot demo, open 001, import actuals, export 003", async ({ page }) => {
   // Overview shows the project code, not the raw storage id.
   await expect(page.getByRole("cell", { name: "PRO-2601" })).toBeVisible();
 
-  // 001 is In Progress with endPeriod 2026-08 (demo/README.md, ticket 07): kept deliberately in
-  // the past so the overview always shows it overdue, regardless of when this test runs — not a
-  // date-flaky assertion since the demo data's end period never changes.
+  // 004 is In Progress with endPeriod 2026-03 and the demo is pinned to 2026-05-15 (`asOf`,
+  // demo/README.md Story 4), so the overview shows it overdue regardless of when this test runs.
   await expect(page.getByText("Overdue", { exact: false }).first()).toBeVisible();
 
   // Open 001.

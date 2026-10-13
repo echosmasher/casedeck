@@ -22,20 +22,22 @@ function collectConsoleErrors(page: Page) {
   return errors;
 }
 
-test("arrowing through the close-period select previews but never saves; Apply does", async ({ page }) => {
+test("stepping through the close-period select previews but never saves; Apply does", async ({ page }) => {
   const consoleErrors = collectConsoleErrors(page);
   await openActuals(page);
 
   const select = page.getByLabel("Close periods through");
   await expect(select).toHaveValue("2026-04");
 
-  // Keyboard arrowing used to save once per keypress.
-  await select.focus();
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("ArrowDown");
-  await expect(select).toHaveValue("2026-06");
+  // Keyboard arrowing used to save once per keypress, i.e. once per change event. Fire a run of
+  // change events directly: ArrowDown on a closed <select> steps the value on Linux (CI) but only
+  // opens the picker on macOS, so pressing keys made this test platform-dependent.
+  for (const period of ["2026-03", "2026-04", "2026-05"]) await select.selectOption(period);
+  await expect(select).toHaveValue("2026-05");
+  // The demo's pinned date (2026-05-15) leaves 2026-05 as the last period that can be closed.
+  await expect(select.getByRole("option", { name: "2026-06 (not started)" })).toBeDisabled();
   await expect(page.getByRole("heading", { name: "Unsaved change" })).toBeVisible();
-  await expect(page.getByText("2026-05, 2026-06 have no cost actuals.")).toBeVisible();
+  await expect(page.getByText("2026-05 has no cost actuals.")).toBeVisible();
 
   await page.reload();
   await page.getByRole("tab", { name: "Actuals" }).click();

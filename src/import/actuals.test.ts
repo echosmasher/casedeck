@@ -81,6 +81,18 @@ describe("parseActualsFile — 001's real actuals files", () => {
   });
 });
 
+describe("parseActualsFile — 004's actuals file", () => {
+  it("parses cleanly with no rejections, matching demo/README.md's numbers", () => {
+    const text = readDemoFile("demo/actuals/004-actuals-2025-12-to-2026-02.csv");
+    const result = parseActualsFile("004-actuals-2025-12-to-2026-02.csv", text, categoryMapping);
+
+    expect(result.rejected).toEqual([]);
+    expect(result.unmapped).toEqual([]);
+    expect(result.totalsByCategory.salary).toBeCloseTo(157400, 2);
+    expect(result.totalsByCategory.it_systems).toBeCloseTo(45000, 2);
+  });
+});
+
 describe("parseActualsFile — 002's Nordic-format file (semicolon delimiter, decimal comma)", () => {
   it("detects the convention and parses correctly", () => {
     const text = readDemoFile("demo/actuals/002-actuals-full-lifetime.csv");

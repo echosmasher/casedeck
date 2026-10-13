@@ -11,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatCompactChartNumber, formatCurrency } from "../_lib/format";
 import { ChartDataTable, ChartLegend, ChartTooltip } from "./ScenarioTooltip";
 import {
@@ -19,12 +19,15 @@ import {
   BudgetedLine,
   END_LABEL_MARGIN,
   actualsLegendRows,
+  AxisFloorNote,
   chartSummary,
   endLabel,
   tooltipStatus,
 } from "./ChartActualsOverlay";
 import type { ActualsOverlay } from "./actualsBoundary";
+import { costAxisScale } from "@/export/chartScale";
 import type { DisplayUnits, PeriodKey, ScenarioByPeriod } from "@/engine/model";
+import type { HeadlineMeasure } from "@/engine/headline";
 
 interface ChartRow {
   period: PeriodKey;
@@ -37,18 +40,25 @@ interface ChartRow {
 }
 
 export function ScenarioChart({
+  measure,
   periods,
   byPeriod,
   actualsOverlay,
   currency,
   displayUnits,
+  action,
 }: {
+  /** What the headline leads with: margin for a customer project, cost for an internal one (no
+   * revenue by design, so a margin chart would only plot its costs as an ever-deeper "loss"). */
+  measure: HeadlineMeasure;
   periods: PeriodKey[];
   byPeriod: ScenarioByPeriod;
   /** Closed-period boundary plus the budgeted comparison series (ticket 12). */
   actualsOverlay: ActualsOverlay;
   currency: string;
   displayUnits: DisplayUnits;
+  /** Rendered at the top right of the header — the dashboard's per-period/cumulative toggle. */
+  action?: React.ReactNode;
 }) {
   const { boundary, budgetedByPeriod } = actualsOverlay;
   const data: ChartRow[] = periods.map((period) => {
@@ -67,13 +77,28 @@ export function ScenarioChart({
   const lastIndex = data.length - 1;
   const lastRow = data[lastIndex];
   const collapsedAtEnd = !lastRow || lastRow.best === lastRow.worst;
+  const isCost = measure === "cost";
+  // Cost lines are fitted to their own range so the band fills the plot; margin keeps Recharts'
+  // default, which already spans the data and draws its zero line.
+  const costScale = isCost
+    ? costAxisScale(
+        Math.min(...data.flatMap((d) => [d.best, d.expected, d.worst, d.budgeted ?? Infinity])),
+        Math.max(...data.flatMap((d) => [d.best, d.expected, d.worst, d.budgeted ?? -Infinity])),
+      )
+    : null;
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Scenario bands — margin by period</CardTitle>
+      <CardHeader className="max-sm:grid-cols-1!">
+        {/* Below `sm` the toggle drops under the description so it doesn't squeeze the title. */}
+        {action && (
+          <CardAction className="col-start-1 row-span-1 row-start-3 mt-2 justify-self-start sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:justify-self-end">
+            {action}
+          </CardAction>
+        )}
+        <CardTitle>Scenario bands — {measure} by period</CardTitle>
         <CardDescription>
-          The confidence-weighted range for each period&apos;s margin, given every line
+          The confidence-weighted range for each period&apos;s {measure}, given every line
           item&apos;s own confidence marker.
         </CardDescription>
       </CardHeader>
@@ -89,7 +114,7 @@ export function ScenarioChart({
         <div
           role="figure"
           aria-label={chartSummary(
-            "Scenario bands, margin by period",
+            `Scenario bands, ${measure} by period`,
             periods,
             lastRow,
             boundary,
@@ -104,10 +129,17 @@ export function ScenarioChart({
                 tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
                 tickLine={false}
                 axisLine={{ stroke: "var(--viz-baseline)" }}
-                interval="preserveStartEnd"
+                // A short project labels every period; a long one keeps the ends and thins the rest.
+                interval={periods.length <= 4 ? 0 : "preserveStartEnd"}
                 minTickGap={24}
               />
               <YAxis
+                domain={costScale?.domain}
+                ticks={costScale?.ticks}
+                // The band is stacked on an invisible area that starts at zero; without this,
+                // Recharts stretches the fitted domain back down to include it.
+                allowDataOverflow={costScale !== null}
+                tickCount={5}
                 tickFormatter={(v: number) => formatCompactChartNumber(v, displayUnits)}
                 tick={{ fill: "var(--viz-text-secondary)", fontSize: 12 }}
                 tickLine={false}
@@ -121,8 +153,9 @@ export function ScenarioChart({
                   style: { fill: "var(--viz-text-secondary)", fontSize: 12, textAnchor: "middle" },
                 }}
               />
+              {/* Shading every period as "actual" would mark nothing. */}
               <ActualsBoundaryOverlay boundary={boundary} />
-              <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />
+              {!isCost && <ReferenceLine y={0} stroke="var(--viz-baseline)" strokeWidth={1} />}
               <Tooltip
                 content={({ active, label, payload }) => (
                   <ChartTooltip
@@ -132,7 +165,14 @@ export function ScenarioChart({
                     displayUnits={displayUnits}
                     status={tooltipStatus(boundary, label)}
                     rows={
-                      payload
+                      // A closed period has one value, the actual: show it against its budget
+                      // rather than as three identical best/expected/worst rows.
+                      payload && tooltipStatus(boundary, label) === "Actual"
+                        ? [
+                            { key: "expected", label: "Actual", color: "var(--viz-text-primary)", value: Number(payload.find((p) => p.dataKey === "expected")?.value ?? 0) },
+                            { key: "budgeted", label: "Budgeted", color: "var(--viz-text-secondary)", value: Number(payload.find((p) => p.dataKey === "budgeted")?.value ?? 0) },
+                          ]
+                        : payload
                         ? [
                             { key: "best", label: "Best case", color: "var(--viz-blue)", value: Number(payload.find((p) => p.dataKey === "best")?.value ?? 0) },
                             { key: "expected", label: "Expected", color: "var(--viz-text-primary)", value: Number(payload.find((p) => p.dataKey === "expected")?.value ?? 0) },
@@ -165,7 +205,7 @@ export function ScenarioChart({
                 stroke="var(--viz-red)"
                 strokeWidth={2}
                 dot={false}
-                label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, "below", collapsedAtEnd)}
+                label={endLabel("Worst", "var(--viz-critical-ink)", lastIndex, isCost ? "above" : "below", collapsedAtEnd)}
                 isAnimationActive={false}
               />
               <Line
@@ -173,7 +213,7 @@ export function ScenarioChart({
                 stroke="var(--viz-blue)"
                 strokeWidth={2}
                 dot={false}
-                label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, "above", collapsedAtEnd)}
+                label={endLabel("Best", "var(--viz-blue-ink)", lastIndex, isCost ? "below" : "above", collapsedAtEnd)}
                 isAnimationActive={false}
               />
               <Line
@@ -188,8 +228,9 @@ export function ScenarioChart({
             </ComposedChart>
           </ResponsiveContainer>
         </div>
+        {costScale && <AxisFloorNote floor={costScale.domain[0]} displayUnits={displayUnits} />}
         <ChartDataTable
-          caption="Margin by period: worst, expected, and best case"
+          caption={`${isCost ? "Cost" : "Margin"} by period: worst, expected, and best case`}
           periods={periods}
           currency={currency}
           displayUnits={displayUnits}

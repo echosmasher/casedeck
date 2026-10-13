@@ -23,7 +23,8 @@ function withTrueMinus(text: string): string {
   return text.replace(/^-/, "\u2212");
 }
 
-function formatAmount(value: number, displayUnits: DisplayUnits): string {
+/** An amount without its currency, for a column whose header names it: "124,200". */
+export function formatAmount(value: number, displayUnits: DisplayUnits): string {
   const displayValue = displayUnits === "thousands" ? value / 1000 : value;
   const formatted = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(displayValue);
   return withTrueMinus(formatted) + (displayUnits === "thousands" ? "k" : "");

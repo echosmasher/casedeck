@@ -105,10 +105,12 @@ describe("renderBusinessCase — 001 with actuals (the overrun story)", () => {
     riskCommentary: "Consultancy is running well over budget.",
   });
 
-  it("surfaces the consultancy overrun as Over budget", () => {
+  it("surfaces the consultancy overrun as past its ceiling, and says why the total isn't", () => {
     if (!result.ok) throw new Error("expected ok result");
     expect(result.html).toContain("Budget vs. actual");
-    expect(result.html).toContain("Over budget");
+    expect(result.html).toContain("Past its ceiling");
+    expect(result.html).not.toContain("Over budget");
+    expect(result.html).toContain("Each category is checked against its own ceiling");
     expect(result.html).toContain("Consultancy is running well over budget.");
   });
 
@@ -123,6 +125,16 @@ describe("renderBusinessCase — 001 with actuals (the overrun story)", () => {
     // The dashed divider only appears when there's an open period after the close point — 001 has
     // four (2026-05..08), so both charts should draw one.
     expect(result.html.match(/stroke-dasharray="3 3"/g)?.length).toBe(2);
+  });
+  it("charts cost against budget, never margin or P&L, for an internal project", () => {
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.html).toContain("Scenario bands — cost by period");
+    expect(result.html).toContain("Cumulative cost against budget");
+    expect(result.html).toContain("Expected cost <strong>1,552,600 NOK</strong> against a budget of 1,473,600 NOK");
+    expect(result.html).not.toContain("Cumulative P&amp;L");
+    expect(result.html).not.toContain("Expected margin");
+    expect(result.html).not.toContain("<th>Revenue</th>");
+    expect(result.html).toContain(">Budget 1,473,600 NOK</text>");
   });
 });
 

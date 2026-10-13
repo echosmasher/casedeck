@@ -2,10 +2,12 @@
 
 import { Badge } from "@/components/ui/badge";
 import type { HeadlineSummary } from "@/engine/headline";
-import type { Project, ScenarioValue } from "@/engine/model";
+import type { ConfidenceBands, PeriodKey, Project, ScenarioValue } from "@/engine/model";
+import type { SpreadDrivers } from "@/engine/spread";
 import { formatCompactAmount, formatCurrency, formatPercent, formatRange } from "../_lib/format";
-import { headlineCopy } from "./headlineCopy";
-import { CATEGORY_LABEL, FLAG_META } from "./shared";
+import { headlineCopy, spreadCopy } from "./headlineCopy";
+import { CATEGORY_LABEL, FLAG_META, NOT_STARTED_META } from "./shared";
+import { revealVarianceRow, VARIANCE_SECTION_ID } from "./VarianceSection";
 
 /** The dashboard's lead: status and its reason, a one-sentence verdict, the scenario band as a
  * strip, and where the numbers come from — then the supporting tiles
@@ -15,22 +17,54 @@ export function Headline({
   project,
   headline,
   totals,
+  spread,
+  bands,
+  endedOpenPeriods,
+  hasRevenueActuals,
+  onOpenActuals,
 }: {
   project: Project;
   headline: HeadlineSummary;
   totals: { cost: ScenarioValue; revenue: ScenarioValue };
+  spread: SpreadDrivers;
+  bands: ConfidenceBands;
+  endedOpenPeriods: PeriodKey[];
+  /** Whether any revenue actuals were recorded; without them revenue counts as planned. */
+  hasRevenueActuals: boolean;
+  onOpenActuals: () => void;
 }) {
   const { currency, displayUnits } = project;
-  const copy = headlineCopy(headline, currency, displayUnits, (c) => CATEGORY_LABEL[c] ?? c);
-  const flag = FLAG_META[headline.status];
+  const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
+  const copy = headlineCopy(headline, currency, displayUnits, categoryLabel, endedOpenPeriods);
+  const driver = spreadCopy(spread, bands, displayUnits, categoryLabel, headline.lastClosedPeriod !== null);
+  const finished = headline.stage === "finished";
+  // Nothing closed means nothing has been measured yet, so "Within range" would be a claim without
+  // evidence; the pill says so instead, and the reason carries any risk (003: worst case is a loss).
+  const flag = headline.stage === "not_started" ? NOT_STARTED_META : FLAG_META[headline.status];
 
   return (
     <section aria-labelledby="dashboard-verdict" className="flex flex-col pt-4">
       <p className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm">
-        <Badge variant={flag.variant} dot>
+        <Badge variant={flag.variant} dot={flag.variant !== "outline"}>
           {flag.label}
         </Badge>
-        <span>{copy.reason}</span>
+        <span>
+          {headline.driver ? (
+            // The evidence for the status: jump to the driving category's row in Budget vs. actual.
+            <a
+              href={`#${VARIANCE_SECTION_ID}`}
+              className="underline decoration-[var(--viz-text-muted)] underline-offset-[3px] hover:decoration-current"
+              onClick={(e) => {
+                if (headline.driver && revealVarianceRow(headline.driver)) e.preventDefault();
+              }}
+            >
+              {copy.reason}
+            </a>
+          ) : (
+            copy.reason
+          )}
+          {copy.reasonNote && ` ${copy.reasonNote}`}
+        </span>
       </p>
       <h2 id="dashboard-verdict" className="mt-3 max-w-[26ch] text-display-verdict tabular-nums">
         {copy.verdict.map((segment, i) =>
@@ -44,10 +78,68 @@ export function Headline({
         )}
       </h2>
       <RangeStrip headline={headline} currency={currency} displayUnits={displayUnits} />
-      <p className="mt-3 text-sm text-muted-foreground tabular-nums">{keepPeriodsWhole(copy.source)}</p>
+      {driver && (
+        // What the range is made of: the confidence behind the widest source, linked to its lines.
+        <p className="mt-3 text-sm tabular-nums">
+          {driver.category ? (
+            <a
+              href={`#${VARIANCE_SECTION_ID}`}
+              className="underline decoration-[var(--viz-text-muted)] underline-offset-[3px] hover:decoration-current"
+              onClick={(e) => {
+                if (driver.category && revealVarianceRow(driver.category)) e.preventDefault();
+              }}
+            >
+              {driver.label}
+            </a>
+          ) : (
+            driver.label
+          )}
+          {driver.detail}
+        </p>
+      )}
+      <p className={`${driver ? "mt-1" : "mt-3"} text-sm text-muted-foreground tabular-nums`}>
+        {keepPeriodsWhole(copy.source)}
+      </p>
+      {copy.missing && (
+        // Ended periods without actuals are the next thing to do, so the note offers the way there.
+        <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-sm tabular-nums">
+          <span>
+            <span
+              aria-hidden="true"
+              className="mr-1.5 inline-block size-1.5 -translate-y-px rounded-full"
+              style={{ backgroundColor: "var(--viz-status-warning)" }}
+            />
+            {keepPeriodsWhole(copy.missing)}
+          </span>
+          <button
+            type="button"
+            className="font-medium underline decoration-[var(--viz-text-muted)] underline-offset-[3px] hover:decoration-current"
+            onClick={onOpenActuals}
+          >
+            Record actuals
+          </button>
+        </p>
+      )}
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        {project.type === "customer" ? (
+        {project.type === "customer" && finished ? (
+          // A finished project reports its outcome: what came in, what it cost, what it made.
+          <>
+            <Tile label="Revenue" value={formatCurrency(totals.revenue.expected, currency, displayUnits)}>
+              {hasRevenueActuals ? "Recorded revenue" : "As planned; no revenue actuals recorded"}
+            </Tile>
+            <Tile label="Cost" value={formatCurrency(totals.cost.expected, currency, displayUnits)}>
+              Recorded cost, every period closed
+            </Tile>
+            <Tile
+              label={headline.value.expected < 0 ? "Final loss" : "Final margin"}
+              value={formatCurrency(Math.abs(headline.value.expected), currency, displayUnits)}
+              negative={headline.value.expected < 0 || headline.gapFlagged}
+            >
+              {finalMarginNote(headline, currency, displayUnits)}
+            </Tile>
+          </>
+        ) : project.type === "customer" ? (
           <>
             <Tile label="Revenue" value={formatCurrency(totals.revenue.expected, currency, displayUnits)}>
               {rangeNote(totals.revenue, currency, displayUnits)}
@@ -60,25 +152,35 @@ export function Headline({
             </Tile>
           </>
         ) : (
+          // The verdict already states the gap to budget; the tiles add what it doesn't say: how
+          // spending so far compares with its plan, and how much budget is left for the rest.
           <>
             <Tile
-              label="Spent to date"
+              label={finished ? "Final cost" : "Spent to date"}
               value={formatCurrency(headline.costActualToDate, currency, displayUnits)}
             >
-              {spentToDateNote(headline, currency, displayUnits)}
+              {finished ? "Recorded cost, every period closed" : spentToDateNote(headline, currency, displayUnits)}
             </Tile>
             <Tile label="Budget" value={formatCurrency(headline.budget, currency, displayUnits)}>
               Planned total cost
             </Tile>
-            <Tile
-              label={headline.deltaVsBudget > 0 ? "Over budget by" : headline.deltaVsBudget < 0 ? "Under budget by" : "Against budget"}
-              value={formatCurrency(Math.abs(headline.deltaVsBudget), currency, displayUnits)}
-              negative={headline.unfavourable}
-            >
-              {headline.deltaPct === null
-                ? "No budget to compare against"
-                : `${headline.deltaPct > 0 ? "+" : headline.deltaPct < 0 ? "\u2212" : ""}${formatPercent(Math.abs(headline.deltaPct))} vs. budget`}
-            </Tile>
+            {finished ? (
+              <Tile
+                label="Against budget"
+                value={headline.deltaPct === null ? "No budget" : signedPercent(headline.deltaPct)}
+                negative={headline.gapFlagged}
+              >
+                Final cost compared with the planned total
+              </Tile>
+            ) : (
+              <Tile
+                label={headline.costBudgetLeft < 0 ? "Spent past budget" : "Left in budget"}
+                value={formatCurrency(Math.abs(headline.costBudgetLeft), currency, displayUnits)}
+                negative={headline.costBudgetLeft < 0}
+              >
+                {budgetLeftNote(headline, currency, displayUnits)}
+              </Tile>
+            )}
           </>
         )}
       </div>
@@ -87,9 +189,12 @@ export function Headline({
 }
 
 /** Period keys ("2026-05") contain a hyphen browsers will break at; swap in a non-breaking
- * hyphen for display so a narrow line wraps between periods, never inside one. */
+ * hyphen, and hold a span ("2026-05–2026-08") together with word joiners around its dash, so a
+ * narrow line wraps before a period or span, never inside one. */
 function keepPeriodsWhole(text: string) {
-  return text.replace(/(\d{4})-(\d{2}|Q[1-4])/g, "$1\u2011$2");
+  return text
+    .replace(/(\d{4})-(\d{2}|Q[1-4])/g, "$1\u2011$2")
+    .replace(/(\d{2}|Q[1-4])–(\d{4})/g, "$1\u2060–\u2060$2");
 }
 
 function rangeNote(value: ScenarioValue, currency: string, units: Project["displayUnits"]) {
@@ -98,17 +203,45 @@ function rangeNote(value: ScenarioValue, currency: string, units: Project["displ
 }
 
 function spentToDateNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
-  if (!h.lastClosedPeriod && h.costActualToDate === 0) return "No actuals recorded yet";
-  const diff = h.costActualToDate - h.costBudgetedToDate;
-  const amount = formatCurrency(Math.abs(diff), currency, units);
-  if (formatCompactAmount(Math.abs(diff), units) === "0") return "On plan for the periods recorded";
-  return `${amount} ${diff > 0 ? "over" : "under"} plan for the periods recorded`;
+  if (!h.lastClosedPeriod) return "No actuals recorded yet";
+  return `Against ${formatCurrency(h.costBudgetedToDate, currency, units)} planned to date`;
+}
+
+/** Whether what is left covers what the open periods were budgeted at; the shortfall itself is the
+ * verdict's gap, so it isn't repeated here. The amount left is a neutral figure; only "Short of"
+ * carries the warning, since the money left isn't the problem, the gap is. */
+function budgetLeftNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
+  if (!h.projectedFrom || !h.projectedTo) return "No periods left to plan";
+  const planned = formatCurrency(h.costBudgetedRemaining, currency, units);
+  const periods = h.projectedFrom === h.projectedTo ? h.projectedFrom : `${h.projectedFrom}–${h.projectedTo}`;
+  const rest = keepPeriodsWhole(` the ${planned} planned for ${periods}`);
+  if (h.costBudgetLeft >= h.costBudgetedRemaining) return `Covers${rest}`;
+  return (
+    <>
+      <span className="font-medium" style={{ color: "var(--viz-critical-text)" }}>
+        Short of
+      </span>
+      {rest}
+    </>
+  );
+}
+
+function signedPercent(pct: number) {
+  const sign = pct > 0 ? "+" : pct < 0 ? "\u2212" : "";
+  return `${sign}${formatPercent(Math.abs(pct))}`;
+}
+
+function finalMarginNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
+  const budget = formatCurrency(h.budget, currency, units);
+  if (formatCompactAmount(Math.abs(h.deltaVsBudget), units) === "0") return `Matches the ${budget} budgeted margin`;
+  const amount = formatCurrency(Math.abs(h.deltaVsBudget), currency, units);
+  return `${amount} ${h.deltaVsBudget < 0 ? "short of" : "ahead of"} the ${budget} budgeted margin`;
 }
 
 function budgetedMarginNote(h: HeadlineSummary, currency: string, units: Project["displayUnits"]) {
   if (formatCompactAmount(Math.abs(h.deltaVsBudget), units) === "0") return "Expected margin matches it";
   const amount = formatCurrency(Math.abs(h.deltaVsBudget), currency, units);
-  return `Expected margin is ${amount} ${h.deltaVsBudget < 0 ? "below" : "above"} it`;
+  return `Expected margin is ${amount} ${h.deltaVsBudget < 0 ? "short of" : "ahead of"} it`;
 }
 
 function Tile({

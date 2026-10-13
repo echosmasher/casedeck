@@ -2,8 +2,12 @@
 // lives in the UI layer, not the engine (CLAUDE.md rule 1) — callers inject `today`.
 import type { PeriodKey, Periodization, ProjectStatus } from "@/engine/model";
 
+/** Under the project header: what to do about it, via the Edit button beside it. */
+export const OVERDUE_HINT =
+  "Its end period has passed with periods still open. Record and close the remaining actuals, or use Edit to extend the end period.";
+
 export const OVERDUE_TOOLTIP =
-  "Past end period — mark as completed or extend the end period.";
+  "Past end period with periods still open — record and close the remaining actuals, or extend the end period.";
 
 const MONTH_PATTERN = /^(\d{4})-(\d{2})$/;
 const QUARTER_PATTERN = /^(\d{4})-Q([1-4])$/;
@@ -29,6 +33,25 @@ function periodEndDate(periodization: Periodization, endPeriod: PeriodKey): Date
   const match = YEAR_PATTERN.exec(endPeriod);
   if (!match) throw new Error(`Invalid total period key: "${endPeriod}"`);
   return new Date(Number(match[1]), 12, 0);
+}
+
+/** First calendar day of `period` per the project's periodization. */
+function periodStartDate(periodization: Periodization, period: PeriodKey): Date {
+  const end = periodEndDate(periodization, period);
+  const months = periodization === "monthly" ? 1 : periodization === "quarterly" ? 3 : 12;
+  return new Date(end.getFullYear(), end.getMonth() - months + 1, 1);
+}
+
+/** True when `period` hasn't started yet on `today` — later than the current month. Such a period
+ * has no actuals to record, so it can't be closed (QA-ROUND-3-PLAN.md Phase 3). */
+export function isFuturePeriod(periodization: Periodization, period: PeriodKey, today: Date): boolean {
+  return periodStartDate(periodization, period).getTime() > atMidnight(today).getTime();
+}
+
+/** True once `period` is fully over on `today`: its last day is before today. The current period
+ * is still running, so it isn't "ended" yet. */
+export function hasPeriodEnded(periodization: Periodization, period: PeriodKey, today: Date): boolean {
+  return atMidnight(today).getTime() > periodEndDate(periodization, period).getTime();
 }
 
 function atMidnight(date: Date): Date {

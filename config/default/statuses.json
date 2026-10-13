@@ -2,10 +2,10 @@
   "$comment": "Status labels are display metadata only. The status ids themselves (planning, ready_for_approval, approved, in_progress, completed, on_hold) are fixed by the engine's Project type and are not organization-configurable.",
   "statuses": [
     { "id": "planning", "label": "Planning" },
-    { "id": "ready_for_approval", "label": "Ready for Approval" },
+    { "id": "ready_for_approval", "label": "Ready for approval" },
     { "id": "approved", "label": "Approved" },
-    { "id": "in_progress", "label": "In Progress" },
+    { "id": "in_progress", "label": "In progress" },
     { "id": "completed", "label": "Completed" },
-    { "id": "on_hold", "label": "On Hold" }
+    { "id": "on_hold", "label": "On hold" }
   ]
 }
