@@ -33,9 +33,10 @@ function CardHeader({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-function CardTitle({ className, ...props }: React.ComponentProps<"div">) {
+/** An h2, so each card is reachable from a screen reader's headings list. */
+function CardTitle({ className, ...props }: React.ComponentProps<"h2">) {
   return (
-    <div
+    <h2
       data-slot="card-title"
       className={cn(
         "font-heading text-headline-sm group-data-[size=sm]/card:text-sm",

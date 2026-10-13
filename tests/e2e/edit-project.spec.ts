@@ -18,7 +18,7 @@ test("editing a project updates status/end period/stakeholders and persists, sta
   await page.getByRole("link", { name: "Intranet Relaunch" }).click();
   await expect(page).toHaveURL(/\/project\?id=001/);
 
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Project settings" }).click();
   await expect(page).toHaveURL(/\/setup\?id=001/);
   await expect(page.getByRole("heading", { name: "Edit Intranet Relaunch" })).toBeVisible();
 
@@ -42,7 +42,7 @@ test("editing a project updates status/end period/stakeholders and persists, sta
   await expect(page.getByText("On hold", { exact: true })).toBeVisible();
 
   // Re-open edit to confirm the changes persisted through storage, not just local state.
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Project settings" }).click();
   await expect(page.getByLabel("End period")).toHaveValue("2026-12");
   await expect(page.getByLabel("Status")).toHaveValue("on_hold");
   await expect(page.locator('input[value="Jordan Rivers"]')).toBeVisible();
