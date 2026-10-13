@@ -87,9 +87,7 @@ export function VarianceSection({
   return (
     <Card id={VARIANCE_SECTION_ID} className="scroll-mt-4">
       <CardHeader>
-        <CardTitle>
-          <h2>{hasVariance ? "Budget vs. actual" : "Cost by category"}</h2>
-        </CardTitle>
+        <CardTitle>{hasVariance ? "Budget vs. actual" : "Cost by category"}</CardTitle>
         <CardDescription>
           {complete
             ? `Each category's actual cost against its budget and worst-case ceiling. ${CEILING_NOTE} Expand a category for its lines.`
