@@ -85,9 +85,10 @@ describe("renderBusinessCase — 003 (the flagship scenario story)", () => {
     expect(result.html).not.toContain("fonts.googleapis.com");
   });
 
-  it("shows a fallback note when no executive summary is provided", () => {
+  it("omits the executive summary section, and its placeholder, when none is provided", () => {
     if (!result.ok) throw new Error("expected ok result");
-    expect(result.html).toContain("No executive summary provided");
+    expect(result.html).not.toContain("Executive summary");
+    expect(result.html).not.toContain("No executive summary provided");
   });
 
   it("shows the project code next to the name in the header", () => {
@@ -103,6 +104,17 @@ describe("renderBusinessCase — 001 with actuals (the overrun story)", () => {
     actuals: actuals001,
     generatedAt,
     riskCommentary: "Consultancy is running well over budget.",
+  });
+
+  it("leads with the verdict, in the dashboard's words, before any scenario detail", () => {
+    if (!result.ok) throw new Error("expected ok result");
+    const verdict = result.html.indexOf('class="card verdict"');
+    expect(verdict).toBeGreaterThan(-1);
+    expect(verdict).toBeLessThan(result.html.indexOf("<h2>Scenario summary</h2>"));
+    expect(result.html).toContain("Past its ceiling");
+    expect(result.html).toContain("Consultancy is past its worst-case ceiling.");
+    expect(result.html).toContain("Expected to cost 1.55M\u00a0NOK");
+    expect(result.html).toContain("Actuals through 2026-04, projected 2026-05–2026-08.");
   });
 
   it("surfaces the consultancy overrun as past its ceiling, and says why the total isn't", () => {

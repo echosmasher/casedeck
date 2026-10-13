@@ -15,10 +15,12 @@ test("the preview shows typed commentary and the download is byte-identical to i
   await openExport(page, "Intranet Relaunch");
 
   const frame = page.frameLocator('iframe[title^="Preview of"]');
-  await expect(frame.getByRole("heading", { name: "Executive summary" })).toBeVisible();
-  await expect(frame.getByText("No executive summary provided.")).toBeVisible();
+  // The export opens on the verdict; with no summary typed there is no summary section at all.
+  await expect(frame.getByText("Consultancy is past its worst-case ceiling.")).toBeVisible();
+  await expect(frame.getByRole("heading", { name: "Executive summary" })).toHaveCount(0);
 
   await page.getByLabel("Executive summary (optional)").fill("Consultancy overran; the rest is on plan.");
+  await expect(frame.getByRole("heading", { name: "Executive summary" })).toBeVisible();
   await expect(frame.getByText("Consultancy overran; the rest is on plan.")).toBeVisible();
 
   const [download] = await Promise.all([

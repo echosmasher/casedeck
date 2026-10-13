@@ -11,6 +11,7 @@ import { formatChartCurrency, renderBandChartSvg, renderCumulativeChartSvg } fro
 import { statusLabel, VARIANCE_FLAG_LABEL } from "./labels";
 import { totalStatusNote } from "./varianceCopy";
 import { effectiveStatus } from "@/engine/status";
+import { headlineCopy } from "./headlineCopy";
 
 export interface BusinessCaseInput {
   project: Project;
@@ -65,6 +66,12 @@ export function renderBusinessCase(input: BusinessCaseInput): BusinessCaseResult
   };
   const variance = actuals.length > 0 ? computeVariance(project, actuals, bands) : null;
   const fmt = (v: number) => formatChartCurrency(v, project.currency, project.displayUnits);
+  const categoryLabel = (c: string) => CATEGORY_LABEL[c] ?? c;
+  // Same wording as the dashboard's verdict. No calendar here, so no "ended open periods" note.
+  const verdict = headlineCopy(headline, project.currency, project.displayUnits, categoryLabel);
+  const verdictStatus =
+    headline.stage === "not_started" ? "No actuals yet" : VARIANCE_FLAG_LABEL[headline.status];
+  const verdictClass = headline.stage === "not_started" ? "" : { ok: "good", warning: "warning", red: "critical" }[headline.status];
 
   const html = `<!doctype html>
 <html lang="en">
@@ -100,12 +107,22 @@ ${
     : ""
 }
 
-<section class="card">
-  <h2>Executive summary</h2>
-  <p>${input.executiveSummary ? escapeHtml(input.executiveSummary).replace(/\n/g, "<br />") : "<em>No executive summary provided.</em>"}</p>
+<section class="card verdict">
+  <p class="status"><span class="pill ${verdictClass}">${escapeHtml(verdictStatus)}</span> ${escapeHtml(verdict.reason)}${verdict.reasonNote ? ` ${escapeHtml(verdict.reasonNote)}` : ""}</p>
+  <p class="verdict-line">${verdict.verdict.map((seg) => (seg.negative ? `<span class="critical">${escapeHtml(seg.text)}</span>` : escapeHtml(seg.text))).join("")}</p>
+  <p class="note">${escapeHtml(verdict.source)}.</p>
 </section>
 
-<section class="card">
+${
+  input.executiveSummary
+    ? `<section class="card">
+  <h2>Executive summary</h2>
+  <p>${escapeHtml(input.executiveSummary).replace(/\n/g, "<br />")}</p>
+</section>
+
+`
+    : ""
+}<section class="card">
   <h2>Scenario summary</h2>
   <p class="lead">${
     isCost
@@ -268,6 +285,9 @@ const STYLES = `
   .card h2 { margin-top: 0; font-size: 1.1rem; }
   .card h3 { font-size: 0.95rem; margin-bottom: 0.5rem; }
   .lead { font-size: 1.05rem; }
+  .verdict .status { margin: 0 0 0.5rem; font-size: 0.9rem; }
+  .verdict .pill { display: inline-block; border: 1px solid currentColor; border-radius: 999px; padding: 0.05rem 0.6rem; margin-right: 0.4rem; font-size: 0.8rem; font-weight: 600; }
+  .verdict .verdict-line { margin: 0 0 0.5rem; font-size: 1.5rem; line-height: 1.25; font-weight: 600; }
   table { border-collapse: collapse; width: 100%; font-size: 0.85rem; }
   table.periods { display: block; overflow-x: auto; white-space: nowrap; }
   th, td { text-align: right; padding: 0.4rem 0.6rem; border-bottom: 1px solid #e1e0d9; }
