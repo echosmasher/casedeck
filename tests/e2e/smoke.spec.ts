@@ -46,9 +46,12 @@ test("boot demo, open 001, import actuals, export 003", async ({ page }) => {
   await expect(commitButton).toBeEnabled();
   await commitButton.click();
 
-  // Committing clears the preview and the row shows up in "Recorded actuals" below.
-  await expect(page.getByText("Import actuals")).toBeVisible();
-  await expect(page.getByText("CMS vendor invoice #INV-1042")).toBeVisible();
+  // Committing clears the preview and reports what was saved. Wait for that message before
+  // looking at "Recorded actuals": the demo already seeds 001's 2026-04 rows, so the invoice cell
+  // is on screen before the commit lands, and counting it any earlier races the write.
+  await expect(page.getByText("Saved 2 rows from 001-actuals-2026-04.csv.")).toBeVisible();
+  // Seeded row + the imported one. Importing a file twice does not de-duplicate.
+  await expect(page.getByRole("cell", { name: "CMS vendor invoice #INV-1042", exact: true })).toHaveCount(2);
 
   // Export 003.
   await page.goto("/");
