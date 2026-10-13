@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useEffectiveConfig } from "../_lib/EffectiveConfigProvider";
 import { formatAmount, formatCurrency } from "../_lib/format";
 import { fieldLabel } from "../_lib/fieldLabel";
-import { SMALL_SCREEN, useSmallScreen } from "../_lib/useSmallScreen";
+import { SMALL_SCREEN, useMediaQuery, useSmallScreen } from "../_lib/useSmallScreen";
 import { lineScenarioTotal } from "@/engine/scenarios";
 import { projectPeriods } from "@/engine/periodize";
 import { computeHeadline } from "@/engine/headline";
@@ -242,6 +242,14 @@ export function InputsEditor({
   const canFold = !readOnly && closedInGrid.length > 1 && closedInGrid.length < periods.length;
   const folded = canFold && !showClosed ? closedInGrid : null;
   const gridPeriods = folded ? periods.filter((p) => !folded.includes(p)) : periods;
+  // Showing and folding swap one button for another; keep keyboard focus on whichever is rendered.
+  const foldToggleId = useId();
+  function setClosedShown(next: boolean) {
+    setShowClosed(next);
+    requestAnimationFrame(() => document.getElementById(foldToggleId)?.focus());
+  }
+  // Below `lg` the content column is narrower than four period columns plus the pinned two.
+  const narrowGrid = useMediaQuery("(max-width: 1023.98px)");
   // Each line's expected total, from the engine, in the project's own display units.
   const lineTotal = (line: CostLineItem) => lineScenarioTotal(line, project.loadedCostMultiplier, bands).expected;
   const money = (v: number) => formatCurrency(v, project.currency, project.displayUnits);
@@ -298,7 +306,7 @@ export function InputsEditor({
                 {/* Even a 1280px viewport shows only about four period columns. */}
                 {small
                   ? " Open a line to edit its periods."
-                  : gridPeriods.length > 4 &&
+                  : (gridPeriods.length > 4 || narrowGrid) &&
                     " The grid scrolls sideways for later periods; the line name stays in view."}
                 {!small && folded && " Closed periods are folded into one column; open it to edit them."}{" "}
                 Arrow keys step a value.
@@ -328,13 +336,14 @@ export function InputsEditor({
                     <TableHead className={cn("z-20 bg-muted sm:sticky", CONFIDENCE_COL_WIDTH, LINE_COL_LEFT_OFFSET)}>
                       Confidence
                     </TableHead>
-                    {folded && <FoldedClosedHead periods={folded} onShow={() => setShowClosed(true)} />}
+                    {folded && <FoldedClosedHead id={foldToggleId} periods={folded} onShow={() => setClosedShown(true)} />}
                     {gridPeriods.map((p) => (
                       <PeriodHead
                         key={p}
                         period={p}
                         closed={project.closedPeriods.includes(p)}
-                        onFold={canFold && p === closedInGrid[0] ? () => setShowClosed(false) : undefined}
+                        foldId={foldToggleId}
+                        onFold={canFold && p === closedInGrid[0] ? () => setClosedShown(false) : undefined}
                       />
                     ))}
                     <TableHead />
@@ -404,12 +413,23 @@ export function InputsEditor({
 
 /** A period column header; a closed period says so, since editing it re-baselines the budget
  * while the dashboard keeps that period's actuals. */
-function PeriodHead({ period, closed, onFold }: { period: string; closed: boolean; onFold?: () => void }) {
+function PeriodHead({
+  period,
+  closed,
+  foldId,
+  onFold,
+}: {
+  period: string;
+  closed: boolean;
+  foldId?: string;
+  onFold?: () => void;
+}) {
   return (
     <TableHead className={cn(closed && "bg-muted")}>
       <span className="flex items-center gap-1.5">
         {onFold && (
           <button
+            id={foldId}
             type="button"
             onClick={onFold}
             aria-expanded
@@ -427,10 +447,11 @@ function PeriodHead({ period, closed, onFold }: { period: string; closed: boolea
 }
 
 /** The closed periods folded into one column: their range, and a button to show them again. */
-function FoldedClosedHead({ periods, onShow }: { periods: string[]; onShow: () => void }) {
+function FoldedClosedHead({ id, periods, onShow }: { id: string; periods: string[]; onShow: () => void }) {
   return (
     <TableHead className="bg-muted">
       <button
+        id={id}
         type="button"
         onClick={onShow}
         aria-expanded={false}

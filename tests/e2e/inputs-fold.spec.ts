@@ -19,8 +19,13 @@ test("closed periods fold into one column so every open period fits, and can be 
   expect(await grid.evaluate((t) => t.scrollWidth - t.parentElement!.clientWidth)).toBe(0);
   await expect(page.getByLabel("Senior Developer — internal team hours in 2026-08")).toBeInViewport({ ratio: 1 });
 
-  await show.click();
+  // By keyboard: the toggle swaps buttons, and focus moves to the new one rather than being lost.
+  await show.focus();
+  await page.keyboard.press("Enter");
   await expect(page.getByLabel("Senior Developer — internal team hours in 2026-01")).toBeVisible();
-  await page.getByRole("button", { name: "Fold closed periods into one column" }).click();
+  const fold = page.getByRole("button", { name: "Fold closed periods into one column" });
+  await expect(fold).toBeFocused();
+  await page.keyboard.press("Enter");
   await expect(page.getByLabel("Senior Developer — internal team hours in 2026-01")).toHaveCount(0);
+  await expect(show).toBeFocused();
 });

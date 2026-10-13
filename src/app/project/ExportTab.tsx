@@ -195,7 +195,7 @@ function ExportPreview({ fileName, html }: { fileName: string; html: string }) {
         srcDoc={html}
         sandbox="allow-same-origin"
         onLoad={fitToDocument}
-        className="block w-full"
+        className="block w-full focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
         style={{ height: height ?? "70vh" }}
       />
     </section>
