@@ -117,6 +117,27 @@ describe("renderBusinessCase — 001 with actuals (the overrun story)", () => {
     expect(result.html).toContain("Actuals through 2026-04, projected 2026-05–2026-08.");
   });
 
+  it("keeps storage ids and machine timestamps out of the document", () => {
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.html).not.toContain("· 001 ·");
+    expect(result.html).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:/);
+    expect(result.html).toContain("Monthly · 2026-01–2026-08");
+  });
+
+  it("lists periods as rows, so a long project does not scroll sideways", () => {
+    if (!result.ok) throw new Error("expected ok result");
+    const table = result.html.slice(result.html.indexOf('<table class="periods">'));
+    expect(table).toContain("<th>2026-01 (Actual)</th>");
+    expect(table).toContain("<th>2026-08</th>");
+    expect(result.html).not.toContain("overflow-x");
+  });
+
+  it("says category figures are budgeted without blaming the engine", () => {
+    if (!result.ok) throw new Error("expected ok result");
+    expect(result.html).toContain("These are the budgeted figures, set before any actuals.");
+    expect(result.html).not.toContain("the engine has no");
+  });
+
   it("surfaces the consultancy overrun as past its ceiling, and says why the total isn't", () => {
     if (!result.ok) throw new Error("expected ok result");
     expect(result.html).toContain("Budget vs. actual");
