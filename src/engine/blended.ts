@@ -98,6 +98,14 @@ export function computeBlendedTotals(
 
   const { cost: actualCostByPeriod, revenue: actualRevenueByPeriod } = sumActualsByPeriod(actualEntries);
 
+  const actualCategoriesByPeriod = new Map<string, Set<string>>();
+  for (const entry of actualEntries) {
+    if (entry.category === REVENUE_CATEGORY) continue;
+    const set = actualCategoriesByPeriod.get(entry.period) ?? new Set<string>();
+    set.add(entry.category);
+    actualCategoriesByPeriod.set(entry.period, set);
+  }
+
   const warnings: string[] = [];
   const costByPeriod: ScenarioByPeriod = {};
   const revenueByPeriod: ScenarioByPeriod = {};
@@ -108,6 +116,14 @@ export function computeBlendedTotals(
       const hasRevenue = actualRevenueByPeriod[period] !== undefined;
       if (!hasCost) {
         warnings.push(`${period} is closed but has no cost actuals, so its cost counts as zero`);
+      }
+      if (hasCost) {
+        for (const category of Object.keys(budgetedCost.byCategory).sort()) {
+          const budgetedValue = (budgetedCost.byCategory as Record<string, PeriodValues>)[category]?.[period] ?? 0;
+          if (budgetedValue > 0 && !actualCategoriesByPeriod.get(period)?.has(category)) {
+            warnings.push(`${period} is closed but has no ${category} actuals, so its ${category} cost counts as zero`);
+          }
+        }
       }
       costByPeriod[period] = actualScenarioValue(actualCostByPeriod[period] ?? 0);
       revenueByPeriod[period] = hasRevenue

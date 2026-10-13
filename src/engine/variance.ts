@@ -1,8 +1,9 @@
 // Actuals vs. budget, projection-to-complete, and category-level flagging (PLAN.md §6.1/§6.3).
 //
-// projectionToComplete = actuals for periods that have them + expected/budgeted values for the
-// remaining periods (per category, independently — a category with no actuals yet projects to
-// exactly its expected total).
+// projectionToComplete = actuals for the project's closed periods (zero where a category has none)
+// + expected/budgeted values for the remaining periods. Closed periods are project.closedPeriods,
+// the same rule computeBlendedTotals uses; a project with no closed periods projects to exactly
+// its expected total.
 //
 // Flagging is based on how much of a category's own contingency (worst-case ceiling minus
 // expected total) the projection consumes: >=100% is a hard breach (red), >=50% is a warning,
@@ -77,6 +78,7 @@ export function computeVariance(
   const budgetedByCategory = budgeted.byCategory as Record<string, PeriodValues>;
   const budgetedTotalByCategory = budgeted.totalByCategory as Record<string, number>;
   const worstByCategory = scenarios.costByCategory as Record<string, { worst: number }>;
+  const closedPeriods = new Set(project.closedPeriods);
 
   const actualsByCategory = new Map<string, ActualEntry[]>();
   for (const entry of actualEntries) {
@@ -106,10 +108,11 @@ export function computeVariance(
     for (const entry of entries) {
       actualByPeriod[entry.period] = (actualByPeriod[entry.period] ?? 0) + entry.amount;
     }
-    const closedPeriods = new Set(Object.keys(actualByPeriod));
     const budgetedByPeriod = budgetedByCategory[category];
 
-    const actualToDate = sum(Object.values(actualByPeriod));
+    // Closed periods come from project.closedPeriods, matching computeBlendedTotals: a closed period
+    // with no actuals for this category counts as zero, and actuals in an open period are ignored.
+    const actualToDate = sum(periods.filter((p) => closedPeriods.has(p)).map((p) => actualByPeriod[p] ?? 0));
     let budgetedToDate = 0;
     let remaining = 0;
     for (const period of periods) {
