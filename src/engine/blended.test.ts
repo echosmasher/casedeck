@@ -193,3 +193,18 @@ describe("computePeriodActuals", () => {
     expect(result.recordedRevenueByPeriod).toEqual({ "2026-05": 1000 });
   });
 });
+
+describe("computeBlendedTotals — closed period missing one category", () => {
+  it("warns per budgeted category with no actuals in a closed period that has other actuals", () => {
+    const entries: ActualEntry[] = [
+      { period: "2026-01", category: "consultancy", amount: 60000, description: "invoice", source: "csv" },
+    ];
+    const blended = computeBlendedTotals({ ...(project001 as Project), closedPeriods: ["2026-01"] }, entries, {
+      committed: { bandPct: 0 },
+      estimated: { bandPct: 10 },
+      rough: { bandPct: 30 },
+    });
+    expect(blended.warnings).toContain("2026-01 is closed but has no salary actuals, so its salary cost counts as zero");
+    expect(blended.warnings.some((w) => w.includes("no consultancy actuals"))).toBe(false);
+  });
+});

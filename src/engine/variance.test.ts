@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeVariance } from "./variance";
+import { computeBlendedTotals } from "./blended";
 import type { ActualEntry, ConfidenceBands, Project } from "./model";
 import project001 from "../../demo/projects/001-intranet-relaunch.json";
 import project002 from "../../demo/projects/002-booking-integration-example-hotel-a.json";
@@ -77,8 +78,8 @@ describe("computeVariance — 002 the clean case", () => {
     expect(variance.total.flag).toBe("ok");
   });
 
-  it("a category with no actuals projects to exactly its expected total", () => {
-    const variance003 = computeVariance(project002 as Project, [], bands);
+  it("a project with no closed periods projects each category to exactly its expected total", () => {
+    const variance003 = computeVariance({ ...(project002 as Project), closedPeriods: [] }, [], bands);
     for (const category of ["salary", "consultancy", "travel"]) {
       const cv = variance003.byCategory[category];
       expect(cv.projectionToComplete).toBeCloseTo(cv.expectedTotal, 6);
@@ -112,7 +113,7 @@ describe("computeVariance — edge cases", () => {
     ],
     stakeholders: [],
     dependencies: [],
-    closedPeriods: [],
+    closedPeriods: ["2026-01"],
   };
 
   it("spending against an entirely unbudgeted category has zero contingency and is flagged red", () => {
@@ -147,5 +148,31 @@ describe("computeVariance — edge cases", () => {
     ], bands);
     expect(withRevenue.byCategory.revenue).toBeUndefined();
     expect(withRevenue.total).toEqual(withoutRevenue.total);
+  });
+});
+
+describe("computeVariance — closed periods follow project.closedPeriods, as the blended totals do", () => {
+  // 001 with the 2026-01 Salary actual removed; 2026-01 stays closed.
+  const missingJanSalary = actuals001.filter((a) => !(a.period === "2026-01" && a.category === "salary"));
+  const project = project001 as Project;
+
+  it("a closed period with no actuals for a category counts as zero, not as its budget", () => {
+    const variance = computeVariance(project, missingJanSalary, bands);
+    const fullSalary = computeVariance(project, actuals001, bands).byCategory.salary;
+    expect(variance.byCategory.salary.actualToDate).toBeCloseTo(497300 - 124200, 2);
+    expect(variance.byCategory.salary.projectionToComplete).toBeCloseTo(fullSalary.projectionToComplete - 124200, 2);
+  });
+
+  it("the variance projection agrees with the blended expected cost", () => {
+    const variance = computeVariance(project, missingJanSalary, bands);
+    const blended = computeBlendedTotals(project, missingJanSalary, bands);
+    expect(variance.total.projectionToComplete).toBeCloseTo(blended.totals.cost.expected, 2);
+  });
+
+  it("actuals recorded in a period that is still open do not count", () => {
+    const open = { ...project, closedPeriods: ["2026-01", "2026-02", "2026-03"] } as Project;
+    const variance = computeVariance(open, actuals001, bands);
+    const blended = computeBlendedTotals(open, actuals001, bands);
+    expect(variance.total.projectionToComplete).toBeCloseTo(blended.totals.cost.expected, 2);
   });
 });
